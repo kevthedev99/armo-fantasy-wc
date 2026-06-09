@@ -17,11 +17,14 @@ export function Nav({ username }: NavProps) {
   }
 
   return (
-    <nav className="flex items-center justify-between bg-black px-4 py-3 text-white md:px-8">
-      <Link href="/" className="text-sm font-black uppercase tracking-wider text-[#FFD700]">
+    <nav className="flex flex-wrap items-center justify-between gap-2 bg-black px-4 py-3 text-white md:px-8">
+      <Link
+        href="/"
+        className="shrink-0 text-sm font-black uppercase tracking-wider text-[#FFD700]"
+      >
         Armo Fantasy WC
       </Link>
-      <div className="flex items-center gap-4 text-sm">
+      <div className="flex flex-wrap items-center gap-3 text-xs sm:gap-4 sm:text-sm">
         <Link href="/" className="hover:text-[#FF007A]">
           Standings
         </Link>
@@ -33,7 +36,12 @@ export function Nav({ username }: NavProps) {
         </Link>
         {username ? (
           <>
-            <span className="text-gray-400">@{username}</span>
+            <Link
+              href={`/player/${username}`}
+              className="hidden text-gray-400 hover:text-white sm:inline"
+            >
+              @{username}
+            </Link>
             <button
               onClick={handleLogout}
               className="text-gray-400 hover:text-white"

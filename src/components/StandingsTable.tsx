@@ -1,3 +1,4 @@
+import Link from "next/link";
 import type { Profile } from "@/lib/types";
 
 interface StandingsTableProps {
@@ -5,12 +6,26 @@ interface StandingsTableProps {
   currentUserId?: string;
 }
 
-export function StandingsTable({ profiles, currentUserId }: StandingsTableProps) {
-  const sorted = [...profiles].sort((a, b) => {
+function sortProfiles(profiles: Profile[]) {
+  return [...profiles].sort((a, b) => {
     if (b.total_points !== a.total_points) return b.total_points - a.total_points;
     return b.total_wins - a.total_wins;
   });
+}
 
+function PlayerAvatar({ profile }: { profile: Profile }) {
+  return (
+    <span
+      className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-sm font-bold text-white md:h-8 md:w-8 md:text-xs"
+      style={{ backgroundColor: profile.avatar_color }}
+    >
+      {profile.display_name.charAt(0).toUpperCase()}
+    </span>
+  );
+}
+
+export function StandingsTable({ profiles, currentUserId }: StandingsTableProps) {
+  const sorted = sortProfiles(profiles);
   const lastPlaceId = sorted.length > 1 ? sorted[sorted.length - 1]?.id : null;
 
   return (
@@ -19,67 +34,138 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
         Standings
       </h2>
       <p className="mt-1 text-sm text-gray-500">
-        Armo Fantasy World Cup League
+        Armo Fantasy World Cup League · Tap a player to view their picks
       </p>
 
-      <div className="mt-8 overflow-hidden rounded-lg border border-gray-800">
-        <div className="grid grid-cols-[48px_1fr_72px_80px_72px] bg-[#0a1628] px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-400 md:grid-cols-[56px_1fr_100px_100px_100px]">
-          <span>#</span>
-          <span>Player</span>
-          <span className="text-right">Wins</span>
-          <span className="text-right">Points</span>
-          <span className="text-right">Streak</span>
-        </div>
+      {sorted.length === 0 ? (
+        <p className="mt-8 rounded-lg border border-gray-800 px-4 py-8 text-center text-gray-500">
+          No players yet. Be the first to sign up!
+        </p>
+      ) : (
+        <>
+          {/* Mobile: card layout */}
+          <div className="mt-6 space-y-3 md:hidden">
+            {sorted.map((profile, index) => {
+              const isFirst = index === 0;
+              const isLast = profile.id === lastPlaceId && sorted.length > 3;
+              const isYou = profile.id === currentUserId;
 
-        {sorted.length === 0 ? (
-          <p className="px-4 py-8 text-center text-gray-500">
-            No players yet. Be the first to sign up!
-          </p>
-        ) : (
-          sorted.map((profile, index) => {
-            const isFirst = index === 0;
-            const isLast = profile.id === lastPlaceId && sorted.length > 3;
-            const isYou = profile.id === currentUserId;
-
-            return (
-              <div
-                key={profile.id}
-                className={`grid grid-cols-[48px_1fr_72px_80px_72px] items-center border-t border-gray-800 px-4 py-3 md:grid-cols-[56px_1fr_100px_100px_100px] ${
-                  index % 2 === 0 ? "bg-[#111]" : "bg-[#1a1a1a]"
-                } ${isFirst ? "border-l-4 border-l-[#FF007A]" : ""}`}
-              >
-                <span className="font-bold text-[#FFD700]">{index + 1}</span>
-                <div className="flex min-w-0 items-center gap-3">
-                  <span
-                    className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full text-xs font-bold text-white"
-                    style={{ backgroundColor: profile.avatar_color }}
-                  >
-                    {profile.display_name.charAt(0).toUpperCase()}
-                  </span>
-                  <span className="truncate font-medium text-white">
-                    {profile.display_name}
-                    {isYou && (
-                      <span className="ml-2 text-xs text-[#32CD32]">(you)</span>
-                    )}
-                  </span>
-                  {isLast && (
-                    <span className="shrink-0 rounded bg-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
-                      Wooden Spoon
+              return (
+                <Link
+                  key={profile.id}
+                  href={`/player/${profile.username}`}
+                  className={`block rounded-xl border border-gray-800 p-4 transition active:scale-[0.98] ${
+                    isFirst
+                      ? "border-l-4 border-l-[#FF007A] bg-[#111]"
+                      : "bg-[#111] hover:bg-[#1a1a1a]"
+                  }`}
+                >
+                  <div className="flex items-start gap-3">
+                    <span className="mt-1 w-6 shrink-0 text-lg font-black text-[#FFD700]">
+                      {index + 1}
                     </span>
-                  )}
-                </div>
-                <span className="text-right text-white">{profile.total_wins}</span>
-                <span className="text-right font-bold text-white">
-                  {profile.total_points}
-                </span>
-                <span className="text-right text-gray-400">
-                  {profile.current_streak > 0 ? profile.current_streak : "—"}
-                </span>
-              </div>
-            );
-          })
-        )}
-      </div>
+                    <PlayerAvatar profile={profile} />
+                    <div className="min-w-0 flex-1">
+                      <p className="break-words text-base font-bold leading-snug text-white">
+                        {profile.display_name}
+                        {isYou && (
+                          <span className="ml-1.5 text-xs font-normal text-[#32CD32]">
+                            (you)
+                          </span>
+                        )}
+                      </p>
+                      {isLast && (
+                        <span className="mt-1.5 inline-block rounded bg-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
+                          Wooden Spoon
+                        </span>
+                      )}
+                      <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
+                        <span className="text-gray-400">
+                          <span className="font-bold text-white">
+                            {profile.total_points}
+                          </span>{" "}
+                          pts
+                        </span>
+                        <span className="text-gray-400">
+                          <span className="font-bold text-white">
+                            {profile.total_wins}
+                          </span>{" "}
+                          wins
+                        </span>
+                        <span className="text-gray-400">
+                          Streak{" "}
+                          <span className="font-bold text-white">
+                            {profile.current_streak > 0
+                              ? profile.current_streak
+                              : "—"}
+                          </span>
+                        </span>
+                      </div>
+                    </div>
+                    <span className="shrink-0 text-gray-600" aria-hidden>
+                      ›
+                    </span>
+                  </div>
+                </Link>
+              );
+            })}
+          </div>
+
+          {/* Desktop: table layout */}
+          <div className="mt-8 hidden overflow-hidden rounded-lg border border-gray-800 md:block">
+            <div className="grid grid-cols-[56px_1fr_100px_100px_100px] bg-[#0a1628] px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-400">
+              <span>#</span>
+              <span>Player</span>
+              <span className="text-right">Wins</span>
+              <span className="text-right">Points</span>
+              <span className="text-right">Streak</span>
+            </div>
+
+            {sorted.map((profile, index) => {
+              const isFirst = index === 0;
+              const isLast = profile.id === lastPlaceId && sorted.length > 3;
+              const isYou = profile.id === currentUserId;
+
+              return (
+                <Link
+                  key={profile.id}
+                  href={`/player/${profile.username}`}
+                  className={`grid grid-cols-[56px_1fr_100px_100px_100px] items-center border-t border-gray-800 px-4 py-3 transition hover:bg-[#222] ${
+                    index % 2 === 0 ? "bg-[#111]" : "bg-[#1a1a1a]"
+                  } ${isFirst ? "border-l-4 border-l-[#FF007A]" : ""}`}
+                >
+                  <span className="font-bold text-[#FFD700]">{index + 1}</span>
+                  <div className="flex min-w-0 items-center gap-3">
+                    <PlayerAvatar profile={profile} />
+                    <span className="truncate font-medium text-white hover:text-[#FF007A]">
+                      {profile.display_name}
+                      {isYou && (
+                        <span className="ml-2 text-xs text-[#32CD32]">
+                          (you)
+                        </span>
+                      )}
+                    </span>
+                    {isLast && (
+                      <span className="shrink-0 rounded bg-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
+                        Wooden Spoon
+                      </span>
+                    )}
+                  </div>
+                  <span className="text-right text-white">
+                    {profile.total_wins}
+                  </span>
+                  <span className="text-right font-bold text-white">
+                    {profile.total_points}
+                  </span>
+                  <span className="text-right text-gray-400">
+                    {profile.current_streak > 0 ? profile.current_streak : "—"}
+                  </span>
+                </Link>
+              );
+            })}
+          </div>
+        </>
+      )}
     </section>
   );
 }
