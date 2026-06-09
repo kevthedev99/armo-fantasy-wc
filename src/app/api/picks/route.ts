@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { createClient } from "@/lib/supabase/server";
-import { isMatchLocked, validatePickScores } from "@/lib/scoring";
+import {
+  isMatchLocked,
+  normalizeGroupScore,
+  validatePickScores,
+} from "@/lib/scoring";
 import type { PickWinner } from "@/lib/types";
 
 export async function POST(request: Request) {
@@ -14,18 +18,11 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const {
-    matchId,
-    pickedWinner,
-    homeScorePred,
-    awayScorePred,
-    winningGoalMinutePred,
-  } = body as {
+  const { matchId, pickedWinner, homeScorePred, awayScorePred } = body as {
     matchId?: number;
     pickedWinner?: PickWinner;
     homeScorePred?: number | null;
     awayScorePred?: number | null;
-    winningGoalMinutePred?: number | null;
   };
 
   if (!matchId || !pickedWinner) {
@@ -64,17 +61,17 @@ export async function POST(request: Request) {
     );
   }
 
+  let resolvedHome = homeScorePred;
+  let resolvedAway = awayScorePred;
+
   if (match.stage === "group") {
-    if (homeScorePred == null || awayScorePred == null) {
-      return NextResponse.json(
-        { error: "Enter both scores for group stage picks." },
-        { status: 400 }
-      );
-    }
+    resolvedHome = normalizeGroupScore(homeScorePred);
+    resolvedAway = normalizeGroupScore(awayScorePred);
+
     const scoreError = validatePickScores(
       pickedWinner,
-      homeScorePred,
-      awayScorePred
+      resolvedHome,
+      resolvedAway
     );
     if (scoreError) {
       return NextResponse.json({ error: scoreError }, { status: 400 });
@@ -85,9 +82,9 @@ export async function POST(request: Request) {
     user_id: user.id,
     match_id: matchId,
     picked_winner: pickedWinner,
-    home_score_pred: homeScorePred ?? null,
-    away_score_pred: awayScorePred ?? null,
-    winning_goal_minute_pred: winningGoalMinutePred ?? null,
+    home_score_pred: match.stage === "group" ? resolvedHome : null,
+    away_score_pred: match.stage === "group" ? resolvedAway : null,
+    winning_goal_minute_pred: null,
     updated_at: new Date().toISOString(),
   };
 

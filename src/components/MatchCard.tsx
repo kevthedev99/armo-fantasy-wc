@@ -7,6 +7,7 @@ import {
   getMatchLockMessage,
   isMatchFinished,
   isMatchLocked,
+  normalizeGroupScore,
 } from "@/lib/scoring";
 import type { Match, Pick, PickWinner } from "@/lib/types";
 
@@ -23,27 +24,40 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
     pick?.picked_winner ?? "home"
   );
   const [homeScore, setHomeScore] = useState(
-    pick?.home_score_pred?.toString() ?? ""
+    pick?.home_score_pred != null ? String(pick.home_score_pred) : "0"
   );
   const [awayScore, setAwayScore] = useState(
-    pick?.away_score_pred?.toString() ?? ""
-  );
-  const [goalMinute, setGoalMinute] = useState(
-    pick?.winning_goal_minute_pred?.toString() ?? ""
+    pick?.away_score_pred != null ? String(pick.away_score_pred) : "0"
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
-  const summary = formatPickSummary(match, {
-    ...pick,
-    picked_winner: pickedWinner,
-    home_score_pred: homeScore ? parseInt(homeScore, 10) : null,
-    away_score_pred: awayScore ? parseInt(awayScore, 10) : null,
-  } as Pick);
+  const resolvedHome = normalizeGroupScore(homeScore);
+  const resolvedAway = normalizeGroupScore(awayScore);
+
+  const summary =
+    match.stage === "group"
+      ? formatPickSummary(match, {
+          ...pick,
+          picked_winner: pickedWinner,
+          home_score_pred: resolvedHome,
+          away_score_pred: resolvedAway,
+        } as Pick)
+      : formatPickSummary(match, {
+          ...pick,
+          picked_winner: pickedWinner,
+          home_score_pred: null,
+          away_score_pred: null,
+        } as Pick);
 
   async function savePick() {
     setSaving(true);
     setError(null);
+
+    const homeScorePred =
+      match.stage === "group" ? normalizeGroupScore(homeScore) : null;
+    const awayScorePred =
+      match.stage === "group" ? normalizeGroupScore(awayScore) : null;
 
     const res = await fetch("/api/picks", {
       method: "POST",
@@ -51,10 +65,8 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
       body: JSON.stringify({
         matchId: match.id,
         pickedWinner,
-        homeScorePred: homeScore !== "" ? parseInt(homeScore, 10) : null,
-        awayScorePred: awayScore !== "" ? parseInt(awayScore, 10) : null,
-        winningGoalMinutePred:
-          goalMinute !== "" ? parseInt(goalMinute, 10) : null,
+        homeScorePred,
+        awayScorePred,
       }),
     });
 
@@ -179,26 +191,14 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
             />
           </div>
           <p className="mb-3 text-center text-[10px] text-gray-500">
-            Pick a winner, then set both scores for the +5 bonus. Scores must
-            match the chosen winner.
+            Scores default to 0-0. Leave a box blank to keep that team at 0.
+            Scores must match your chosen winner for the +5 bonus.
           </p>
         </>
       ) : (
-        <div className="mb-3">
-          <label className="mb-1 block text-[10px] font-medium uppercase text-gray-500">
-            Winning goal minute (±5 for bonus)
-          </label>
-          <input
-            type="number"
-            min={1}
-            max={130}
-            disabled={locked}
-            value={goalMinute}
-            onChange={(e) => setGoalMinute(e.target.value)}
-            className="w-full rounded-lg border border-gray-300 px-3 py-2 text-sm"
-            placeholder="e.g. 78"
-          />
-        </div>
+        <p className="mb-3 text-center text-[10px] text-gray-500">
+          Pick the winner — deeper knockout rounds earn more points.
+        </p>
       )}
 
       {error && <p className="mb-2 text-center text-xs text-red-600">{error}</p>}

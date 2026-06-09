@@ -19,8 +19,6 @@ export const SCORING = {
     "Third place": 8,
     Final: 32,
     correctWinnerDefault: 4,
-    winningGoalMinuteBonus: 3,
-    winningGoalMinuteTolerance: 5,
   },
 } as const;
 
@@ -100,15 +98,6 @@ export function scorePick(match: Match, pick: Pick): number {
       }
     } else {
       points += getKnockoutBasePoints(match.round);
-      if (
-        pick.winning_goal_minute_pred !== null &&
-        match.winning_goal_minute !== null &&
-        Math.abs(
-          pick.winning_goal_minute_pred - match.winning_goal_minute
-        ) <= SCORING.knockout.winningGoalMinuteTolerance
-      ) {
-        points += SCORING.knockout.winningGoalMinuteBonus;
-      }
     }
   }
 
@@ -136,6 +125,15 @@ export function formatPickSummary(
   }
 
   return winnerLabel;
+}
+
+/** Empty or missing score inputs default to 0 on save. */
+export function normalizeGroupScore(
+  value: string | number | null | undefined
+): number {
+  if (value === null || value === undefined || value === "") return 0;
+  const n = typeof value === "string" ? parseInt(value, 10) : value;
+  return Number.isFinite(n) && n >= 0 ? n : 0;
 }
 
 export function validatePickScores(

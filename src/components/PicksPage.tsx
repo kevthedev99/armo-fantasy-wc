@@ -62,7 +62,7 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
       <p className="border-b border-gray-200 bg-white px-6 py-3 text-xs text-gray-600">
         Change picks anytime before kickoff — once a match starts, picks lock
         permanently. Group stage: pick winner (or tie) and exact score for
-        bonus. Knockouts: pick winner and when the winning goal was scored.
+        bonus. Knockouts: pick the winner only.
       </p>
 
       <div className="flex flex-wrap gap-2 px-6 py-4">

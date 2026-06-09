@@ -61,11 +61,6 @@ export function PickReadOnlyCard({ match, pick }: PickReadOnlyCardProps) {
         </p>
       )}
 
-      {match.stage === "knockout" && pick.winning_goal_minute_pred !== null && (
-        <p className="mt-2 text-center text-[10px] text-gray-500">
-          Winning goal: {pick.winning_goal_minute_pred}&apos;
-        </p>
-      )}
     </article>
   );
 }

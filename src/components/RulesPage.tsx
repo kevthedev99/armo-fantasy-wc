@@ -81,7 +81,8 @@ export function RulesPage() {
               <span className="mt-0.5 font-black text-[#FFD700]">04</span>
               <span>
                 <strong className="text-white">Knockout</strong> picks unlock
-                automatically once every group stage match is finished.
+                automatically once every group stage match is finished. Pick
+                the winner only — deeper rounds earn more points.
               </span>
             </li>
             <li className="flex gap-3">
@@ -137,18 +138,9 @@ export function RulesPage() {
                   <span className="font-black text-white">+{points} pts</span>
                 </div>
               ))}
-              <div className="mt-2 flex items-center justify-between rounded-lg border border-[#32CD32]/30 bg-[#32CD32]/5 px-4 py-3">
-                <span className="text-sm text-gray-300">
-                  Winning goal minute (±
-                  {SCORING.knockout.winningGoalMinuteTolerance} min)
-                </span>
-                <span className="font-black text-[#32CD32]">
-                  +{SCORING.knockout.winningGoalMinuteBonus} pts
-                </span>
-              </div>
               <p className="text-xs text-gray-500">
-                Deeper rounds are worth more — like March Madness. Pick the
-                winner plus when the winning goal was scored for a bonus.
+                Deeper rounds are worth more — like March Madness. Just pick the
+                correct winner to earn points.
               </p>
             </div>
           </section>

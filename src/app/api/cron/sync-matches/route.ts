@@ -1,8 +1,6 @@
 import { NextResponse } from "next/server";
 import {
-  fetchFixtureEvents,
   fetchWorldCupFixtures,
-  findWinningGoalMinute,
   parseGroupName,
   parseStage,
 } from "@/lib/api-football";
@@ -37,21 +35,6 @@ export async function GET(request: Request) {
 
     if (stage === "group" && finished) groupFinishedCount++;
 
-    let winningGoalMinute: number | null = null;
-    if (finished && stage === "knockout" && homeScore !== null && awayScore !== null) {
-      const winnerId =
-        homeScore > awayScore
-          ? f.teams.home.id
-          : awayScore > homeScore
-            ? f.teams.away.id
-            : null;
-
-      if (winnerId) {
-        const events = await fetchFixtureEvents(f.fixture.id);
-        winningGoalMinute = findWinningGoalMinute(events, winnerId);
-      }
-    }
-
     await supabase.from("matches").upsert(
       {
         id: f.fixture.id,
@@ -68,7 +51,7 @@ export async function GET(request: Request) {
         status: f.fixture.status.short,
         home_score: homeScore,
         away_score: awayScore,
-        winning_goal_minute: winningGoalMinute,
+        winning_goal_minute: null,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
