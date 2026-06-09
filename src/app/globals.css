@@ -13,3 +13,44 @@ body {
 .font-display {
   font-family: var(--font-display);
 }
+
+@keyframes auth-glow-pulse {
+  0%,
+  100% {
+    opacity: 0.45;
+    transform: scale(1);
+  }
+  50% {
+    opacity: 0.75;
+    transform: scale(1.08);
+  }
+}
+
+@keyframes auth-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+.auth-glow {
+  animation: auth-glow-pulse 4s ease-in-out infinite;
+}
+
+.auth-shimmer-text {
+  background: linear-gradient(
+    90deg,
+    #ffd700 0%,
+    #ffffff 25%,
+    #ff007a 50%,
+    #ffffff 75%,
+    #ffd700 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: auth-shimmer 5s linear infinite;
+}
