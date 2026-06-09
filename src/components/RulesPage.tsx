@@ -64,11 +64,10 @@ export function RulesPage() {
             <li className="flex gap-3">
               <span className="mt-0.5 font-black text-[#FFD700]">02</span>
               <span>
-                Make picks for every match before kickoff. Picks lock{" "}
-                <strong className="text-white">
-                  {SCORING.lockSecondsBeforeKickoff} seconds
-                </strong>{" "}
-                before the match starts.
+                Make picks for every match before kickoff. You can change picks
+                anytime until the match{" "}
+                <strong className="text-white">actually starts</strong> — then
+                they lock permanently (including score predictions).
               </span>
             </li>
             <li className="flex gap-3">
@@ -160,7 +159,10 @@ export function RulesPage() {
             Good to Know
           </h2>
           <div className="mt-4 grid gap-3 text-sm text-gray-400 md:grid-cols-2">
-            <p>• You can update picks anytime before they lock.</p>
+            <p>
+              • Each player&apos;s picks are saved to their own account only.
+            </p>
+            <p>• You can update picks anytime until the match kicks off.</p>
             <p>• Points are calculated automatically after each match ends.</p>
             <p>• Streak tracks consecutive correct picks.</p>
             <p>• Friends-only league — invite code required to join.</p>

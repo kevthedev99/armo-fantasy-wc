@@ -57,9 +57,9 @@ export async function POST(request: Request) {
     }
   }
 
-  if (isMatchLocked(match.kickoff_at)) {
+  if (isMatchLocked(match)) {
     return NextResponse.json(
-      { error: "Picks are locked for this match." },
+      { error: "Picks are locked — this match has already started or finished." },
       { status: 403 }
     );
   }

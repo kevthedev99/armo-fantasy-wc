@@ -2,7 +2,12 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { formatPickSummary, isMatchLocked } from "@/lib/scoring";
+import {
+  formatPickSummary,
+  getMatchLockMessage,
+  isMatchFinished,
+  isMatchLocked,
+} from "@/lib/scoring";
 import type { Match, Pick, PickWinner } from "@/lib/types";
 
 interface MatchCardProps {
@@ -12,7 +17,8 @@ interface MatchCardProps {
 }
 
 export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
-  const locked = isMatchLocked(match.kickoff_at);
+  const locked = isMatchLocked(match);
+  const lockMessage = getMatchLockMessage(match);
   const [pickedWinner, setPickedWinner] = useState<PickWinner>(
     pick?.picked_winner ?? "home"
   );
@@ -76,9 +82,18 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
             {match.round}
           </span>
         )}
-        <time className="text-[10px] font-medium uppercase text-gray-500">
-          {format(new Date(match.kickoff_at), "EEE, MMM d, h:mm a")}
-        </time>
+        <div className="text-right">
+          <time className="block text-[10px] font-medium uppercase text-gray-500">
+            {format(new Date(match.kickoff_at), "EEE, MMM d, h:mm a")}
+          </time>
+          {isMatchFinished(match.status) &&
+            match.home_score !== null &&
+            match.away_score !== null && (
+              <span className="text-[10px] font-bold text-[#0056b3]">
+                FT {match.home_score}-{match.away_score}
+              </span>
+            )}
+        </div>
       </div>
 
       <div className="mb-4 flex items-center justify-center gap-2 text-center text-sm font-black uppercase">
@@ -199,7 +214,7 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
         </button>
       ) : (
         <p className="text-center text-xs font-medium text-gray-500">
-          Locked — picks closed 60s before kickoff
+          {lockMessage || "Locked — match has started"}
         </p>
       )}
     </article>

@@ -22,22 +22,48 @@ export const SCORING = {
     winningGoalMinuteBonus: 3,
     winningGoalMinuteTolerance: 5,
   },
-  lockSecondsBeforeKickoff: 60,
 } as const;
+
+/** API-Football statuses where the match has not kicked off yet. */
+const NOT_STARTED_STATUSES = new Set(["NS", "TBD"]);
 
 export function getKnockoutBasePoints(round: string): number {
   const map = SCORING.knockout as Record<string, number>;
   return map[round] ?? SCORING.knockout.correctWinnerDefault;
 }
 
-export function isMatchLocked(kickoffAt: string, now = new Date()): boolean {
-  const kickoff = new Date(kickoffAt).getTime();
-  const lockAt = kickoff - SCORING.lockSecondsBeforeKickoff * 1000;
-  return now.getTime() >= lockAt;
+export function isMatchFinished(status: string): boolean {
+  return ["FT", "AET", "PEN", "AWD", "WO"].includes(status);
 }
 
-export function isMatchFinished(status: string): boolean {
-  return ["FT", "AET", "PEN"].includes(status);
+export function isMatchInProgress(status: string): boolean {
+  return ["1H", "HT", "2H", "ET", "BT", "P", "LIVE", "INT", "SUSP"].includes(
+    status
+  );
+}
+
+/** Picks lock once the match has kicked off or the API reports it as started/finished. */
+export function isMatchLocked(
+  match: { status: string; kickoff_at: string },
+  now = new Date()
+): boolean {
+  if (!NOT_STARTED_STATUSES.has(match.status)) return true;
+  return now.getTime() >= new Date(match.kickoff_at).getTime();
+}
+
+export function getMatchLockMessage(
+  match: { status: string; kickoff_at: string }
+): string {
+  if (isMatchFinished(match.status)) {
+    return "Locked — match finished. Final score recorded.";
+  }
+  if (isMatchInProgress(match.status)) {
+    return "Locked — match in progress.";
+  }
+  if (isMatchLocked(match)) {
+    return "Locked — match has started.";
+  }
+  return "";
 }
 
 function actualWinner(

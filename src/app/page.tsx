@@ -10,16 +10,22 @@ export default async function HomePage() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: profiles }, { data: news }, { data: profile }] =
+  const weekAhead = new Date();
+  weekAhead.setDate(weekAhead.getDate() + 7);
+
+  const [{ data: profiles }, { data: upcomingMatches }, { data: profile }] =
     await Promise.all([
       supabase.from("profiles").select("*").order("total_points", {
         ascending: false,
       }),
       supabase
-        .from("news")
+        .from("matches")
         .select("*")
-        .order("created_at", { ascending: false })
-        .limit(5),
+        .in("status", ["NS", "TBD"])
+        .gte("kickoff_at", new Date().toISOString())
+        .lte("kickoff_at", weekAhead.toISOString())
+        .order("kickoff_at", { ascending: true })
+        .limit(12),
       user
         ? supabase
             .from("profiles")
@@ -33,7 +39,7 @@ export default async function HomePage() {
     <div className="min-h-screen bg-black">
       <Nav username={profile?.username} />
       <Hero />
-      <NewsBar items={news ?? []} />
+      <NewsBar upcomingMatches={upcomingMatches ?? []} />
       <StandingsTable
         profiles={profiles ?? []}
         currentUserId={user?.id}
