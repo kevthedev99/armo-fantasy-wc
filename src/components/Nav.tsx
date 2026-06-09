@@ -28,6 +28,9 @@ export function Nav({ username }: NavProps) {
         <Link href="/picks" className="hover:text-[#FF007A]">
           Picks
         </Link>
+        <Link href="/rules" className="hover:text-[#FF007A]">
+          Rules
+        </Link>
         {username ? (
           <>
             <span className="text-gray-400">@{username}</span>

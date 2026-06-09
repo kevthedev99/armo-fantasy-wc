@@ -15,7 +15,7 @@ export function Hero() {
       </h2>
       <p className="mt-6 text-7xl font-black text-white md:text-9xl">2026</p>
       <p className="mt-4 text-sm font-semibold uppercase tracking-widest text-[#FFD700] md:text-base">
-        JIT University World Cup — Friends Only
+        $25 Buy-In, Winner Takes All
       </p>
       <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
         <Link
@@ -29,6 +29,12 @@ export function Hero() {
           className="rounded-full bg-[#32CD32] px-8 py-3 text-sm font-bold uppercase tracking-wide text-black transition hover:opacity-90"
         >
           View Standings
+        </Link>
+        <Link
+          href="/rules"
+          className="rounded-full border-2 border-[#FFD700] bg-transparent px-8 py-3 text-sm font-bold uppercase tracking-wide text-[#FFD700] transition hover:bg-[#FFD700]/10"
+        >
+          Rules
         </Link>
       </div>
     </section>
