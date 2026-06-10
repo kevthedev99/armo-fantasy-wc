@@ -2,6 +2,7 @@ import { Hero } from "@/components/Hero";
 import { Nav } from "@/components/Nav";
 import { NewsBar } from "@/components/NewsBar";
 import { StandingsTable } from "@/components/StandingsTable";
+import { getPlayerCount } from "@/lib/player-count";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function HomePage() {
@@ -13,8 +14,12 @@ export default async function HomePage() {
   const weekAhead = new Date();
   weekAhead.setDate(weekAhead.getDate() + 7);
 
-  const [{ data: profiles }, { data: upcomingMatches }, { data: profile }] =
-    await Promise.all([
+  const [
+    { data: profiles },
+    { data: upcomingMatches },
+    { data: profile },
+    playerCount,
+  ] = await Promise.all([
       supabase.from("profiles").select("*").order("total_points", {
         ascending: false,
       }),
@@ -33,12 +38,13 @@ export default async function HomePage() {
             .eq("id", user.id)
             .single()
         : Promise.resolve({ data: null }),
+      getPlayerCount(),
     ]);
 
   return (
     <div className="min-h-screen bg-black">
       <Nav username={profile?.username} />
-      <Hero playerCount={profiles?.length ?? 0} />
+      <Hero playerCount={playerCount} />
       <NewsBar upcomingMatches={upcomingMatches ?? []} />
       <StandingsTable
         profiles={profiles ?? []}
