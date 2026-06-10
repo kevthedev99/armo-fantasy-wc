@@ -24,6 +24,43 @@ function PlayerAvatar({ profile }: { profile: Profile }) {
   );
 }
 
+function PodiumBadge({ rank }: { rank: 1 | 2 | 3 }) {
+  if (rank === 1) {
+    return (
+      <span className="inline-block rounded bg-[#3d3200] px-2 py-0.5 text-[10px] font-bold uppercase text-[#FFD700]">
+        👑 Champion
+      </span>
+    );
+  }
+  if (rank === 2) {
+    return (
+      <span className="inline-block rounded bg-gray-700 px-2 py-0.5 text-[10px] font-bold uppercase text-gray-200">
+        🥈 Silver
+      </span>
+    );
+  }
+  return (
+    <span className="inline-block rounded bg-[#5c3d1e] px-2 py-0.5 text-[10px] font-bold uppercase text-[#cd7f32]">
+      🥉 Bronze
+    </span>
+  );
+}
+
+function WoodenSpoonBadge() {
+  return (
+    <span className="inline-block rounded bg-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
+      Wooden Spoon
+    </span>
+  );
+}
+
+function podiumRank(index: number): 1 | 2 | 3 | null {
+  if (index === 0) return 1;
+  if (index === 1) return 2;
+  if (index === 2) return 3;
+  return null;
+}
+
 export function StandingsTable({ profiles, currentUserId }: StandingsTableProps) {
   const sorted = sortProfiles(profiles);
   const lastPlaceId = sorted.length > 1 ? sorted[sorted.length - 1]?.id : null;
@@ -47,6 +84,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
           <div className="mt-6 space-y-3 md:hidden">
             {sorted.map((profile, index) => {
               const isFirst = index === 0;
+              const rank = podiumRank(index);
               const isLast = profile.id === lastPlaceId && sorted.length > 3;
               const isYou = profile.id === currentUserId;
 
@@ -74,18 +112,10 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                           </span>
                         )}
                       </p>
-                      {(isFirst || isLast) && (
+                      {(rank || isLast) && (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {isFirst && (
-                            <span className="inline-block rounded bg-[#3d3200] px-2 py-0.5 text-[10px] font-bold uppercase text-[#FFD700]">
-                              👑 Champion
-                            </span>
-                          )}
-                          {isLast && (
-                            <span className="inline-block rounded bg-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
-                              Wooden Spoon
-                            </span>
-                          )}
+                          {rank && <PodiumBadge rank={rank} />}
+                          {isLast && <WoodenSpoonBadge />}
                         </div>
                       )}
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -132,6 +162,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
 
             {sorted.map((profile, index) => {
               const isFirst = index === 0;
+              const rank = podiumRank(index);
               const isLast = profile.id === lastPlaceId && sorted.length > 3;
               const isYou = profile.id === currentUserId;
 
@@ -154,14 +185,14 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                         </span>
                       )}
                     </span>
-                    {isFirst && (
-                      <span className="shrink-0 rounded bg-[#3d3200] px-2 py-0.5 text-[10px] font-bold uppercase text-[#FFD700]">
-                        👑 Champion
+                    {rank && (
+                      <span className="shrink-0">
+                        <PodiumBadge rank={rank} />
                       </span>
                     )}
                     {isLast && (
-                      <span className="shrink-0 rounded bg-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
-                        Wooden Spoon
+                      <span className="shrink-0">
+                        <WoodenSpoonBadge />
                       </span>
                     )}
                   </div>
