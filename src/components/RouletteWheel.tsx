@@ -31,7 +31,7 @@ export function RouletteWheel({
   }
 
   return (
-    <div className="relative mx-auto aspect-square w-full max-w-[320px] sm:max-w-[380px]">
+    <div className="relative mx-auto aspect-square w-full max-w-[300px] xl:max-w-[360px]">
       <div className="absolute inset-0 rounded-full bg-gradient-to-br from-[#FFD700] via-[#b8860b] to-[#FFD700] p-2 shadow-[0_0_40px_rgba(255,215,0,0.35)]">
         <div className="relative h-full w-full rounded-full bg-[#2a1810] p-1">
           <div className="absolute top-0 left-1/2 z-20 -translate-x-1/2 -translate-y-1">

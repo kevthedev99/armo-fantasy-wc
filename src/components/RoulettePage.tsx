@@ -1,6 +1,6 @@
 "use client";
 
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CasinoBalanceBar } from "@/components/CasinoBalanceBar";
 import { RouletteWheel } from "@/components/RouletteWheel";
 import { getNextWheelRotation } from "@/lib/roulette";
@@ -9,7 +9,9 @@ import {
   TABLE_NUMBERS,
   formatRouletteValue,
   getRouletteColor,
+  rouletteBetKey,
   type RouletteBet,
+  type RoulettePlacedBet,
   type RouletteValue,
 } from "@/lib/roulette";
 
@@ -26,13 +28,16 @@ interface SpinResult {
   wheelIndex: number;
   won: boolean;
   profit: number;
+  payout: number;
+  totalWager: number;
   balance: number;
   canPlay: boolean;
 }
 
 function betLabel(bet: RouletteBet): string {
   if (bet.type === "straight") return `#${formatRouletteValue(bet.value)}`;
-  if (bet.type === "dozen") return `${bet.dozen === 1 ? "1st" : bet.dozen === 2 ? "2nd" : "3rd"} 12`;
+  if (bet.type === "dozen")
+    return `${bet.dozen === 1 ? "1st" : bet.dozen === 2 ? "2nd" : "3rd"} 12`;
   return bet.type.toUpperCase();
 }
 
@@ -42,14 +47,22 @@ function numberCellClass(value: number, selected: boolean): string {
     color === "red"
       ? "bg-[#c41e3a] hover:bg-[#d42a46]"
       : "bg-[#1a1a1a] hover:bg-[#2a2a2a]";
-  return `${base} ${selected ? "ring-2 ring-[#FFD700] ring-offset-1 ring-offset-[#0d2818]" : ""}`;
+  return `${base} ${selected ? "ring-2 ring-[#FFD700] ring-offset-2 ring-offset-[#0d2818]" : ""}`;
+}
+
+function ChipBadge({ amount }: { amount: number }) {
+  return (
+    <span className="absolute -right-1 -top-1 z-10 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-[#0d2818] bg-[#FFD700] px-1 text-[10px] font-black text-black shadow-md">
+      ${amount}
+    </span>
+  );
 }
 
 export function RoulettePage({ initialBalance }: RoulettePageProps) {
   const [balanceState, setBalanceState] = useState<BalanceState>(initialBalance);
   const [chipAmount, setChipAmount] = useState(25);
   const [customChip, setCustomChip] = useState("");
-  const [selectedBet, setSelectedBet] = useState<RouletteBet | null>(null);
+  const [placedBets, setPlacedBets] = useState<RoulettePlacedBet[]>([]);
   const [spinning, setSpinning] = useState(false);
   const [wheelRotation, setWheelRotation] = useState(0);
   const [wheelAnimating, setWheelAnimating] = useState(false);
@@ -61,6 +74,19 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
 
   const activeAmount =
     customChip !== "" ? Math.max(0, parseInt(customChip, 10) || 0) : chipAmount;
+
+  const totalWager = useMemo(
+    () => placedBets.reduce((sum, b) => sum + b.amount, 0),
+    [placedBets]
+  );
+
+  const betAmountByKey = useMemo(() => {
+    const map = new Map<string, number>();
+    for (const { bet, amount } of placedBets) {
+      map.set(rouletteBetKey(bet), amount);
+    }
+    return map;
+  }, [placedBets]);
 
   const loadBalance = useCallback(async () => {
     const res = await fetch("/api/casino/balance");
@@ -82,10 +108,39 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
     return () => clearInterval(interval);
   }, [loadBalance]);
 
+  function toggleBet(bet: RouletteBet) {
+    const key = rouletteBetKey(bet);
+    setPlacedBets((current) => {
+      const existing = current.find((b) => rouletteBetKey(b.bet) === key);
+      if (existing) {
+        return current.filter((b) => rouletteBetKey(b.bet) !== key);
+      }
+      return [...current, { bet, amount: activeAmount }];
+    });
+    setError(null);
+  }
+
+  function isBetSelected(bet: RouletteBet): boolean {
+    return betAmountByKey.has(rouletteBetKey(bet));
+  }
+
+  function getPlacedAmount(bet: RouletteBet): number | undefined {
+    return betAmountByKey.get(rouletteBetKey(bet));
+  }
+
+  function clearBets() {
+    setPlacedBets([]);
+    setError(null);
+  }
+
   async function handleSpin() {
-    if (!selectedBet || spinning || !balanceState.canPlay) return;
+    if (placedBets.length === 0 || spinning || !balanceState.canPlay) return;
     if (activeAmount < 1) {
       setError("Pick a chip amount of at least $1.");
+      return;
+    }
+    if (totalWager > balanceState.balance) {
+      setError("Not enough chips for those bets.");
       return;
     }
 
@@ -97,7 +152,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
     const res = await fetch("/api/casino/spin", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ amount: activeAmount, bet: selectedBet }),
+      body: JSON.stringify({ bets: placedBets }),
     });
 
     const data = await res.json();
@@ -112,6 +167,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
     setLastResult(data);
     setWheelRotation((r) => getNextWheelRotation(r, data.wheelIndex));
     setWheelAnimating(true);
+    setPlacedBets([]);
     setBalanceState((prev) => ({
       ...prev,
       balance: data.balance,
@@ -137,22 +193,21 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
   const disabled = spinning || !balanceState.canPlay;
 
   return (
-    <div className="mx-auto max-w-5xl px-4 py-8">
-      {/* Header */}
+    <div className="mx-auto max-w-7xl px-4 py-8">
       <div className="mb-8 text-center">
         <p className="text-xs font-bold tracking-[0.35em] text-[#FFD700]">
           SIDE LOUNGE
         </p>
         <h1 className="font-display mt-1 text-5xl text-white">ROULETTE</h1>
         <p className="mt-2 text-sm text-gray-400">
-          Free play only — not connected to your pick&apos;em standings.
+          Free play only — not connected to your pick&apos;em standings. Tap
+          multiple spots, then spin.
         </p>
       </div>
 
       <CasinoBalanceBar balanceState={balanceState} />
 
-      <div className="grid gap-8 lg:grid-cols-2">
-        {/* Wheel */}
+      <div className="grid gap-8 xl:grid-cols-[360px_1fr]">
         <div className="flex flex-col items-center gap-4">
           <RouletteWheel
             rotation={wheelRotation}
@@ -185,9 +240,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
           )}
         </div>
 
-        {/* Betting table */}
-        <div className="space-y-4">
-          {/* Chip selector */}
+        <div className="space-y-5">
           <div className="rounded-xl border border-white/10 bg-white/5 p-4">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
               Chip value
@@ -202,7 +255,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
                     setChipAmount(n);
                     setCustomChip("");
                   }}
-                  className={`rounded-full px-4 py-1.5 text-sm font-bold transition ${
+                  className={`rounded-full px-4 py-2 text-sm font-bold transition ${
                     chipAmount === n && customChip === ""
                       ? "bg-[#FFD700] text-black"
                       : "bg-black/50 text-white hover:bg-black/70"
@@ -219,13 +272,12 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
                 disabled={disabled}
                 value={customChip}
                 onChange={(e) => setCustomChip(e.target.value)}
-                className="w-20 rounded-full border border-white/10 bg-black/50 px-3 py-1.5 text-center text-sm text-white outline-none focus:border-[#FFD700]"
+                className="w-24 rounded-full border border-white/10 bg-black/50 px-3 py-2 text-center text-sm text-white outline-none focus:border-[#FFD700]"
               />
             </div>
           </div>
 
-          {/* Outside bets */}
-          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6">
+          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
             {(
               [
                 { type: "red" as const, label: "Red", className: "bg-[#c41e3a]" },
@@ -235,120 +287,145 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
                 { type: "low" as const, label: "1–18", className: "bg-[#0d2818]" },
                 { type: "high" as const, label: "19–36", className: "bg-[#0d2818]" },
               ] as const
-            ).map((b) => (
-              <button
-                key={b.type}
-                type="button"
-                disabled={disabled}
-                onClick={() => setSelectedBet({ type: b.type })}
-                className={`rounded-lg py-2 text-xs font-bold uppercase text-white transition hover:brightness-110 disabled:opacity-40 ${b.className} ${
-                  selectedBet?.type === b.type
-                    ? "ring-2 ring-[#FFD700]"
-                    : ""
-                }`}
-              >
-                {b.label}
-              </button>
-            ))}
+            ).map((b) => {
+              const bet: RouletteBet = { type: b.type };
+              const amount = getPlacedAmount(bet);
+              return (
+                <button
+                  key={b.type}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => toggleBet(bet)}
+                  className={`relative rounded-lg py-3 text-sm font-bold uppercase text-white transition hover:brightness-110 disabled:opacity-40 ${b.className} ${
+                    isBetSelected(bet) ? "ring-2 ring-[#FFD700]" : ""
+                  }`}
+                >
+                  {b.label}
+                  {amount != null && (
+                    <span className="mt-1 block text-[10px] text-[#FFD700]">
+                      ${amount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Dozens */}
-          <div className="grid grid-cols-3 gap-1.5">
-            {([1, 2, 3] as const).map((d) => (
-              <button
-                key={d}
-                type="button"
-                disabled={disabled}
-                onClick={() => setSelectedBet({ type: "dozen", dozen: d })}
-                className={`rounded-lg bg-[#0056b3] py-2 text-xs font-bold text-white hover:bg-[#0066cc] disabled:opacity-40 ${
-                  selectedBet?.type === "dozen" && selectedBet.dozen === d
-                    ? "ring-2 ring-[#FFD700]"
-                    : ""
-                }`}
-              >
-                {d === 1 ? "1st 12" : d === 2 ? "2nd 12" : "3rd 12"}
-              </button>
-            ))}
+          <div className="grid grid-cols-3 gap-2">
+            {([1, 2, 3] as const).map((d) => {
+              const bet: RouletteBet = { type: "dozen", dozen: d };
+              const amount = getPlacedAmount(bet);
+              return (
+                <button
+                  key={d}
+                  type="button"
+                  disabled={disabled}
+                  onClick={() => toggleBet(bet)}
+                  className={`relative rounded-lg bg-[#0056b3] py-3 text-sm font-bold text-white hover:bg-[#0066cc] disabled:opacity-40 ${
+                    isBetSelected(bet) ? "ring-2 ring-[#FFD700]" : ""
+                  }`}
+                >
+                  {d === 1 ? "1st 12" : d === 2 ? "2nd 12" : "3rd 12"}
+                  {amount != null && (
+                    <span className="mt-1 block text-[10px] text-[#FFD700]">
+                      ${amount}
+                    </span>
+                  )}
+                </button>
+              );
+            })}
           </div>
 
-          {/* Number grid */}
-          <div className="overflow-x-auto rounded-xl border-2 border-[#FFD700]/40 bg-[#0d2818] p-2">
-            <div className="flex min-w-[280px] gap-1">
-              <div className="flex w-10 shrink-0 flex-col gap-1">
+          <div className="overflow-x-auto rounded-xl border-2 border-[#FFD700]/50 bg-[#0d2818] p-3 md:p-4">
+            <div className="flex min-w-[560px] gap-2">
+              <div className="flex w-16 shrink-0 flex-col gap-2">
                 {(["0", "00"] as const).map((z) => {
                   const val: RouletteValue = z === "0" ? 0 : "00";
-                  const selected =
-                    selectedBet?.type === "straight" &&
-                    selectedBet.value === val;
+                  const bet: RouletteBet = { type: "straight", value: val };
+                  const amount = getPlacedAmount(bet);
                   return (
                     <button
                       key={z}
                       type="button"
                       disabled={disabled}
-                      onClick={() =>
-                        setSelectedBet({ type: "straight", value: val })
-                      }
-                      className={`flex-1 rounded bg-[#0d5c2e] text-xs font-bold text-white hover:bg-[#117a3d] disabled:opacity-40 ${
-                        selected ? "ring-2 ring-[#FFD700]" : ""
+                      onClick={() => toggleBet(bet)}
+                      className={`relative flex-1 rounded-lg bg-[#0d5c2e] py-4 text-base font-bold text-white hover:bg-[#117a3d] disabled:opacity-40 ${
+                        isBetSelected(bet) ? "ring-2 ring-[#FFD700]" : ""
                       }`}
                     >
                       {z}
+                      {amount != null && <ChipBadge amount={amount} />}
                     </button>
                   );
                 })}
               </div>
-              <div className="flex flex-1 flex-col gap-1">
+              <div className="flex flex-1 flex-col gap-2">
                 {TABLE_NUMBERS.map((row, ri) => (
-                  <div key={ri} className="flex flex-1 gap-1">
-                    {row.map((n) => (
-                      <button
-                        key={n}
-                        type="button"
-                        disabled={disabled}
-                        onClick={() =>
-                          setSelectedBet({ type: "straight", value: n })
-                        }
-                        className={`flex-1 rounded py-2 text-xs font-bold text-white disabled:opacity-40 ${numberCellClass(
-                          n,
-                          selectedBet?.type === "straight" &&
-                            selectedBet.value === n
-                        )}`}
-                      >
-                        {n}
-                      </button>
-                    ))}
+                  <div key={ri} className="flex flex-1 gap-2">
+                    {row.map((n) => {
+                      const bet: RouletteBet = { type: "straight", value: n };
+                      const amount = getPlacedAmount(bet);
+                      return (
+                        <button
+                          key={n}
+                          type="button"
+                          disabled={disabled}
+                          onClick={() => toggleBet(bet)}
+                          className={`relative flex-1 rounded-lg py-3 text-sm font-bold text-white md:py-4 md:text-base disabled:opacity-40 ${numberCellClass(
+                            n,
+                            isBetSelected(bet)
+                          )}`}
+                        >
+                          {n}
+                          {amount != null && <ChipBadge amount={amount} />}
+                        </button>
+                      );
+                    })}
                   </div>
                 ))}
               </div>
             </div>
           </div>
 
-          {/* Selected bet + spin */}
           <div className="flex flex-wrap items-center justify-between gap-3">
-            <p className="text-sm text-gray-400">
-              {selectedBet ? (
+            <div className="text-sm text-gray-400">
+              {placedBets.length > 0 ? (
                 <>
-                  Betting{" "}
                   <span className="font-bold text-[#FFD700]">
-                    ${activeAmount}
+                    {placedBets.length} bet{placedBets.length !== 1 ? "s" : ""}
                   </span>{" "}
-                  on{" "}
-                  <span className="font-bold text-white">
-                    {betLabel(selectedBet)}
+                  · Total wager{" "}
+                  <span className="font-bold text-white">${totalWager}</span>
+                  <span className="mt-1 block text-xs text-gray-500">
+                    {placedBets.map((b) => `${betLabel(b.bet)} $${b.amount}`).join(" · ")}
                   </span>
                 </>
               ) : (
-                "Tap a bet on the table"
+                "Tap bets on the table — multiple allowed"
               )}
-            </p>
-            <button
-              type="button"
-              disabled={disabled || !selectedBet || activeAmount < 1}
-              onClick={handleSpin}
-              className="rounded-full bg-gradient-to-r from-[#FF007A] to-[#d4006a] px-8 py-3 text-sm font-black uppercase tracking-widest text-white shadow-[0_4px_24px_rgba(255,0,122,0.4)] transition hover:scale-[1.02] disabled:opacity-40 disabled:hover:scale-100"
-            >
-              {spinning ? "Spinning…" : "Spin"}
-            </button>
+            </div>
+            <div className="flex flex-wrap gap-2">
+              {placedBets.length > 0 && (
+                <button
+                  type="button"
+                  disabled={disabled}
+                  onClick={clearBets}
+                  className="rounded-full border border-white/20 px-5 py-3 text-xs font-bold uppercase tracking-wide text-gray-300 transition hover:bg-white/5 disabled:opacity-40"
+                >
+                  Clear bets
+                </button>
+              )}
+              <button
+                type="button"
+                disabled={
+                  disabled || placedBets.length === 0 || totalWager < 1
+                }
+                onClick={handleSpin}
+                className="rounded-full bg-gradient-to-r from-[#FF007A] to-[#d4006a] px-8 py-3 text-sm font-black uppercase tracking-widest text-white shadow-[0_4px_24px_rgba(255,0,122,0.4)] transition hover:scale-[1.02] disabled:opacity-40 disabled:hover:scale-100"
+              >
+                {spinning ? "Spinning…" : "Spin"}
+              </button>
+            </div>
           </div>
 
           {error && (
@@ -366,7 +443,6 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
         </div>
       </div>
 
-      {/* History */}
       {history.length > 0 && (
         <div className="mt-10">
           <p className="mb-3 text-[10px] font-bold uppercase tracking-widest text-gray-500">

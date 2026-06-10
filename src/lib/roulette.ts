@@ -111,6 +111,77 @@ export function validateBetAmount(
   return null;
 }
 
+export interface RoulettePlacedBet {
+  bet: RouletteBet;
+  amount: number;
+}
+
+export function rouletteBetKey(bet: RouletteBet): string {
+  if (bet.type === "straight") return `straight:${bet.value}`;
+  if (bet.type === "dozen") return `dozen:${bet.dozen}`;
+  return bet.type;
+}
+
+export function evaluateRouletteBets(
+  bets: RoulettePlacedBet[],
+  result: RouletteValue
+): {
+  totalWager: number;
+  totalPayout: number;
+  outcomes: {
+    bet: RouletteBet;
+    amount: number;
+    won: boolean;
+    payout: number;
+  }[];
+} {
+  let totalWager = 0;
+  let totalPayout = 0;
+  const outcomes = bets.map(({ bet, amount }) => {
+    totalWager += amount;
+    const { won, payout } = evaluateRouletteBet(bet, result, amount);
+    totalPayout += payout;
+    return { bet, amount, won, payout };
+  });
+  return { totalWager, totalPayout, outcomes };
+}
+
+export function validateRouletteBets(
+  bets: RoulettePlacedBet[],
+  balance: number
+): string | null {
+  if (!Array.isArray(bets) || bets.length === 0) {
+    return "Place at least one bet.";
+  }
+  if (bets.length > 20) {
+    return "Maximum 20 bets per spin.";
+  }
+
+  let totalWager = 0;
+  const seen = new Set<string>();
+
+  for (const { bet, amount } of bets) {
+    const betError = validateRouletteBet(bet);
+    if (betError) return betError;
+
+    const amountError = validateBetAmount(amount, balance);
+    if (amountError) return amountError;
+
+    const key = rouletteBetKey(bet);
+    if (seen.has(key)) {
+      return "Duplicate bet on the same spot.";
+    }
+    seen.add(key);
+    totalWager += amount;
+  }
+
+  if (totalWager > balance) {
+    return "Not enough chips for those bets.";
+  }
+
+  return null;
+}
+
 export function validateRouletteBet(bet: RouletteBet): string | null {
   if (bet.type === "straight") {
     if (bet.value === "00") return null;

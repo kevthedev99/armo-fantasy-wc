@@ -5,14 +5,29 @@ import {
   updateCasinoBalance,
 } from "@/lib/casino-balance";
 import {
-  evaluateRouletteBet,
+  evaluateRouletteBets,
   formatRouletteValue,
+  rouletteBetKey,
   spinRoulette,
-  validateBetAmount,
-  validateRouletteBet,
+  validateRouletteBets,
   type RouletteBet,
+  type RoulettePlacedBet,
 } from "@/lib/roulette";
 import { createClient } from "@/lib/supabase/server";
+
+function normalizeBets(body: {
+  amount?: number;
+  bet?: RouletteBet;
+  bets?: RoulettePlacedBet[];
+}): RoulettePlacedBet[] | null {
+  if (Array.isArray(body.bets) && body.bets.length > 0) {
+    return body.bets;
+  }
+  if (body.amount && body.bet) {
+    return [{ amount: body.amount, bet: body.bet }];
+  }
+  return null;
+}
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -25,23 +40,16 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { amount, bet } = body as { amount?: number; bet?: RouletteBet };
+  const bets = normalizeBets(body);
 
-  if (!amount || !bet) {
-    return NextResponse.json({ error: "Bet amount and type required." }, { status: 400 });
-  }
-
-  const betError = validateRouletteBet(bet);
-  if (betError) {
-    return NextResponse.json({ error: betError }, { status: 400 });
+  if (!bets) {
+    return NextResponse.json({ error: "At least one bet is required." }, {
+      status: 400,
+    });
   }
 
   try {
     const state = await getOrResetCasinoBalance(user.id);
-    const amountError = validateBetAmount(amount, state.balance);
-    if (amountError) {
-      return NextResponse.json({ error: amountError }, { status: 400 });
-    }
 
     if (state.balance <= 0) {
       return NextResponse.json(
@@ -50,9 +58,17 @@ export async function POST(request: Request) {
       );
     }
 
+    const betsError = validateRouletteBets(bets, state.balance);
+    if (betsError) {
+      return NextResponse.json({ error: betsError }, { status: 400 });
+    }
+
     const spin = spinRoulette();
-    const { won, payout } = evaluateRouletteBet(bet, spin.value, amount);
-    const newBalance = state.balance - amount + payout;
+    const { totalWager, totalPayout, outcomes } = evaluateRouletteBets(
+      bets,
+      spin.value
+    );
+    const newBalance = state.balance - totalWager + totalPayout;
 
     const balance = await updateCasinoBalance(
       user.id,
@@ -60,14 +76,23 @@ export async function POST(request: Request) {
       getCasinoDay()
     );
 
+    const winningOutcomes = outcomes.filter((o) => o.won);
+
     return NextResponse.json({
       result: spin.value,
       resultLabel: formatRouletteValue(spin.value),
       color: spin.color,
       wheelIndex: spin.wheelIndex,
-      won,
-      profit: won ? payout - amount : -amount,
-      payout,
+      won: winningOutcomes.length > 0,
+      profit: totalPayout - totalWager,
+      payout: totalPayout,
+      totalWager,
+      outcomes: outcomes.map((o) => ({
+        betKey: rouletteBetKey(o.bet),
+        amount: o.amount,
+        won: o.won,
+        payout: o.payout,
+      })),
       balance,
       canPlay: balance > 0,
     });
