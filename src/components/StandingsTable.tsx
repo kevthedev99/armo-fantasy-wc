@@ -1,5 +1,6 @@
 import Link from "next/link";
 import { SponsorBanner } from "@/components/SponsorBanner";
+import { WorldCupLogo } from "@/components/WorldCupLogo";
 import type { Profile } from "@/lib/types";
 
 interface StandingsTableProps {
@@ -82,12 +83,20 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
 
   return (
     <section id="standings" className="bg-black px-4 py-12 md:px-8">
-      <h2 className="text-4xl font-black uppercase tracking-tight text-white md:text-5xl">
-        Standings
-      </h2>
-      <p className="mt-1 text-sm text-gray-500">
-        Armo Fantasy World Cup League · Tap a player to view their picks
-      </p>
+      <div className="flex items-center gap-4 md:gap-5">
+        <WorldCupLogo className="hidden h-16 w-auto shrink-0 object-contain sm:block md:h-20" />
+        <div>
+          <div className="flex items-center gap-3 sm:gap-0">
+            <WorldCupLogo className="h-12 w-auto shrink-0 object-contain sm:hidden" />
+            <h2 className="text-4xl font-black uppercase tracking-tight text-white md:text-5xl">
+              Standings
+            </h2>
+          </div>
+          <p className="mt-1 text-sm text-gray-500">
+            Armo Fantasy World Cup League · Tap a player to view their picks
+          </p>
+        </div>
+      </div>
 
       {sorted.length === 0 ? (
         <p className="mt-8 rounded-lg border border-gray-800 px-4 py-8 text-center text-gray-500">

@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
+import { WorldCupLogo } from "@/components/WorldCupLogo";
 
 interface NavProps {
   username?: string;
@@ -36,9 +37,10 @@ export function Nav({ username }: NavProps) {
     <nav className="flex flex-wrap items-center justify-between gap-3 bg-black px-4 py-3.5 text-white md:gap-4 md:px-8">
       <Link
         href="/"
-        className="shrink-0 text-sm font-black uppercase tracking-wider text-[#FFD700] md:text-base"
+        className="flex shrink-0 items-center gap-2 text-sm font-black uppercase tracking-wider text-[#FFD700] md:gap-2.5 md:text-base"
       >
-        Armo Fantasy WC
+        <WorldCupLogo className="h-7 w-auto object-contain md:h-8" />
+        <span>Armo Fantasy WC</span>
       </Link>
       <div className="flex flex-wrap items-center gap-5 sm:gap-7 md:gap-8">
         {MAIN_LINKS.map(({ href, label }) => (
