@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { isMatchLocked } from "@/lib/scoring";
 import type { Match, Pick, Profile } from "@/lib/types";
 import { PickReadOnlyCard } from "./PickReadOnlyCard";
 
@@ -13,6 +14,22 @@ interface UserPicksViewProps {
   isCurrentUser: boolean;
 }
 
+function buildVisible(
+  matches: Match[],
+  pickMap: Map<number, Pick>,
+  stage: "group" | "knockout"
+) {
+  return matches
+    .filter((m) => m.stage === stage)
+    .filter((match) => pickMap.has(match.id) || isMatchLocked(match))
+    .map((match) => ({ match, pick: pickMap.get(match.id) }))
+    .sort(
+      (a, b) =>
+        new Date(a.match.kickoff_at).getTime() -
+        new Date(b.match.kickoff_at).getTime()
+    );
+}
+
 export function UserPicksView({
   profile,
   rank,
@@ -23,36 +40,25 @@ export function UserPicksView({
 }: UserPicksViewProps) {
   const [tab, setTab] = useState<"group" | "knockout">("group");
 
-  const matchMap = useMemo(() => {
-    const map = new Map<number, Match>();
-    matches.forEach((m) => map.set(m.id, m));
+  const pickMap = useMemo(() => {
+    const map = new Map<number, Pick>();
+    picks.forEach((p) => map.set(p.match_id, p));
     return map;
-  }, [matches]);
+  }, [picks]);
 
-  const picksWithMatches = picks
-    .map((pick) => {
-      const match = matchMap.get(pick.match_id);
-      return match ? { pick, match } : null;
-    })
-    .filter(Boolean) as { pick: Pick; match: Match }[];
-
-  const groupPicks = picksWithMatches.filter((p) => p.match.stage === "group");
-  const knockoutPicks = picksWithMatches.filter(
-    (p) => p.match.stage === "knockout"
+  const groupVisible = useMemo(
+    () => buildVisible(matches, pickMap, "group"),
+    [matches, pickMap]
+  );
+  const knockoutVisible = useMemo(
+    () => buildVisible(matches, pickMap, "knockout"),
+    [matches, pickMap]
   );
 
-  const visible =
-    tab === "group"
-      ? groupPicks.sort(
-          (a, b) =>
-            new Date(a.match.kickoff_at).getTime() -
-            new Date(b.match.kickoff_at).getTime()
-        )
-      : knockoutPicks.sort(
-          (a, b) =>
-            new Date(a.match.kickoff_at).getTime() -
-            new Date(b.match.kickoff_at).getTime()
-        );
+  const visible = tab === "group" ? groupVisible : knockoutVisible;
+  const missedCount = visible.filter(
+    (v) => !v.pick && isMatchLocked(v.match)
+  ).length;
 
   return (
     <div className="min-h-screen bg-gray-100">
@@ -106,7 +112,7 @@ export function UserPicksView({
               : "bg-white text-gray-700 ring-1 ring-gray-300"
           }`}
         >
-          Group Stage ({groupPicks.length})
+          Group Stage ({groupVisible.length})
         </button>
         <button
           type="button"
@@ -118,21 +124,28 @@ export function UserPicksView({
               : "bg-white text-gray-700 ring-1 ring-gray-300"
           } ${!knockoutUnlocked ? "cursor-not-allowed opacity-50" : ""}`}
         >
-          Knockout ({knockoutPicks.length})
+          Knockout ({knockoutVisible.length})
           {!knockoutUnlocked && " · locked"}
         </button>
       </div>
+
+      {missedCount > 0 && (
+        <p className="px-4 pb-2 text-xs text-amber-800 md:px-8">
+          {missedCount} started match{missedCount !== 1 ? "es" : ""} with no
+          pick — locked at kickoff.
+        </p>
+      )}
 
       <div className="mx-auto grid max-w-6xl gap-4 px-4 pb-12 sm:grid-cols-2 lg:grid-cols-3 md:px-8">
         {visible.length === 0 ? (
           <p className="col-span-full py-12 text-center text-gray-600">
             {isCurrentUser
-              ? "You haven't made any picks in this stage yet."
-              : `${profile.display_name} hasn't made any picks in this stage yet.`}
+              ? "No picks or started matches yet in this stage."
+              : `${profile.display_name} has no picks or started matches in this stage yet.`}
           </p>
         ) : (
           visible.map(({ pick, match }) => (
-            <PickReadOnlyCard key={pick.id} match={match} pick={pick} />
+            <PickReadOnlyCard key={match.id} match={match} pick={pick} />
           ))
         )}
       </div>

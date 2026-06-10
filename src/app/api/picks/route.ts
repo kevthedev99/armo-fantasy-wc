@@ -56,7 +56,10 @@ export async function POST(request: Request) {
 
   if (isMatchLocked(match)) {
     return NextResponse.json(
-      { error: "Picks are locked — this match has already started or finished." },
+      {
+        error:
+          "Picks are locked — this match has started. You cannot add or change a pick.",
+      },
       { status: 403 }
     );
   }

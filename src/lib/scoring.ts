@@ -73,6 +73,10 @@ function actualWinner(
   return "draw";
 }
 
+/**
+ * Score a single saved pick against a finished match.
+ * No pick row for a match means 0 points — nothing is scored or invented.
+ */
 export function scorePick(match: Match, pick: Pick): number {
   if (
     match.home_score === null ||
@@ -155,4 +159,46 @@ export function validatePickScores(
   }
 
   return null;
+}
+
+/** Leaderboard totals from scored picks only — missed matches contribute nothing. */
+export function aggregateProfileStats(
+  picks: Pick[]
+): { total_points: number; total_wins: number } {
+  let total_points = 0;
+  let total_wins = 0;
+
+  for (const pick of picks) {
+    if (!pick.is_scored) continue;
+    total_points += pick.points_earned;
+    if (pick.points_earned > 0) total_wins++;
+  }
+
+  return { total_points, total_wins };
+}
+
+/**
+ * Current win streak from most recent finished matches backward.
+ * A missed pick (no row) or 0-point result breaks the streak.
+ */
+export function computeCurrentStreak(
+  finishedMatches: Match[],
+  picks: Pick[]
+): number {
+  const pickByMatch = new Map(picks.map((p) => [p.match_id, p]));
+  const sorted = [...finishedMatches].sort(
+    (a, b) =>
+      new Date(b.kickoff_at).getTime() - new Date(a.kickoff_at).getTime()
+  );
+
+  let streak = 0;
+  for (const match of sorted) {
+    const pick = pickByMatch.get(match.id);
+    if (!pick || !pick.is_scored || pick.points_earned <= 0) {
+      break;
+    }
+    streak++;
+  }
+
+  return streak;
 }

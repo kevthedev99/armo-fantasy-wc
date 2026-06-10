@@ -4,7 +4,13 @@ import {
   parseGroupName,
   parseStage,
 } from "@/lib/api-football";
-import { isMatchFinished, scorePick } from "@/lib/scoring";
+import {
+  aggregateProfileStats,
+  computeCurrentStreak,
+  isMatchFinished,
+  scorePick,
+} from "@/lib/scoring";
+import type { Pick } from "@/lib/types";
 import { createServiceClient } from "@/lib/supabase/server";
 
 function authorize(request: Request): boolean {
@@ -86,30 +92,45 @@ export async function GET(request: Request) {
 
     for (const pick of unscoredPicks ?? []) {
       const points = scorePick(match, pick);
-      const won = points > 0;
 
       await supabase
         .from("picks")
         .update({ points_earned: points, is_scored: true })
         .eq("id", pick.id);
-
-      const { data: profile } = await supabase
-        .from("profiles")
-        .select("total_points, total_wins, current_streak")
-        .eq("id", pick.user_id)
-        .single();
-
-      if (profile) {
-        await supabase
-          .from("profiles")
-          .update({
-            total_points: profile.total_points + points,
-            total_wins: profile.total_wins + (won ? 1 : 0),
-            current_streak: won ? profile.current_streak + 1 : 0,
-          })
-          .eq("id", pick.user_id);
-      }
     }
+  }
+
+  // Rebuild leaderboard from scored picks only — no pick row means 0 for that match.
+  const [{ data: profiles }, { data: allPicks }, { data: finishedForStreak }] =
+    await Promise.all([
+      supabase.from("profiles").select("id"),
+      supabase.from("picks").select("*"),
+      supabase
+        .from("matches")
+        .select("*")
+        .in("status", ["FT", "AET", "PEN"])
+        .order("kickoff_at", { ascending: true }),
+    ]);
+
+  const picksByUser = new Map<string, Pick[]>();
+  for (const pick of (allPicks ?? []) as Pick[]) {
+    const list = picksByUser.get(pick.user_id) ?? [];
+    list.push(pick);
+    picksByUser.set(pick.user_id, list);
+  }
+
+  for (const profile of profiles ?? []) {
+    const userPicks = picksByUser.get(profile.id) ?? [];
+    const { total_points, total_wins } = aggregateProfileStats(userPicks);
+    const current_streak = computeCurrentStreak(
+      finishedForStreak ?? [],
+      userPicks
+    );
+
+    await supabase
+      .from("profiles")
+      .update({ total_points, total_wins, current_streak })
+      .eq("id", profile.id);
   }
 
   return NextResponse.json({

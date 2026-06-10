@@ -2,11 +2,11 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
+import { useIsMatchLocked } from "@/hooks/useIsMatchLocked";
 import {
   formatPickSummary,
   getMatchLockMessage,
   isMatchFinished,
-  isMatchLocked,
   normalizeGroupScore,
 } from "@/lib/scoring";
 import type { Match, Pick, PickWinner } from "@/lib/types";
@@ -18,7 +18,7 @@ interface MatchCardProps {
 }
 
 export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
-  const locked = isMatchLocked(match);
+  const locked = useIsMatchLocked(match);
   const lockMessage = getMatchLockMessage(match);
   const [pickedWinner, setPickedWinner] = useState<PickWinner>(
     pick?.picked_winner ?? "home"
@@ -35,22 +35,13 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
   const resolvedHome = normalizeGroupScore(homeScore);
   const resolvedAway = normalizeGroupScore(awayScore);
 
-  const summary =
-    match.stage === "group"
-      ? formatPickSummary(match, {
-          ...pick,
-          picked_winner: pickedWinner,
-          home_score_pred: resolvedHome,
-          away_score_pred: resolvedAway,
-        } as Pick)
-      : formatPickSummary(match, {
-          ...pick,
-          picked_winner: pickedWinner,
-          home_score_pred: null,
-          away_score_pred: null,
-        } as Pick);
+  const summary = pick
+    ? formatPickSummary(match, pick)
+    : null;
 
   async function savePick() {
+    if (locked) return;
+
     setSaving(true);
     setError(null);
 
@@ -81,15 +72,22 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
     onSaved(data.pick);
   }
 
+  const cardClass = locked
+    ? pick
+      ? "border-gray-300 bg-gray-50"
+      : "border-amber-300 bg-amber-50/80"
+    : "border-gray-200 bg-white";
+
   return (
-    <article className="rounded-xl border border-gray-200 bg-white p-4 shadow-sm">
+    <article
+      className={`rounded-xl border p-4 shadow-sm ${cardClass} ${locked ? "opacity-95" : ""}`}
+    >
       <div className="mb-3 flex items-center justify-between gap-2">
-        {match.group_name && (
+        {match.group_name ? (
           <span className="rounded-full bg-[#0056b3] px-3 py-1 text-[10px] font-bold uppercase text-white">
             {match.group_name}
           </span>
-        )}
-        {!match.group_name && (
+        ) : (
           <span className="rounded-full bg-[#0056b3] px-3 py-1 text-[10px] font-bold uppercase text-white">
             {match.round}
           </span>
@@ -130,92 +128,121 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
         )}
       </div>
 
-      {summary && (
-        <div className="mb-3 flex items-center justify-between">
-          <span className="rounded-full bg-[#32CD32] px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-            Pick
-          </span>
-          <span className="rounded-full bg-[#32CD32]/15 px-3 py-1 text-xs font-bold uppercase text-[#1a7a1a]">
-            {summary}
-          </span>
-        </div>
-      )}
-
-      <div className="mb-3 grid grid-cols-3 gap-2">
-        {(
-          [
-            ["home", match.home_team_name],
-            ["draw", "Tie"],
-            ["away", match.away_team_name],
-          ] as const
-        ).map(([value, label]) => (
-          <button
-            key={value}
-            type="button"
-            disabled={locked}
-            onClick={() => setPickedWinner(value)}
-            className={`rounded-lg border px-2 py-2 text-[10px] font-bold uppercase transition md:text-xs ${
-              pickedWinner === value
-                ? "border-[#0056b3] bg-[#0056b3] text-white"
-                : "border-gray-300 bg-white text-gray-800 hover:border-[#0056b3]"
-            } ${locked ? "cursor-not-allowed opacity-60" : ""}`}
-          >
-            {label.length > 12 ? `${label.slice(0, 10)}…` : label}
-          </button>
-        ))}
-      </div>
-
-      {match.stage === "group" ? (
+      {locked ? (
         <>
-          <div className="mb-2 flex items-center justify-center gap-2">
-            <input
-              type="number"
-              min={0}
-              max={20}
-              disabled={locked}
-              value={homeScore}
-              onChange={(e) => setHomeScore(e.target.value)}
-              className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
-              placeholder="0"
-            />
-            <span className="text-gray-400">—</span>
-            <input
-              type="number"
-              min={0}
-              max={20}
-              disabled={locked}
-              value={awayScore}
-              onChange={(e) => setAwayScore(e.target.value)}
-              className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
-              placeholder="0"
-            />
-          </div>
-          <p className="mb-3 text-center text-[10px] text-gray-500">
-            Scores default to 0-0. Leave a box blank to keep that team at 0.
-            Scores must match your chosen winner for the +5 bonus.
+          {pick && summary ? (
+            <div className="mb-3 flex items-center justify-between">
+              <span className="rounded-full bg-gray-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                Locked pick
+              </span>
+              <span className="rounded-full bg-[#32CD32]/15 px-3 py-1 text-xs font-bold uppercase text-[#1a7a1a]">
+                {summary}
+              </span>
+            </div>
+          ) : (
+            <div className="mb-3 rounded-lg border border-amber-400/60 bg-amber-100/80 px-3 py-2 text-center">
+              <p className="text-[10px] font-black uppercase tracking-wide text-amber-900">
+                No pick made
+              </p>
+              <p className="mt-0.5 text-xs text-amber-800">
+                This match is locked — you can&apos;t add or change a pick now.
+              </p>
+            </div>
+          )}
+          <p className="text-center text-xs font-medium text-gray-500">
+            🔒 {lockMessage || "Locked — match has started"}
           </p>
         </>
       ) : (
-        <p className="mb-3 text-center text-[10px] text-gray-500">
-          Pick the winner — deeper knockout rounds earn more points.
-        </p>
-      )}
+        <>
+          {summary && (
+            <div className="mb-3 flex items-center justify-between">
+              <span className="rounded-full bg-[#32CD32] px-2 py-0.5 text-[10px] font-bold uppercase text-white">
+                Saved
+              </span>
+              <span className="rounded-full bg-[#32CD32]/15 px-3 py-1 text-xs font-bold uppercase text-[#1a7a1a]">
+                {formatPickSummary(match, {
+                  ...pick,
+                  picked_winner: pickedWinner,
+                  home_score_pred:
+                    match.stage === "group" ? resolvedHome : null,
+                  away_score_pred:
+                    match.stage === "group" ? resolvedAway : null,
+                } as Pick)}
+              </span>
+            </div>
+          )}
 
-      {error && <p className="mb-2 text-center text-xs text-red-600">{error}</p>}
+          <div className="mb-3 grid grid-cols-3 gap-2">
+            {(
+              [
+                ["home", match.home_team_name],
+                ["draw", "Tie"],
+                ["away", match.away_team_name],
+              ] as const
+            ).map(([value, label]) => (
+              <button
+                key={value}
+                type="button"
+                onClick={() => setPickedWinner(value)}
+                className={`rounded-lg border px-2 py-2 text-[10px] font-bold uppercase transition md:text-xs ${
+                  pickedWinner === value
+                    ? "border-[#0056b3] bg-[#0056b3] text-white"
+                    : "border-gray-300 bg-white text-gray-800 hover:border-[#0056b3]"
+                }`}
+              >
+                {label.length > 12 ? `${label.slice(0, 10)}…` : label}
+              </button>
+            ))}
+          </div>
 
-      {!locked ? (
-        <button
-          type="button"
-          onClick={savePick}
-          disabled={saving}
-          className="w-full rounded-lg bg-[#0056b3] py-2 text-sm font-bold uppercase text-white hover:opacity-90 disabled:opacity-50"
-        >
-          {saving ? "Saving…" : pick ? "Update Pick" : "Save Pick"}
-        </button>
-      ) : (
-        <p className="text-center text-xs font-medium text-gray-500">
-          {lockMessage || "Locked — match has started"}
-        </p>
+          {match.stage === "group" ? (
+            <>
+              <div className="mb-2 flex items-center justify-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={homeScore}
+                  onChange={(e) => setHomeScore(e.target.value)}
+                  className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
+                  placeholder="0"
+                />
+                <span className="text-gray-400">—</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={awayScore}
+                  onChange={(e) => setAwayScore(e.target.value)}
+                  className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
+                  placeholder="0"
+                />
+              </div>
+              <p className="mb-3 text-center text-[10px] text-gray-500">
+                Scores default to 0-0. Leave a box blank to keep that team at
+                0. Scores must match your chosen winner for the +5 bonus.
+              </p>
+            </>
+          ) : (
+            <p className="mb-3 text-center text-[10px] text-gray-500">
+              Pick the winner — deeper knockout rounds earn more points.
+            </p>
+          )}
+
+          {error && (
+            <p className="mb-2 text-center text-xs text-red-600">{error}</p>
+          )}
+
+          <button
+            type="button"
+            onClick={savePick}
+            disabled={saving}
+            className="w-full rounded-lg bg-[#0056b3] py-2 text-sm font-bold uppercase text-white hover:opacity-90 disabled:opacity-50"
+          >
+            {saving ? "Saving…" : pick ? "Update Pick" : "Save Pick"}
+          </button>
+        </>
       )}
     </article>
   );

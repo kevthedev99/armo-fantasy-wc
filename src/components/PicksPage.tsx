@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { isMatchLocked } from "@/lib/scoring";
 import type { AppSettings, Match, Pick } from "@/lib/types";
 import { MatchCard } from "./MatchCard";
 
@@ -34,7 +35,20 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
   const groupMatches = matches.filter((m) => m.stage === "group");
   const knockoutMatches = matches.filter((m) => m.stage === "knockout");
 
-  const visibleMatches = tab === "group" ? groupMatches : knockoutMatches;
+  const visibleMatches = (tab === "group" ? groupMatches : knockoutMatches).sort(
+    (a, b) => {
+      const aLocked = isMatchLocked(a);
+      const bLocked = isMatchLocked(b);
+      if (aLocked !== bLocked) return aLocked ? 1 : -1;
+      return (
+        new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime()
+      );
+    }
+  );
+
+  const lockedWithoutPick = visibleMatches.filter(
+    (m) => isMatchLocked(m) && !pickMap.has(m.id)
+  ).length;
 
   function handleSaved(pick: Pick) {
     setPicks((prev) => {
@@ -60,10 +74,17 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
       </header>
 
       <p className="border-b border-gray-200 bg-white px-6 py-3 text-xs text-gray-600">
-        Change picks anytime before kickoff — once a match starts, picks lock
-        permanently. Group stage: pick winner (or tie) and exact score for
-        bonus. Knockouts: pick the winner only.
+        Change picks anytime before kickoff. Once a match starts, it locks —
+        you cannot add or change a pick, even if you forgot to pick that game.
+        Group stage: winner (or tie) + score for bonus. Knockouts: winner only.
       </p>
+
+      {lockedWithoutPick > 0 && (
+        <p className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-xs font-medium text-amber-900">
+          {lockedWithoutPick} match{lockedWithoutPick !== 1 ? "es" : ""} already
+          started with no pick — those are locked and cannot be changed.
+        </p>
+      )}
 
       <div className="flex flex-wrap gap-2 px-6 py-4">
         <button

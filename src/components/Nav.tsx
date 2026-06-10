@@ -9,6 +9,7 @@ interface NavProps {
 
 const MAIN_LINKS = [
   { href: "/", label: "Standings" },
+  { href: "/games", label: "Games" },
   { href: "/picks", label: "Picks" },
   { href: "/rules", label: "Rules" },
   { href: "/casino", label: "Roulette" },
