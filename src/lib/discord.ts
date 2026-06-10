@@ -91,7 +91,7 @@ export async function postDiscordLeaderboard(
   return postDiscord({
     embeds: [
       {
-        title: "📊 LEADERBOARD",
+        title: "📊 LEADERBOARD — Top 5",
         description: lines.join("\n"),
         color: DISCORD_EMBED_GOLD,
         footer: { text: "Updated after full time · armowc26.xyz" },

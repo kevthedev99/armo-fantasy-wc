@@ -185,7 +185,7 @@ export async function GET(request: Request) {
       .from("profiles")
       .select("display_name, username, total_points")
       .order("total_points", { ascending: false })
-      .limit(10);
+      .limit(5);
 
     if (leaders && leaders.length > 0) {
       const posted = await postDiscordLeaderboard(leaders);
