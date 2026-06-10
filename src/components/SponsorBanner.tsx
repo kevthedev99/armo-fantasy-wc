@@ -4,12 +4,24 @@ const SPONSORS = [
   {
     name: "Iron Crest Roofing",
     src: "/sponsors/iron-crest-roofing.png",
+    lightBg: false,
   },
   {
     name: "Pasadena Tutoring Co.",
     src: "/sponsors/pasadena-tutoring-co.png",
+    lightBg: false,
+  },
+  {
+    name: "Lyon Shoe Repair",
+    src: "/sponsors/lyon-shoe-repair.png",
+    lightBg: true,
   },
 ] as const;
+
+function sponsorTileClass(lightBg: boolean, isLogin: boolean): string {
+  if (lightBg) return "bg-[#f5f0e8]";
+  return isLogin ? "bg-black/40" : "bg-[#111]";
+}
 
 interface SponsorBannerProps {
   variant?: "login" | "standings";
@@ -34,13 +46,14 @@ export function SponsorBanner({ variant = "login" }: SponsorBannerProps) {
       </p>
 
       {/* Desktop / tablet: side by side */}
-      <div className="mx-auto hidden max-w-2xl items-center justify-center gap-6 sm:flex md:gap-10">
+      <div className="mx-auto hidden max-w-4xl items-center justify-center gap-4 sm:flex md:gap-6">
         {SPONSORS.map((sponsor) => (
           <div
             key={sponsor.name}
-            className={`flex flex-1 items-center justify-center rounded-lg px-4 py-3 ${
-              isLogin ? "bg-black/40" : "bg-[#111]"
-            }`}
+            className={`flex flex-1 items-center justify-center rounded-lg px-4 py-3 ${sponsorTileClass(
+              sponsor.lightBg,
+              isLogin
+            )}`}
           >
             <img
               src={sponsor.src}
@@ -56,9 +69,10 @@ export function SponsorBanner({ variant = "login" }: SponsorBannerProps) {
         {SPONSORS.map((sponsor) => (
           <div
             key={sponsor.name}
-            className={`flex items-center justify-center rounded-lg px-3 py-2.5 ${
-              isLogin ? "bg-black/40" : "bg-[#111]"
-            }`}
+            className={`flex items-center justify-center rounded-lg px-3 py-2.5 ${sponsorTileClass(
+              sponsor.lightBg,
+              isLogin
+            )}`}
           >
             <img
               src={sponsor.src}
