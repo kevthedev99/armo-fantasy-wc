@@ -8,21 +8,36 @@ export default async function GamesRoute() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: matches }, { data: profile }] = await Promise.all([
-    supabase.from("matches").select("*").order("kickoff_at", { ascending: true }),
-    user
-      ? supabase
-          .from("profiles")
-          .select("username")
-          .eq("id", user.id)
-          .single()
-      : Promise.resolve({ data: null }),
-  ]);
+  const [{ data: matches }, { data: profile }, { data: picks }] =
+    await Promise.all([
+      supabase.from("matches").select("*").order("kickoff_at", { ascending: true }),
+      user
+        ? supabase
+            .from("profiles")
+            .select("username")
+            .eq("id", user.id)
+            .single()
+        : Promise.resolve({ data: null }),
+      user
+        ? supabase
+            .from("picks")
+            .select("match_id, picked_winner")
+            .eq("user_id", user.id)
+        : Promise.resolve({ data: [] }),
+    ]);
+
+  const pickByMatchId = Object.fromEntries(
+    (picks ?? []).map((p) => [p.match_id, p.picked_winner])
+  );
 
   return (
     <>
       <Nav username={profile?.username} />
-      <GamesPage matches={matches ?? []} />
+      <GamesPage
+        matches={matches ?? []}
+        pickByMatchId={pickByMatchId}
+        isLoggedIn={!!user}
+      />
     </>
   );
 }

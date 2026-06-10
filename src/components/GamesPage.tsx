@@ -10,10 +10,43 @@ import {
   getPSTDateKey,
   getStatusLabel,
 } from "@/lib/match-status";
-import type { Match } from "@/lib/types";
+import type { Match, PickWinner } from "@/lib/types";
 
 interface GamesPageProps {
   matches: Match[];
+  pickByMatchId?: Record<number, PickWinner>;
+  isLoggedIn?: boolean;
+}
+
+function PickMark() {
+  return (
+    <span
+      className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-[#0056b3] text-white"
+      title="Your pick"
+      aria-label="Your pick"
+    >
+      <svg
+        viewBox="0 0 12 12"
+        className="h-2.5 w-2.5"
+        fill="none"
+        stroke="currentColor"
+        strokeWidth="2"
+        strokeLinecap="round"
+        strokeLinejoin="round"
+        aria-hidden
+      >
+        <path d="M2 6l3 3 5-5" />
+      </svg>
+    </span>
+  );
+}
+
+function showHomePick(picked?: PickWinner): boolean {
+  return picked === "home" || picked === "draw";
+}
+
+function showAwayPick(picked?: PickWinner): boolean {
+  return picked === "away" || picked === "draw";
 }
 
 function TeamLogo({ src, name }: { src: string | null; name: string }) {
@@ -30,7 +63,15 @@ function TeamLogo({ src, name }: { src: string | null; name: string }) {
   );
 }
 
-function MatchRow({ match, variant }: { match: Match; variant: "live" | "upcoming" | "finished" }) {
+function MatchRow({
+  match,
+  variant,
+  pickedWinner,
+}: {
+  match: Match;
+  variant: "live" | "upcoming" | "finished";
+  pickedWinner?: PickWinner;
+}) {
   const live = variant === "live";
   const finished = variant === "finished";
   const showScore = live || finished;
@@ -55,6 +96,7 @@ function MatchRow({ match, variant }: { match: Match; variant: "live" | "upcomin
         >
           {match.home_team_name}
         </span>
+        {showHomePick(pickedWinner) && <PickMark />}
       </div>
 
       <div className="flex w-20 shrink-0 flex-col items-center">
@@ -97,6 +139,7 @@ function MatchRow({ match, variant }: { match: Match; variant: "live" | "upcomin
         >
           {match.away_team_name}
         </span>
+        {showAwayPick(pickedWinner) && <PickMark />}
       </div>
     </article>
   );
@@ -107,11 +150,13 @@ function MatchGroup({
   matches,
   variant,
   badge,
+  pickByMatchId,
 }: {
   title: string;
   matches: Match[];
   variant: "live" | "upcoming" | "finished";
   badge?: string;
+  pickByMatchId: Record<number, PickWinner>;
 }) {
   if (matches.length === 0) return null;
 
@@ -141,7 +186,11 @@ function MatchGroup({
                 {match.group_name ?? match.round}
               </p>
             )}
-            <MatchRow match={match} variant={variant} />
+            <MatchRow
+              match={match}
+              variant={variant}
+              pickedWinner={pickByMatchId[match.id]}
+            />
           </div>
         ))}
       </div>
@@ -149,7 +198,11 @@ function MatchGroup({
   );
 }
 
-export function GamesPage({ matches }: GamesPageProps) {
+export function GamesPage({
+  matches,
+  pickByMatchId = {},
+  isLoggedIn = false,
+}: GamesPageProps) {
   const router = useRouter();
 
   useEffect(() => {
@@ -213,6 +266,15 @@ export function GamesPage({ matches }: GamesPageProps) {
       </header>
 
       <div className="mx-auto max-w-2xl space-y-6 px-4 py-6 md:px-8">
+        {isLoggedIn && (
+          <p className="flex items-center gap-2 text-xs text-gray-500">
+            <PickMark />
+            <span>
+              Blue checkmark = the team you picked to win. Draw picks show on
+              both teams.
+            </span>
+          </p>
+        )}
         {live.length === 0 &&
           upcomingDates.length === 0 &&
           recentFinished.length === 0 && (
@@ -226,6 +288,7 @@ export function GamesPage({ matches }: GamesPageProps) {
           matches={live}
           variant="live"
           badge={live.length > 0 ? `${live.length} live` : undefined}
+          pickByMatchId={pickByMatchId}
         />
 
         {live.length === 0 && upcomingDates.length > 0 && (
@@ -241,6 +304,7 @@ export function GamesPage({ matches }: GamesPageProps) {
             matches={dayMatches}
             variant="upcoming"
             badge={`${dayMatches.length} match${dayMatches.length !== 1 ? "es" : ""}`}
+            pickByMatchId={pickByMatchId}
           />
         ))}
 
@@ -249,6 +313,7 @@ export function GamesPage({ matches }: GamesPageProps) {
             title="Recent Results"
             matches={recentFinished}
             variant="finished"
+            pickByMatchId={pickByMatchId}
           />
         )}
       </div>
