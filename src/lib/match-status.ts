@@ -69,6 +69,5 @@ export function formatPSTTime(iso: string): string {
     hour: "numeric",
     minute: "2-digit",
     hour12: true,
-    timeZoneName: "short",
   }).format(new Date(iso));
 }

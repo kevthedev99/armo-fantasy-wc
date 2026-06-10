@@ -208,7 +208,7 @@ export function GamesPage({ matches }: GamesPageProps) {
           Games
         </h1>
         <p className="mt-2 text-sm text-white/80">
-          Live scores and upcoming kickoffs — times in Pacific (PST/PDT).
+          Live scores and upcoming kickoffs — all times Pacific.
         </p>
       </header>
 
