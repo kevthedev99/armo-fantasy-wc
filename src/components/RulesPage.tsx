@@ -21,7 +21,8 @@ export function RulesPage() {
           League Rules
         </h1>
         <p className="mx-auto mt-4 max-w-2xl text-sm text-gray-400 md:text-base">
-          Pick every World Cup match, climb the leaderboard, and take the pot.
+          Pick every World Cup match, climb the leaderboard, and compete for the
+          top 3 payouts.
         </p>
       </header>
 
@@ -37,12 +38,60 @@ export function RulesPage() {
               $25 Buy-In
             </p>
             <p className="mt-2 text-xl font-bold text-[#32CD32]">
-              Winner Takes All
+              Top 3 Split the Pot
             </p>
             <p className="mt-4 text-sm leading-relaxed text-gray-400">
-              Everyone puts in $25. One player tops the standings when the
-              tournament ends — that player wins the full pot. Tiebreaker: most
-              total wins, then highest point total.
+              Everyone puts in $25. When the tournament ends, the top three on
+              the standings split the full prize pool. Tiebreaker: most total
+              wins, then highest point total.
+            </p>
+            <div className="mt-6 space-y-3">
+              <div className="flex items-center justify-between rounded-lg border border-[#FFD700]/30 bg-black/50 px-4 py-3">
+                <span className="text-sm font-bold text-[#FFD700]">
+                  👑 1st Place
+                </span>
+                <span className="font-black text-white">80% of pot</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-gray-600 bg-black/50 px-4 py-3">
+                <span className="text-sm font-bold text-gray-200">
+                  🥈 2nd Place
+                </span>
+                <span className="font-black text-white">15% of pot</span>
+              </div>
+              <div className="flex items-center justify-between rounded-lg border border-[#cd7f32]/40 bg-black/50 px-4 py-3">
+                <span className="text-sm font-bold text-[#cd7f32]">
+                  🥉 3rd Place
+                </span>
+                <span className="font-black text-white">5% of pot</span>
+              </div>
+            </div>
+          </div>
+        </section>
+
+        <section className="rounded-2xl border border-[#32CD32]/30 bg-[#111]">
+          <div className="border-b border-[#32CD32]/20 bg-[#32CD32]/10 px-6 py-4">
+            <h2 className="text-lg font-black uppercase tracking-wide text-[#32CD32]">
+              How to Pay
+            </h2>
+          </div>
+          <div className="space-y-4 px-6 py-6 text-sm leading-relaxed text-gray-300">
+            <p>
+              Send your <strong className="text-white">$25 buy-in</strong> via{" "}
+              <strong className="text-white">Zelle</strong> to:
+            </p>
+            <p className="rounded-xl border border-[#32CD32]/30 bg-black/50 px-5 py-4 text-center">
+              <span className="block text-xs font-bold uppercase tracking-widest text-gray-500">
+                Zelle to
+              </span>
+              <span className="mt-1 block text-2xl font-black tracking-wide text-white">
+                626-487-8011
+              </span>
+            </p>
+            <p>
+              Include your <strong className="text-white">username</strong> in
+              the Zelle memo so we know it&apos;s you. You must pay to be
+              eligible for prizes — picks still require an account and invite
+              code <strong className="text-white">WC26</strong>.
             </p>
           </div>
         </section>

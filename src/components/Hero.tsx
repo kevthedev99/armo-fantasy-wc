@@ -20,7 +20,7 @@ export function Hero({ playerCount }: HeroProps) {
       </h2>
       <PotDisplay playerCount={playerCount} />
       <p className="mt-4 text-sm font-semibold uppercase tracking-widest text-[#FFD700] md:text-base">
-        $25 Buy-In, Winner Takes All
+        $25 Buy-In · Top 3 Split the Pot
       </p>
       <div className="mt-10 flex flex-wrap items-center justify-center gap-4">
         <Link

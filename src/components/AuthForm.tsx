@@ -91,7 +91,7 @@ export function AuthForm({ mode, playerCount }: AuthFormProps) {
             className="mt-4 text-6xl sm:text-7xl"
           />
           <p className="auth-shimmer-text mt-3 text-sm font-bold uppercase tracking-wider">
-            $25 Buy-In · Winner Takes All
+            $25 Buy-In · Top 3 Split the Pot
           </p>
         </div>
 
