@@ -25,6 +25,20 @@ function PlayerAvatar({ profile }: { profile: Profile }) {
   );
 }
 
+const PODIUM_POT_SHARE: Record<1 | 2 | 3, string> = {
+  1: "80% of Pot",
+  2: "15% of Pot",
+  3: "5% of Pot",
+};
+
+function PotShareBadge({ rank }: { rank: 1 | 2 | 3 }) {
+  return (
+    <span className="inline-block rounded bg-[#0d3d1a] px-2 py-0.5 text-[10px] font-bold uppercase text-[#32CD32]">
+      {PODIUM_POT_SHARE[rank]}
+    </span>
+  );
+}
+
 function PodiumBadge({ rank }: { rank: 1 | 2 | 3 }) {
   if (rank === 1) {
     return (
@@ -115,7 +129,12 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                       </p>
                       {(rank || isLast) && (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
-                          {rank && <PodiumBadge rank={rank} />}
+                          {rank && (
+                            <>
+                              <PodiumBadge rank={rank} />
+                              <PotShareBadge rank={rank} />
+                            </>
+                          )}
                           {isLast && <LastPlaceBadge />}
                         </div>
                       )}
@@ -187,9 +206,14 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                       )}
                     </span>
                     {rank && (
-                      <span className="shrink-0">
-                        <PodiumBadge rank={rank} />
-                      </span>
+                      <>
+                        <span className="shrink-0">
+                          <PodiumBadge rank={rank} />
+                        </span>
+                        <span className="shrink-0">
+                          <PotShareBadge rank={rank} />
+                        </span>
+                      </>
                     )}
                     {isLast && (
                       <span className="shrink-0">
