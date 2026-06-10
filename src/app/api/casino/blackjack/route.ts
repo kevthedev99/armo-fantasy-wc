@@ -27,6 +27,8 @@ function respondWithHand(
     ...view,
     balance,
     canPlay: balance > 0,
+    fullPlayerHand: hand?.playerHand ?? [],
+    fullDealerHand: hand?.dealerHand ?? [],
   });
 }
 

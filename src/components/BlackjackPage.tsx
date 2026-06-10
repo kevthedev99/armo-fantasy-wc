@@ -4,6 +4,15 @@ import { useEffect, useState } from "react";
 import { CasinoBalanceBar } from "@/components/CasinoBalanceBar";
 import { PlayingCard } from "@/components/PlayingCard";
 import type { BlackjackClientView, Card } from "@/lib/blackjack";
+import {
+  animateDealerReveal,
+  animateInitialDeal,
+  displayFromView,
+  sleep,
+  type CardAnimKey,
+  type TableDisplay,
+} from "@/lib/blackjack-display";
+import { handValue } from "@/lib/blackjack";
 import type { BalanceState } from "@/lib/casino-types";
 
 const CHIP_PRESETS = [5, 10, 25, 50, 100];
@@ -11,6 +20,22 @@ const CHIP_PRESETS = [5, 10, 25, 50, 100];
 interface BlackjackPageProps {
   initialBalance: BalanceState;
   initialView: BlackjackClientView;
+}
+
+interface ApiResponse extends BlackjackClientView {
+  balance: number;
+  canPlay: boolean;
+  fullPlayerHand: Card[];
+  fullDealerHand: Card[];
+}
+
+function cardAnim(
+  animKey: CardAnimKey,
+  id: string,
+  type: "deal" | "flip" = "deal"
+): "deal" | "flip" | false {
+  if (animKey === id) return type;
+  return false;
 }
 
 export function BlackjackPage({
@@ -21,6 +46,17 @@ export function BlackjackPage({
   const [chipAmount, setChipAmount] = useState(25);
   const [customChip, setCustomChip] = useState("");
   const [view, setView] = useState<BlackjackClientView>(initialView);
+  const [display, setDisplay] = useState<TableDisplay>(() =>
+    displayFromView(
+      initialView.playerHand,
+      initialView.dealerHand,
+      initialView.dealerHidden,
+      initialView.playerTotal,
+      initialView.dealerTotal
+    )
+  );
+  const [animKey, setAnimKey] = useState<CardAnimKey>(null);
+  const [isAnimating, setIsAnimating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
@@ -45,6 +81,11 @@ export function BlackjackPage({
     return () => clearInterval(interval);
   }, []);
 
+  function applyStep(next: TableDisplay, key: CardAnimKey) {
+    setDisplay(next);
+    setAnimKey(key);
+  }
+
   async function act(action: string, amount?: number) {
     setLoading(true);
     setError(null);
@@ -55,24 +96,78 @@ export function BlackjackPage({
       body: JSON.stringify({ action, amount }),
     });
 
-    const data = await res.json();
-    setLoading(false);
+    const data = (await res.json()) as ApiResponse & { error?: string };
 
     if (!res.ok) {
+      setLoading(false);
       setError(data.error ?? "Action failed.");
       return;
     }
 
-    setView(data);
     setBalanceState((prev) => ({
       ...prev,
       balance: data.balance,
       canPlay: data.canPlay,
     }));
+
+    const player = data.fullPlayerHand;
+    const dealer = data.fullDealerHand;
+    const roundOver = data.status !== "playing";
+
+    setIsAnimating(true);
+
+    if (action === "deal") {
+      await animateInitialDeal(player, dealer, applyStep);
+      if (roundOver) {
+        await animateDealerReveal(player, dealer, applyStep);
+      }
+    } else if (action === "hit") {
+      const prevCount = display.playerHand.length;
+      applyStep(
+        {
+          ...display,
+          playerHand: player,
+          playerTotal: handValue(player),
+        },
+        `p-${prevCount}`
+      );
+      await sleep(420);
+      if (roundOver && data.status !== "bust") {
+        await animateDealerReveal(player, dealer, applyStep);
+      }
+    } else if (action === "double") {
+      applyStep(
+        {
+          ...display,
+          playerHand: player,
+          playerTotal: handValue(player),
+        },
+        `p-${player.length - 1}`
+      );
+      await sleep(420);
+      await animateDealerReveal(player, dealer, applyStep);
+    } else if (action === "stand") {
+      await animateDealerReveal(player, dealer, applyStep);
+    }
+
+    setAnimKey(null);
+    setIsAnimating(false);
+    setLoading(false);
+    setView(data);
+    setDisplay(
+      displayFromView(
+        data.playerHand,
+        data.dealerHand,
+        data.dealerHidden,
+        data.playerTotal,
+        data.dealerTotal
+      )
+    );
   }
 
   const roundOver = view.status !== "playing" && view.playerHand.length > 0;
-  const showBetting = view.canDeal && !loading;
+  const showBetting = view.canDeal && !loading && !isAnimating;
+  const controlsDisabled = loading || isAnimating;
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
@@ -88,27 +183,30 @@ export function BlackjackPage({
 
       <CasinoBalanceBar balanceState={balanceState} />
 
-      {/* Table */}
       <div className="rounded-2xl border border-[#FFD700]/30 bg-gradient-to-b from-[#0d5c2e] to-[#0a4522] p-6 shadow-inner">
         <p className="mb-4 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-[#FFD700]/70">
           Dealer
-          {view.dealerTotal !== null && (
-            <span className="ml-2 text-white">({view.dealerTotal})</span>
+          {display.dealerTotal !== null && (
+            <span className="ml-2 text-white">({display.dealerTotal})</span>
           )}
         </p>
         <div className="mb-10 flex min-h-[7rem] flex-wrap justify-center gap-2">
-          {view.dealerHand.map((card: Card, i: number) => (
+          {display.dealerHand.map((card, i) => (
             <PlayingCard
-              key={`d-${i}`}
+              key={`d-${i}-${card.rank}-${card.suit}`}
               card={card}
-              hidden={view.dealerHidden && i === 1}
+              animate={cardAnim(animKey, `d-${i}`, i === 1 ? "flip" : "deal")}
             />
           ))}
-          {view.dealerHand.length === 0 && (
-            <p className="text-sm text-white/40">Waiting for deal…</p>
+          {display.showDealerHole && (
+            <PlayingCard
+              key="d-hole"
+              hidden
+              animate={cardAnim(animKey, "d-hole", "deal")}
+            />
           )}
-          {view.dealerHidden && view.dealerHand.length === 1 && (
-            <PlayingCard hidden />
+          {display.dealerHand.length === 0 && !display.showDealerHole && (
+            <p className="text-sm text-white/40">Waiting for deal…</p>
           )}
         </div>
 
@@ -116,17 +214,21 @@ export function BlackjackPage({
 
         <p className="mb-4 text-center text-[10px] font-bold uppercase tracking-[0.3em] text-[#FFD700]/70">
           You
-          {view.playerHand.length > 0 && (
-            <span className="ml-2 text-white">({view.playerTotal})</span>
+          {display.playerHand.length > 0 && (
+            <span className="ml-2 text-white">({display.playerTotal})</span>
           )}
         </p>
         <div className="flex min-h-[7rem] flex-wrap justify-center gap-2">
-          {view.playerHand.map((card: Card, i: number) => (
-            <PlayingCard key={`p-${i}`} card={card} />
+          {display.playerHand.map((card, i) => (
+            <PlayingCard
+              key={`p-${i}-${card.rank}-${card.suit}`}
+              card={card}
+              animate={cardAnim(animKey, `p-${i}`)}
+            />
           ))}
         </div>
 
-        {view.message && (
+        {view.message && !isAnimating && (
           <p
             className={`mt-6 text-center text-sm font-bold ${
               view.status === "win" || view.status === "blackjack"
@@ -148,7 +250,6 @@ export function BlackjackPage({
         )}
       </div>
 
-      {/* Chip selector */}
       {showBetting && (
         <div className="mt-6 rounded-xl border border-white/10 bg-white/5 p-4">
           <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
@@ -186,42 +287,41 @@ export function BlackjackPage({
         </div>
       )}
 
-      {/* Actions */}
       <div className="mt-6 flex flex-wrap justify-center gap-3">
-        {view.canDeal && (
+        {view.canDeal && !isAnimating && (
           <button
             type="button"
-            disabled={loading || !balanceState.canPlay || activeAmount < 1}
+            disabled={controlsDisabled || !balanceState.canPlay || activeAmount < 1}
             onClick={() => act("deal", activeAmount)}
             className="rounded-full bg-gradient-to-r from-[#FF007A] to-[#d4006a] px-8 py-3 text-sm font-black uppercase tracking-widest text-white shadow-[0_4px_24px_rgba(255,0,122,0.4)] transition hover:scale-[1.02] disabled:opacity-40"
           >
             {roundOver ? "Deal Again" : "Deal"}
           </button>
         )}
-        {view.canHit && (
+        {view.canHit && !isAnimating && (
           <button
             type="button"
-            disabled={loading}
+            disabled={controlsDisabled}
             onClick={() => act("hit")}
             className="rounded-full bg-[#0056b3] px-6 py-3 text-sm font-black uppercase tracking-widest text-white hover:bg-[#0066cc] disabled:opacity-40"
           >
             Hit
           </button>
         )}
-        {view.canStand && (
+        {view.canStand && !isAnimating && (
           <button
             type="button"
-            disabled={loading}
+            disabled={controlsDisabled}
             onClick={() => act("stand")}
             className="rounded-full border border-white/30 bg-black/40 px-6 py-3 text-sm font-black uppercase tracking-widest text-white hover:bg-black/60 disabled:opacity-40"
           >
             Stand
           </button>
         )}
-        {view.canDouble && (
+        {view.canDouble && !isAnimating && (
           <button
             type="button"
-            disabled={loading}
+            disabled={controlsDisabled}
             onClick={() => act("double")}
             className="rounded-full bg-[#FFD700] px-6 py-3 text-sm font-black uppercase tracking-widest text-black hover:bg-[#ffe44d] disabled:opacity-40"
           >
@@ -243,7 +343,6 @@ export function BlackjackPage({
         </p>
       )}
 
-      {/* Rules */}
       <div className="mt-10 rounded-xl border border-white/10 bg-white/[0.03] p-6">
         <h2 className="font-display text-2xl tracking-wide text-[#FFD700]">
           HOW TO PLAY

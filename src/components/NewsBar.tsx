@@ -1,4 +1,4 @@
-import { format } from "date-fns";
+import { formatKickoffPST } from "@/lib/format-pst";
 import type { Match } from "@/lib/types";
 
 interface NewsBarProps {
@@ -8,7 +8,7 @@ interface NewsBarProps {
 function formatMatchLine(matches: Match[]): string {
   return matches
     .map((m) => {
-      const date = format(new Date(m.kickoff_at), "EEE MMM d · h:mm a");
+      const date = formatKickoffPST(m.kickoff_at);
       return `${date} — ${m.home_team_name} vs ${m.away_team_name}`;
     })
     .join("   •   ");

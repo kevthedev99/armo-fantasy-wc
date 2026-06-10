@@ -7,6 +7,11 @@ export type RouletteBet =
   | { type: "red" | "black" | "odd" | "even" | "low" | "high" }
   | { type: "dozen"; dozen: 1 | 2 | 3 };
 
+export const WHEEL_SEGMENT_COUNT = 38;
+export const WHEEL_SEGMENT_ANGLE = 360 / WHEEL_SEGMENT_COUNT;
+/** Fixed pointer at top of wheel (12 o'clock). */
+export const WHEEL_POINTER_DEG = -90;
+
 /** American wheel order (clockwise). */
 export const WHEEL_SLOTS: RouletteValue[] = [
   0, 28, 9, 26, 30, 11, 7, 20, 32, 17, 5, 22, 34, 15, 3, 24, 36, 13, 1, "00",
@@ -119,6 +124,24 @@ export function validateRouletteBet(bet: RouletteBet): string | null {
     return "Invalid dozen.";
   }
   return null;
+}
+
+/** Compute the next cumulative wheel rotation so `wheelIndex` lands under the pointer. */
+export function getNextWheelRotation(
+  currentRotation: number,
+  wheelIndex: number
+): number {
+  const extraSpins = 5 + Math.floor(Math.random() * 3);
+  const midAngle =
+    wheelIndex * WHEEL_SEGMENT_ANGLE +
+    WHEEL_POINTER_DEG +
+    WHEEL_SEGMENT_ANGLE / 2;
+  const targetMod =
+    (((WHEEL_POINTER_DEG - midAngle) % 360) + 360) % 360;
+  const currentMod = (((currentRotation % 360) + 360) % 360);
+  let delta = targetMod - currentMod;
+  if (delta <= 0) delta += 360;
+  return currentRotation + extraSpins * 360 + delta;
 }
 
 /** Table layout: 3 rows × 12 columns for numbers 1–36. */

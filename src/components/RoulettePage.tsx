@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from "react";
 import { CasinoBalanceBar } from "@/components/CasinoBalanceBar";
-import { RouletteWheel, rotationForWheelIndex } from "@/components/RouletteWheel";
+import { RouletteWheel } from "@/components/RouletteWheel";
+import { getNextWheelRotation } from "@/lib/roulette";
 import type { BalanceState } from "@/lib/casino-types";
 import {
   TABLE_NUMBERS,
@@ -109,7 +110,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
 
     pendingResult.current = data;
     setLastResult(data);
-    setWheelRotation((r) => r + rotationForWheelIndex(data.wheelIndex));
+    setWheelRotation((r) => getNextWheelRotation(r, data.wheelIndex));
     setWheelAnimating(true);
     setBalanceState((prev) => ({
       ...prev,

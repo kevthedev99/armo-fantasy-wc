@@ -89,3 +89,41 @@ body {
     animation: none;
   }
 }
+
+@keyframes card-deal-in {
+  0% {
+    opacity: 0;
+    transform: translateY(-48px) scale(0.75) rotate(-6deg);
+  }
+  100% {
+    opacity: 1;
+    transform: translateY(0) scale(1) rotate(0deg);
+  }
+}
+
+@keyframes card-flip-reveal {
+  0% {
+    transform: rotateY(90deg) scale(0.9);
+    opacity: 0.4;
+  }
+  100% {
+    transform: rotateY(0deg) scale(1);
+    opacity: 1;
+  }
+}
+
+.card-deal-in {
+  animation: card-deal-in 0.4s ease-out both;
+}
+
+.card-flip-reveal {
+  animation: card-flip-reveal 0.35s ease-out both;
+  transform-style: preserve-3d;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .card-deal-in,
+  .card-flip-reveal {
+    animation: none;
+  }
+}

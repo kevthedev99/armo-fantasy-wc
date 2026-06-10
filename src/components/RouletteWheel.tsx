@@ -1,13 +1,11 @@
 "use client";
 
 import {
+  WHEEL_SEGMENT_ANGLE,
   WHEEL_SLOTS,
   formatRouletteValue,
   getRouletteColor,
 } from "@/lib/roulette";
-
-const SEGMENT_COUNT = WHEEL_SLOTS.length;
-const SEGMENT_ANGLE = 360 / SEGMENT_COUNT;
 
 const COLOR_FILL = {
   red: "#c41e3a",
@@ -53,8 +51,8 @@ export function RouletteWheel({
           >
             <circle cx="100" cy="100" r="98" fill="#1a1208" />
             {WHEEL_SLOTS.map((value, i) => {
-              const startAngle = i * SEGMENT_ANGLE - 90;
-              const endAngle = startAngle + SEGMENT_ANGLE;
+              const startAngle = i * WHEEL_SEGMENT_ANGLE - 90;
+              const endAngle = startAngle + WHEEL_SEGMENT_ANGLE;
               const color = getRouletteColor(value);
               const startRad = (startAngle * Math.PI) / 180;
               const endRad = (endAngle * Math.PI) / 180;
@@ -62,8 +60,8 @@ export function RouletteWheel({
               const y1 = 100 + 96 * Math.sin(startRad);
               const x2 = 100 + 96 * Math.cos(endRad);
               const y2 = 100 + 96 * Math.sin(endRad);
-              const largeArc = SEGMENT_ANGLE > 180 ? 1 : 0;
-              const midAngle = startAngle + SEGMENT_ANGLE / 2;
+              const largeArc = WHEEL_SEGMENT_ANGLE > 180 ? 1 : 0;
+              const midAngle = startAngle + WHEEL_SEGMENT_ANGLE / 2;
               const midRad = (midAngle * Math.PI) / 180;
               const labelX = 100 + 72 * Math.cos(midRad);
               const labelY = 100 + 72 * Math.sin(midRad);
@@ -117,10 +115,4 @@ export function RouletteWheel({
       </div>
     </div>
   );
-}
-
-export function rotationForWheelIndex(wheelIndex: number): number {
-  const extraSpins = 5 + Math.floor(Math.random() * 3);
-  const segmentOffset = wheelIndex * SEGMENT_ANGLE + SEGMENT_ANGLE / 2;
-  return extraSpins * 360 + (360 - segmentOffset);
 }
