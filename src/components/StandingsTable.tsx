@@ -74,10 +74,19 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                           </span>
                         )}
                       </p>
-                      {isLast && (
-                        <span className="mt-1.5 inline-block rounded bg-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
-                          Wooden Spoon
-                        </span>
+                      {(isFirst || isLast) && (
+                        <div className="mt-1.5 flex flex-wrap gap-1.5">
+                          {isFirst && (
+                            <span className="inline-block rounded bg-[#3d3200] px-2 py-0.5 text-[10px] font-bold uppercase text-[#FFD700]">
+                              👑 Champion
+                            </span>
+                          )}
+                          {isLast && (
+                            <span className="inline-block rounded bg-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
+                              Wooden Spoon
+                            </span>
+                          )}
+                        </div>
                       )}
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
                         <span className="text-gray-400">
@@ -145,6 +154,11 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                         </span>
                       )}
                     </span>
+                    {isFirst && (
+                      <span className="shrink-0 rounded bg-[#3d3200] px-2 py-0.5 text-[10px] font-bold uppercase text-[#FFD700]">
+                        👑 Champion
+                      </span>
+                    )}
                     {isLast && (
                       <span className="shrink-0 rounded bg-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
                         Wooden Spoon
