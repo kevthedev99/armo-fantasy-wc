@@ -1,14 +1,23 @@
 "use client";
 
 import Link from "next/link";
-import { useRouter } from "next/navigation";
+import { usePathname, useRouter } from "next/navigation";
 
 interface NavProps {
   username?: string;
 }
 
+const MAIN_LINKS = [
+  { href: "/", label: "Standings" },
+  { href: "/picks", label: "Picks" },
+  { href: "/rules", label: "Rules" },
+  { href: "/casino", label: "Roulette" },
+  { href: "/casino/blackjack", label: "Blackjack" },
+] as const;
+
 export function Nav({ username }: NavProps) {
   const router = useRouter();
+  const pathname = usePathname();
 
   async function handleLogout() {
     await fetch("/api/auth/logout", { method: "POST" });
@@ -16,44 +25,55 @@ export function Nav({ username }: NavProps) {
     router.refresh();
   }
 
+  function isActive(href: string) {
+    if (href === "/") return pathname === "/";
+    if (href === "/casino") return pathname === "/casino";
+    return pathname === href || pathname.startsWith(`${href}/`);
+  }
+
   return (
-    <nav className="flex flex-wrap items-center justify-between gap-2 bg-black px-4 py-3 text-white md:px-8">
+    <nav className="flex flex-wrap items-center justify-between gap-3 bg-black px-4 py-3.5 text-white md:gap-4 md:px-8">
       <Link
         href="/"
-        className="shrink-0 text-sm font-black uppercase tracking-wider text-[#FFD700]"
+        className="shrink-0 text-sm font-black uppercase tracking-wider text-[#FFD700] md:text-base"
       >
         Armo Fantasy WC
       </Link>
-      <div className="flex flex-wrap items-center gap-3 text-xs sm:gap-4 sm:text-sm">
-        <Link href="/" className="hover:text-[#FF007A]">
-          Standings
-        </Link>
-        <Link href="/picks" className="hover:text-[#FF007A]">
-          Picks
-        </Link>
-        <Link href="/rules" className="hover:text-[#FF007A]">
-          Rules
-        </Link>
-        <Link href="/casino" className="hover:text-[#FFD700]">
-          Roulette
-        </Link>
+      <div className="flex flex-wrap items-center gap-5 sm:gap-7 md:gap-8">
+        {MAIN_LINKS.map(({ href, label }) => (
+          <Link
+            key={href}
+            href={href}
+            className={`text-sm font-semibold tracking-wide transition sm:text-base ${
+              isActive(href)
+                ? href.startsWith("/casino")
+                  ? "text-[#FFD700]"
+                  : "text-[#FF007A]"
+                : href.startsWith("/casino")
+                  ? "text-gray-300 hover:text-[#FFD700]"
+                  : "text-gray-300 hover:text-[#FF007A]"
+            }`}
+          >
+            {label}
+          </Link>
+        ))}
         {username ? (
           <>
             <Link
               href={`/player/${username}`}
-              className="hidden text-gray-400 hover:text-white sm:inline"
+              className="hidden text-sm text-gray-400 hover:text-white sm:inline md:text-base"
             >
               @{username}
             </Link>
             <button
               onClick={handleLogout}
-              className="text-gray-400 hover:text-white"
+              className="text-sm text-gray-400 hover:text-white md:text-base"
             >
               Log out
             </button>
           </>
         ) : (
-          <Link href="/login" className="text-[#32CD32]">
+          <Link href="/login" className="text-sm text-[#32CD32] md:text-base">
             Log in
           </Link>
         )}

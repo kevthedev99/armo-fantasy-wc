@@ -1,3 +1,4 @@
+import type { BlackjackState } from "@/lib/blackjack";
 import { CASINO_TIMEZONE, DAILY_FREE_PLAY, getCasinoDay } from "@/lib/casino-day";
 import { createServiceClient } from "@/lib/supabase/server";
 
@@ -90,6 +91,45 @@ export async function updateCasinoBalance(
 
   if (error || !data) {
     throw new Error(error?.message ?? "Could not update balance.");
+  }
+
+  return data.balance;
+}
+
+export async function getBlackjackState(
+  userId: string
+): Promise<BlackjackState | null> {
+  const service = createServiceClient();
+  const { data } = await service
+    .from("casino_balances")
+    .select("blackjack_state")
+    .eq("user_id", userId)
+    .maybeSingle();
+
+  return (data?.blackjack_state as BlackjackState | null) ?? null;
+}
+
+export async function saveCasinoSession(
+  userId: string,
+  balance: number,
+  lastResetDate: string,
+  blackjackState: BlackjackState | null
+): Promise<number> {
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from("casino_balances")
+    .update({
+      balance,
+      last_reset_date: lastResetDate,
+      blackjack_state: blackjackState,
+      updated_at: new Date().toISOString(),
+    })
+    .eq("user_id", userId)
+    .select("balance")
+    .single();
+
+  if (error || !data) {
+    throw new Error(error?.message ?? "Could not save casino session.");
   }
 
   return data.balance;

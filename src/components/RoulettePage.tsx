@@ -1,7 +1,9 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
+import { CasinoBalanceBar } from "@/components/CasinoBalanceBar";
 import { RouletteWheel, rotationForWheelIndex } from "@/components/RouletteWheel";
+import type { BalanceState } from "@/lib/casino-types";
 import {
   TABLE_NUMBERS,
   formatRouletteValue,
@@ -11,13 +13,6 @@ import {
 } from "@/lib/roulette";
 
 const CHIP_PRESETS = [5, 10, 25, 50, 100];
-
-export interface BalanceState {
-  balance: number;
-  canPlay: boolean;
-  resetIn: string;
-  dailyAllowance: number;
-}
 
 interface RoulettePageProps {
   initialBalance: BalanceState;
@@ -153,28 +148,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
         </p>
       </div>
 
-      {/* Balance bar */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#FFD700]/30 bg-[#0d2818]/80 px-5 py-4">
-        <div>
-          <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
-            Your chips
-          </p>
-          <p className="font-display text-4xl text-[#FFD700]">
-            ${balanceState.balance.toLocaleString()}
-          </p>
-        </div>
-        <div className="text-right text-sm text-gray-400">
-          <p>
-            <span className="text-white">${balanceState.dailyAllowance}</span>{" "}
-            free play daily
-          </p>
-          {!balanceState.canPlay && (
-            <p className="mt-1 text-[#FF007A]">
-              Resets in {balanceState.resetIn} (midnight ET)
-            </p>
-          )}
-        </div>
-      </div>
+      <CasinoBalanceBar balanceState={balanceState} />
 
       <div className="grid gap-8 lg:grid-cols-2">
         {/* Wheel */}
