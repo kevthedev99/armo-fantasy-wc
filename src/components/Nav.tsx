@@ -34,6 +34,9 @@ export function Nav({ username }: NavProps) {
         <Link href="/rules" className="hover:text-[#FF007A]">
           Rules
         </Link>
+        <Link href="/casino" className="hover:text-[#FFD700]">
+          Roulette
+        </Link>
         {username ? (
           <>
             <Link
