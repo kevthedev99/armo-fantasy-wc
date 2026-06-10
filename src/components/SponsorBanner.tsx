@@ -16,6 +16,16 @@ const SPONSORS = [
     src: "/sponsors/lyon-shoe-repair.png",
     lightBg: true,
   },
+  {
+    name: "Notary Shiraz",
+    src: "/sponsors/notary-shiraz.png",
+    lightBg: false,
+  },
+  {
+    name: "Black Crest Capital Group",
+    src: "/sponsors/black-crest-capital-group.png",
+    lightBg: false,
+  },
 ] as const;
 
 function sponsorTileClass(lightBg: boolean, isLogin: boolean): string {
@@ -45,12 +55,11 @@ export function SponsorBanner({ variant = "login" }: SponsorBannerProps) {
         Proud sponsors
       </p>
 
-      {/* Desktop / tablet: side by side */}
-      <div className="mx-auto hidden max-w-4xl items-center justify-center gap-4 sm:flex md:gap-6">
+      <div className="mx-auto grid max-w-5xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4">
         {SPONSORS.map((sponsor) => (
           <div
             key={sponsor.name}
-            className={`flex flex-1 items-center justify-center rounded-lg px-4 py-3 ${sponsorTileClass(
+            className={`flex items-center justify-center rounded-lg px-3 py-2.5 sm:px-4 sm:py-3 ${sponsorTileClass(
               sponsor.lightBg,
               isLogin
             )}`}
@@ -58,26 +67,7 @@ export function SponsorBanner({ variant = "login" }: SponsorBannerProps) {
             <img
               src={sponsor.src}
               alt={`${sponsor.name} logo`}
-              className="h-10 w-auto max-w-[220px] object-contain md:h-12"
-            />
-          </div>
-        ))}
-      </div>
-
-      {/* Mobile: stacked, compact */}
-      <div className="mx-auto flex max-w-xs flex-col gap-3 sm:hidden">
-        {SPONSORS.map((sponsor) => (
-          <div
-            key={sponsor.name}
-            className={`flex items-center justify-center rounded-lg px-3 py-2.5 ${sponsorTileClass(
-              sponsor.lightBg,
-              isLogin
-            )}`}
-          >
-            <img
-              src={sponsor.src}
-              alt={`${sponsor.name} logo`}
-              className="h-8 w-auto max-w-full object-contain"
+              className="h-8 w-auto max-w-full object-contain sm:h-10 md:h-12"
             />
           </div>
         ))}

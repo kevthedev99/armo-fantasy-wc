@@ -89,7 +89,7 @@ export function RulesPage() {
               <span className="mt-0.5 font-black text-[#FFD700]">05</span>
               <span>
                 Check the standings anytime. Last place gets the{" "}
-                <strong className="text-amber-400">Wooden Spoon</strong>.
+                <strong className="text-amber-400">Last Place</strong> badge.
               </span>
             </li>
           </ul>

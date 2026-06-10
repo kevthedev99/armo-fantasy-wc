@@ -47,10 +47,10 @@ function PodiumBadge({ rank }: { rank: 1 | 2 | 3 }) {
   );
 }
 
-function WoodenSpoonBadge() {
+function LastPlaceBadge() {
   return (
     <span className="inline-block rounded bg-amber-900 px-2 py-0.5 text-[10px] font-bold uppercase text-amber-200">
-      Wooden Spoon
+      Last Place
     </span>
   );
 }
@@ -116,7 +116,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                       {(rank || isLast) && (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {rank && <PodiumBadge rank={rank} />}
-                          {isLast && <WoodenSpoonBadge />}
+                          {isLast && <LastPlaceBadge />}
                         </div>
                       )}
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -193,7 +193,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                     )}
                     {isLast && (
                       <span className="shrink-0">
-                        <WoodenSpoonBadge />
+                        <LastPlaceBadge />
                       </span>
                     )}
                   </div>
