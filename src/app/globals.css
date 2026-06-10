@@ -121,9 +121,64 @@ body {
   transform-style: preserve-3d;
 }
 
+@keyframes pot-shimmer {
+  0% {
+    background-position: 200% center;
+  }
+  100% {
+    background-position: -200% center;
+  }
+}
+
+@keyframes pot-pop {
+  0% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+  40% {
+    transform: scale(1.06);
+    filter: drop-shadow(0 0 28px rgba(255, 215, 0, 0.55));
+  }
+  100% {
+    transform: scale(1);
+    filter: drop-shadow(0 0 0 transparent);
+  }
+}
+
+.pot-display {
+  background: linear-gradient(
+    90deg,
+    #ffffff 0%,
+    #ffd700 35%,
+    #ffffff 70%,
+    #ffd700 100%
+  );
+  background-size: 200% auto;
+  -webkit-background-clip: text;
+  background-clip: text;
+  color: transparent;
+  animation: pot-shimmer 6s linear infinite;
+}
+
+.pot-pulse {
+  animation: pot-pop 0.7s ease-out, pot-shimmer 6s linear infinite;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card-deal-in,
   .card-flip-reveal {
+    animation: none;
+  }
+
+  .pot-display {
+    animation: none;
+    color: #ffffff;
+    background: none;
+    -webkit-background-clip: unset;
+    background-clip: unset;
+  }
+
+  .pot-pulse {
     animation: none;
   }
 }

@@ -1,19 +1,24 @@
 import Link from "next/link";
+import { PotDisplay } from "@/components/PotDisplay";
 
-export function Hero() {
+interface HeroProps {
+  playerCount: number;
+}
+
+export function Hero({ playerCount }: HeroProps) {
   return (
     <section className="bg-black px-6 py-16 text-center">
       <p className="mb-2 text-sm font-bold tracking-[0.3em] text-[#FFD700]">
         ARMO FANTASY
       </p>
       <h1 className="text-5xl font-black uppercase leading-none tracking-tight text-white md:text-7xl">
-        <span className="text-[#FFD700]">26</span>{" "}
+        <span className="text-[#FFD700]">2026</span>{" "}
         <span className="text-white">PICK&apos;EM</span>
       </h1>
       <h2 className="mt-2 text-3xl font-black uppercase text-[#FF007A] md:text-5xl">
         World Cup League
       </h2>
-      <p className="mt-6 text-7xl font-black text-white md:text-9xl">2026</p>
+      <PotDisplay playerCount={playerCount} />
       <p className="mt-4 text-sm font-semibold uppercase tracking-widest text-[#FFD700] md:text-base">
         $25 Buy-In, Winner Takes All
       </p>

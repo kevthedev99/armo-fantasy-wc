@@ -38,7 +38,7 @@ export default async function HomePage() {
   return (
     <div className="min-h-screen bg-black">
       <Nav username={profile?.username} />
-      <Hero />
+      <Hero playerCount={profiles?.length ?? 0} />
       <NewsBar upcomingMatches={upcomingMatches ?? []} />
       <StandingsTable
         profiles={profiles ?? []}
