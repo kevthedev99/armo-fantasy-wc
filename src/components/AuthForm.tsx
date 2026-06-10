@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PotDisplay } from "@/components/PotDisplay";
+import { SponsorBanner } from "@/components/SponsorBanner";
 
 interface AuthFormProps {
   mode: "login" | "register";
@@ -212,6 +213,8 @@ export function AuthForm({ mode, playerCount }: AuthFormProps) {
         <p className="mt-6 text-center text-[10px] font-medium uppercase tracking-[0.25em] text-gray-600">
           FIFA World Cup 2026 · USA · Mexico · Canada
         </p>
+
+        <SponsorBanner variant="login" />
       </div>
     </div>
   );

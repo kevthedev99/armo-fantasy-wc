@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { SponsorBanner } from "@/components/SponsorBanner";
 import type { Profile } from "@/lib/types";
 
 interface StandingsTableProps {
@@ -211,6 +212,8 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
           </div>
         </>
       )}
+
+      <SponsorBanner variant="standings" />
     </section>
   );
 }
