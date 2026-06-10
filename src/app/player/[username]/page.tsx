@@ -4,6 +4,7 @@ import { Nav } from "@/components/Nav";
 import { UserPicksView } from "@/components/UserPicksView";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
+import { normalizeUsername } from "@/lib/username";
 
 interface PlayerPageProps {
   params: Promise<{ username: string }>;
@@ -19,7 +20,7 @@ function getRank(profiles: Profile[], userId: string): number {
 
 export default async function PlayerPage({ params }: PlayerPageProps) {
   const { username } = await params;
-  const cleanUsername = username.toLowerCase().replace(/[^a-z0-9_]/g, "");
+  const cleanUsername = normalizeUsername(username);
 
   const supabase = await createClient();
   const {

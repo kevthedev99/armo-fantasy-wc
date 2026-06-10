@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import { usernameToEmail } from "@/lib/auth-email";
+import { normalizeUsername } from "@/lib/username";
 import { createClient } from "@/lib/supabase/server";
 
 export async function POST(request: Request) {
@@ -16,7 +17,7 @@ export async function POST(request: Request) {
     );
   }
 
-  const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
+  const cleanUsername = normalizeUsername(username);
   const email = usernameToEmail(cleanUsername);
   const supabase = await createClient();
 

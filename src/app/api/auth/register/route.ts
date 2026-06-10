@@ -1,6 +1,10 @@
 import { NextResponse } from "next/server";
 import { usernameToEmail } from "@/lib/auth-email";
 import { createClient, createServiceClient } from "@/lib/supabase/server";
+import {
+  isDuplicateUsernameError,
+  validateUsername,
+} from "@/lib/username";
 
 const AVATAR_COLORS = [
   "#FF007A",
@@ -32,13 +36,11 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid invite code." }, { status: 403 });
   }
 
-  const cleanUsername = username.trim().toLowerCase().replace(/[^a-z0-9_]/g, "");
-  if (cleanUsername.length < 3 || cleanUsername.length > 20) {
-    return NextResponse.json(
-      { error: "Username must be 3–20 letters, numbers, or underscores." },
-      { status: 400 }
-    );
+  const usernameResult = validateUsername(username);
+  if (!usernameResult.ok) {
+    return NextResponse.json({ error: usernameResult.error }, { status: 400 });
   }
+  const cleanUsername = usernameResult.username;
 
   if (password.length < 6) {
     return NextResponse.json(
@@ -50,6 +52,19 @@ export async function POST(request: Request) {
   const email = usernameToEmail(cleanUsername);
   const service = createServiceClient();
 
+  const { data: existingProfile } = await service
+    .from("profiles")
+    .select("id")
+    .eq("username", cleanUsername)
+    .maybeSingle();
+
+  if (existingProfile) {
+    return NextResponse.json(
+      { error: "Username already taken." },
+      { status: 409 }
+    );
+  }
+
   const { data: authData, error: authError } =
     await service.auth.admin.createUser({
       email,
@@ -59,12 +74,13 @@ export async function POST(request: Request) {
     });
 
   if (authError) {
-    const message =
-      authError.message.includes("already") ||
-      authError.message.includes("exists")
-        ? "Username already taken."
-        : authError.message;
-    return NextResponse.json({ error: message }, { status: 400 });
+    const message = isDuplicateUsernameError(authError.message)
+      ? "Username already taken."
+      : authError.message;
+    return NextResponse.json(
+      { error: message },
+      { status: isDuplicateUsernameError(authError.message) ? 409 : 400 }
+    );
   }
 
   if (!authData.user) {
@@ -82,7 +98,14 @@ export async function POST(request: Request) {
   });
 
   if (profileError) {
-    return NextResponse.json({ error: profileError.message }, { status: 500 });
+    await service.auth.admin.deleteUser(authData.user.id);
+    const taken =
+      profileError.code === "23505" ||
+      isDuplicateUsernameError(profileError.message);
+    return NextResponse.json(
+      { error: taken ? "Username already taken." : profileError.message },
+      { status: taken ? 409 : 500 }
+    );
   }
 
   const supabase = await createClient();
