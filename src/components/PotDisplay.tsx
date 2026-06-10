@@ -14,9 +14,10 @@ function formatPot(amount: number): string {
 
 interface PotDisplayProps {
   playerCount: number;
+  className?: string;
 }
 
-export function PotDisplay({ playerCount }: PotDisplayProps) {
+export function PotDisplay({ playerCount, className }: PotDisplayProps) {
   const targetPot = playerCount * BUY_IN;
   const [displayPot, setDisplayPot] = useState(0);
   const [pulse, setPulse] = useState(false);
@@ -53,9 +54,9 @@ export function PotDisplay({ playerCount }: PotDisplayProps) {
 
   return (
     <p
-      className={`pot-display mt-6 text-7xl font-black md:text-9xl ${
-        pulse ? "pot-pulse" : ""
-      }`}
+      className={`pot-display font-black ${
+        className ?? "mt-6 text-7xl md:text-9xl"
+      } ${pulse ? "pot-pulse" : ""}`}
       aria-label={`Prize pool ${formatPot(targetPot)} from ${playerCount} players`}
     >
       {formatPot(displayPot)}

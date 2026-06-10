@@ -3,12 +3,14 @@
 import Link from "next/link";
 import { useRouter } from "next/navigation";
 import { useState } from "react";
+import { PotDisplay } from "@/components/PotDisplay";
 
 interface AuthFormProps {
   mode: "login" | "register";
+  playerCount: number;
 }
 
-export function AuthForm({ mode }: AuthFormProps) {
+export function AuthForm({ mode, playerCount }: AuthFormProps) {
   const router = useRouter();
   const [username, setUsername] = useState("");
   const [password, setPassword] = useState("");
@@ -78,11 +80,15 @@ export function AuthForm({ mode }: AuthFormProps) {
             ARMO FANTASY
           </p>
           <h1 className="font-display mt-2 text-5xl leading-none tracking-wide text-white">
-            <span className="text-[#FFD700]">26</span> PICK&apos;EM
+            <span className="text-[#FFD700]">2026</span> PICK&apos;EM
           </h1>
           <p className="mt-1 text-lg font-black uppercase tracking-widest text-[#FF007A]">
             World Cup 2026
           </p>
+          <PotDisplay
+            playerCount={playerCount}
+            className="mt-4 text-6xl sm:text-7xl"
+          />
           <p className="auth-shimmer-text mt-3 text-sm font-bold uppercase tracking-wider">
             $25 Buy-In · Winner Takes All
           </p>
