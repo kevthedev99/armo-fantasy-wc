@@ -2,6 +2,10 @@
 
 import { useEffect, useState } from "react";
 import { CasinoBalanceBar } from "@/components/CasinoBalanceBar";
+import {
+  CasinoWinPopup,
+  getBlackjackWinProfit,
+} from "@/components/CasinoWinPopup";
 import { PlayingCard } from "@/components/PlayingCard";
 import type { BlackjackClientView, Card } from "@/lib/blackjack";
 import {
@@ -59,6 +63,10 @@ export function BlackjackPage({
   const [isAnimating, setIsAnimating] = useState(false);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [winPopup, setWinPopup] = useState<{
+    amount: number;
+    subtitle?: string;
+  } | null>(null);
 
   const activeAmount =
     customChip !== "" ? Math.max(0, parseInt(customChip, 10) || 0) : chipAmount;
@@ -163,6 +171,13 @@ export function BlackjackPage({
         data.dealerTotal
       )
     );
+
+    if (roundOver) {
+      const profit = getBlackjackWinProfit(data);
+      if (profit != null && profit > 0) {
+        setWinPopup({ amount: profit, subtitle: data.message });
+      }
+    }
   }
 
   const roundOver = view.status !== "playing" && view.playerHand.length > 0;
@@ -171,6 +186,13 @@ export function BlackjackPage({
 
   return (
     <div className="mx-auto max-w-4xl px-4 py-8">
+      {winPopup && (
+        <CasinoWinPopup
+          amount={winPopup.amount}
+          subtitle={winPopup.subtitle}
+          onClose={() => setWinPopup(null)}
+        />
+      )}
       <div className="mb-8 text-center">
         <p className="text-xs font-bold tracking-[0.35em] text-[#FFD700]">
           SIDE LOUNGE

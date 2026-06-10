@@ -164,9 +164,73 @@ body {
   animation: pot-pop 0.7s ease-out, pot-shimmer 6s linear infinite;
 }
 
+@keyframes casino-win-fade-in {
+  from {
+    opacity: 0;
+  }
+  to {
+    opacity: 1;
+  }
+}
+
+@keyframes casino-win-pop {
+  0% {
+    opacity: 0;
+    transform: scale(0.4) translateY(24px);
+  }
+  55% {
+    opacity: 1;
+    transform: scale(1.08) translateY(-4px);
+  }
+  100% {
+    opacity: 1;
+    transform: scale(1) translateY(0);
+  }
+}
+
+@keyframes casino-win-sparkle {
+  0% {
+    opacity: 0;
+    transform: scale(0.6);
+  }
+  30% {
+    opacity: 1;
+    transform: scale(1);
+  }
+  100% {
+    opacity: 0;
+    transform: scale(1.4);
+  }
+}
+
+.casino-win-backdrop {
+  background: rgba(0, 0, 0, 0.72);
+  backdrop-filter: blur(4px);
+  animation: casino-win-fade-in 0.25s ease-out both;
+}
+
+.casino-win-card {
+  animation: casino-win-pop 0.55s cubic-bezier(0.34, 1.4, 0.64, 1) both;
+}
+
+.casino-win-sparkle {
+  background: radial-gradient(
+    circle at center,
+    rgba(255, 215, 0, 0.35) 0%,
+    transparent 65%
+  );
+  animation: casino-win-sparkle 0.9s ease-out both;
+}
+
 @media (prefers-reduced-motion: reduce) {
   .card-deal-in,
   .card-flip-reveal {
+    animation: none;
+  }
+
+  .casino-win-backdrop,
+  .casino-win-card,
+  .casino-win-sparkle {
     animation: none;
   }
 

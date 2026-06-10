@@ -2,6 +2,7 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CasinoBalanceBar } from "@/components/CasinoBalanceBar";
+import { CasinoWinPopup } from "@/components/CasinoWinPopup";
 import { RouletteWheel } from "@/components/RouletteWheel";
 import { getNextWheelRotation } from "@/lib/roulette";
 import type { BalanceState } from "@/lib/casino-types";
@@ -70,6 +71,10 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
   const [message, setMessage] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
   const [history, setHistory] = useState<SpinResult[]>([]);
+  const [winPopup, setWinPopup] = useState<{
+    amount: number;
+    subtitle?: string;
+  } | null>(null);
   const pendingResult = useRef<SpinResult | null>(null);
 
   const activeAmount =
@@ -186,6 +191,12 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
           ? `Winner! +$${result.profit} on ${result.resultLabel}`
           : `Ball landed on ${result.resultLabel}. Better luck next spin.`
       );
+      if (result.won && result.profit > 0) {
+        setWinPopup({
+          amount: result.profit,
+          subtitle: `Landed on ${result.resultLabel}`,
+        });
+      }
       pendingResult.current = null;
     }
   }
@@ -194,6 +205,13 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
 
   return (
     <div className="mx-auto max-w-7xl px-4 py-8">
+      {winPopup && (
+        <CasinoWinPopup
+          amount={winPopup.amount}
+          subtitle={winPopup.subtitle}
+          onClose={() => setWinPopup(null)}
+        />
+      )}
       <div className="mb-8 text-center">
         <p className="text-xs font-bold tracking-[0.35em] text-[#FFD700]">
           SIDE LOUNGE
