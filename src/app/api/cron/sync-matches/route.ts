@@ -26,6 +26,31 @@ function authorize(request: Request): boolean {
   return auth === `Bearer ${secret}`;
 }
 
+/** Supabase/PostgREST caps responses at 1000 rows — paginate to avoid missing picks. */
+async function fetchAllPicks(
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<Pick[]> {
+  const pageSize = 1000;
+  const all: Pick[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("picks")
+      .select("*")
+      .range(from, from + pageSize - 1);
+
+    if (error) throw error;
+    if (!data?.length) break;
+
+    all.push(...(data as Pick[]));
+    if (data.length < pageSize) break;
+    from += pageSize;
+  }
+
+  return all;
+}
+
 export async function GET(request: Request) {
   if (!authorize(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -147,10 +172,10 @@ export async function GET(request: Request) {
   }
 
   // Rebuild leaderboard from scored picks only — no pick row means 0 for that match.
-  const [{ data: profiles }, { data: allPicks }, { data: finishedForStreak }] =
+  const [{ data: profiles }, allPicks, { data: finishedForStreak }] =
     await Promise.all([
       supabase.from("profiles").select("id"),
-      supabase.from("picks").select("*"),
+      fetchAllPicks(supabase),
       supabase
         .from("matches")
         .select("*")
@@ -159,7 +184,7 @@ export async function GET(request: Request) {
     ]);
 
   const picksByUser = new Map<string, Pick[]>();
-  for (const pick of (allPicks ?? []) as Pick[]) {
+  for (const pick of allPicks) {
     const list = picksByUser.get(pick.user_id) ?? [];
     list.push(pick);
     picksByUser.set(pick.user_id, list);
