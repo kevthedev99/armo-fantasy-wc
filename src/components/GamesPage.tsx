@@ -1,7 +1,7 @@
 "use client";
 
 import { useRouter } from "next/navigation";
-import { useEffect, useMemo } from "react";
+import { useEffect, useMemo, useState } from "react";
 import {
   formatPSTDateHeader,
   formatPSTTime,
@@ -198,19 +198,57 @@ function MatchGroup({
   );
 }
 
+type GamesView = "future" | "past";
+
+function ViewToggle({
+  view,
+  onChange,
+}: {
+  view: GamesView;
+  onChange: (view: GamesView) => void;
+}) {
+  const options: { id: GamesView; label: string }[] = [
+    { id: "future", label: "Future Games" },
+    { id: "past", label: "Past Games" },
+  ];
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {options.map(({ id, label }) => {
+        const active = view === id;
+        return (
+          <button
+            key={id}
+            type="button"
+            onClick={() => onChange(id)}
+            className={`rounded-full px-3 py-1.5 text-xs font-bold uppercase tracking-wide transition ${
+              active
+                ? "bg-[#0056b3] text-white shadow-sm"
+                : "border border-gray-300 bg-white text-gray-600 hover:border-[#0056b3]/40 hover:text-[#0056b3]"
+            }`}
+          >
+            {label}
+          </button>
+        );
+      })}
+    </div>
+  );
+}
+
 export function GamesPage({
   matches,
   pickByMatchId = {},
   isLoggedIn = false,
 }: GamesPageProps) {
   const router = useRouter();
+  const [view, setView] = useState<GamesView>("future");
 
   useEffect(() => {
     const interval = setInterval(() => router.refresh(), 60_000);
     return () => clearInterval(interval);
   }, [router]);
 
-  const { live, upcomingByDate, recentFinished } = useMemo(() => {
+  const { live, upcomingByDate, finishedByDate } = useMemo(() => {
     const now = new Date();
     const liveList: Match[] = [];
     const upcomingList: Match[] = [];
@@ -231,6 +269,10 @@ export function GamesPage({
       (a, b) =>
         new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime()
     );
+    finishedList.sort(
+      (a, b) =>
+        new Date(b.kickoff_at).getTime() - new Date(a.kickoff_at).getTime()
+    );
 
     const upcomingByDate = new Map<string, Match[]>();
     for (const match of upcomingList) {
@@ -240,18 +282,22 @@ export function GamesPage({
       upcomingByDate.set(key, list);
     }
 
-    const recentFinished = finishedList
-      .sort(
-        (a, b) =>
-          new Date(b.kickoff_at).getTime() - new Date(a.kickoff_at).getTime()
-      )
-      .slice(0, 12);
+    const finishedByDate = new Map<string, Match[]>();
+    for (const match of finishedList) {
+      const key = getPSTDateKey(match.kickoff_at);
+      const list = finishedByDate.get(key) ?? [];
+      list.push(match);
+      finishedByDate.set(key, list);
+    }
 
-    return { live: liveList, upcomingByDate, recentFinished };
+    return { live: liveList, upcomingByDate, finishedByDate };
   }, [matches]);
 
   const upcomingDates = [...upcomingByDate.entries()].sort(([a], [b]) =>
     a.localeCompare(b)
+  );
+  const finishedDates = [...finishedByDate.entries()].sort(([a], [b]) =>
+    b.localeCompare(a)
   );
 
   return (
@@ -275,13 +321,6 @@ export function GamesPage({
             </span>
           </p>
         )}
-        {live.length === 0 &&
-          upcomingDates.length === 0 &&
-          recentFinished.length === 0 && (
-            <p className="py-16 text-center text-gray-500">
-              No matches loaded yet. Scores update when the daily sync runs.
-            </p>
-          )}
 
         <MatchGroup
           title="Live Now"
@@ -291,30 +330,62 @@ export function GamesPage({
           pickByMatchId={pickByMatchId}
         />
 
-        {live.length === 0 && upcomingDates.length > 0 && (
-          <p className="text-center text-xs text-gray-500">
-            No live matches right now.
-          </p>
+        <ViewToggle view={view} onChange={setView} />
+
+        {live.length === 0 &&
+          upcomingDates.length === 0 &&
+          finishedDates.length === 0 && (
+            <p className="py-16 text-center text-gray-500">
+              No matches loaded yet. Scores update when the daily sync runs.
+            </p>
+          )}
+
+        {view === "future" && (
+          <>
+            {live.length === 0 && upcomingDates.length > 0 && (
+              <p className="text-center text-xs text-gray-500">
+                No live matches right now.
+              </p>
+            )}
+
+            {upcomingDates.length === 0 && live.length === 0 && (
+              <p className="py-8 text-center text-sm text-gray-500">
+                No upcoming matches scheduled.
+              </p>
+            )}
+
+            {upcomingDates.map(([dateKey, dayMatches]) => (
+              <MatchGroup
+                key={dateKey}
+                title={formatPSTDateHeader(dayMatches[0].kickoff_at)}
+                matches={dayMatches}
+                variant="upcoming"
+                badge={`${dayMatches.length} match${dayMatches.length !== 1 ? "es" : ""}`}
+                pickByMatchId={pickByMatchId}
+              />
+            ))}
+          </>
         )}
 
-        {upcomingDates.map(([dateKey, dayMatches]) => (
-          <MatchGroup
-            key={dateKey}
-            title={formatPSTDateHeader(dayMatches[0].kickoff_at)}
-            matches={dayMatches}
-            variant="upcoming"
-            badge={`${dayMatches.length} match${dayMatches.length !== 1 ? "es" : ""}`}
-            pickByMatchId={pickByMatchId}
-          />
-        ))}
+        {view === "past" && (
+          <>
+            {finishedDates.length === 0 && (
+              <p className="py-8 text-center text-sm text-gray-500">
+                No past results yet.
+              </p>
+            )}
 
-        {recentFinished.length > 0 && (
-          <MatchGroup
-            title="Recent Results"
-            matches={recentFinished}
-            variant="finished"
-            pickByMatchId={pickByMatchId}
-          />
+            {finishedDates.map(([dateKey, dayMatches]) => (
+              <MatchGroup
+                key={dateKey}
+                title={formatPSTDateHeader(dayMatches[0].kickoff_at)}
+                matches={dayMatches}
+                variant="finished"
+                badge={`${dayMatches.length} match${dayMatches.length !== 1 ? "es" : ""}`}
+                pickByMatchId={pickByMatchId}
+              />
+            ))}
+          </>
         )}
       </div>
     </div>

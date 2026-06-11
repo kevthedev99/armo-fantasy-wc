@@ -5,10 +5,11 @@ import { useRouter } from "next/navigation";
 import { useState } from "react";
 import { PotDisplay } from "@/components/PotDisplay";
 import { SponsorBanner } from "@/components/SponsorBanner";
+import { WorldCupLogo } from "@/components/WorldCupLogo";
 
 interface AuthFormProps {
   mode: "login" | "register";
-  playerCount: number;
+  playerCount?: number;
 }
 
 export function AuthForm({ mode, playerCount }: AuthFormProps) {
@@ -86,10 +87,14 @@ export function AuthForm({ mode, playerCount }: AuthFormProps) {
           <p className="mt-1 text-lg font-black uppercase tracking-widest text-[#FF007A]">
             World Cup 2026
           </p>
-          <PotDisplay
-            playerCount={playerCount}
-            className="mt-4 text-6xl sm:text-7xl"
-          />
+          {mode === "login" ? (
+            <WorldCupLogo className="mx-auto mt-4 h-24 w-auto object-contain sm:h-28" />
+          ) : (
+            <PotDisplay
+              playerCount={playerCount ?? 0}
+              className="mt-4 text-6xl sm:text-7xl"
+            />
+          )}
           <p className="auth-shimmer-text mt-3 text-sm font-bold uppercase tracking-wider">
             $25 Buy-In · Top 3 Split the Pot
           </p>
