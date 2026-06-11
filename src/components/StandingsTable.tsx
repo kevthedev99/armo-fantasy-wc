@@ -178,8 +178,8 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
             <div className="grid grid-cols-[56px_1fr_100px_100px_100px] bg-[#0a1628] px-4 py-3 text-xs font-bold uppercase tracking-wider text-gray-400">
               <span>#</span>
               <span>Player</span>
-              <span className="text-right">Wins</span>
               <span className="text-right">Points</span>
+              <span className="text-right">Wins</span>
               <span className="text-right">Streak</span>
             </div>
 
@@ -224,11 +224,11 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                       </span>
                     )}
                   </div>
-                  <span className="text-right text-white">
-                    {profile.total_wins}
-                  </span>
                   <span className="text-right font-bold text-white">
                     {profile.total_points}
+                  </span>
+                  <span className="text-right text-white">
+                    {profile.total_wins}
                   </span>
                   <span className="text-right text-gray-400">
                     {profile.current_streak > 0 ? profile.current_streak : "—"}
