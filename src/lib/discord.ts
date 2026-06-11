@@ -78,20 +78,32 @@ export async function postDiscordFullTime(params: {
   });
 }
 
+export type DiscordLeaderboardEntry = {
+  display_name: string;
+  username: string;
+  total_points: number;
+  total_wins: number;
+  current_streak: number;
+};
+
+function formatStreak(streak: number): string {
+  return streak > 0 ? String(streak) : "—";
+}
+
 export async function postDiscordLeaderboard(
-  leaders: { display_name: string; username: string; total_points: number }[]
+  leaders: DiscordLeaderboardEntry[]
 ): Promise<boolean> {
   if (leaders.length === 0) return false;
 
-  const lines = leaders.map(
-    (p, i) =>
-      `**${i + 1}.** ${p.display_name} — **${p.total_points}** pts`
-  );
+  const lines = leaders.map((p, i) => {
+    const wins = p.total_wins === 1 ? "1 win" : `${p.total_wins} wins`;
+    return `**${i + 1}.** ${p.display_name} — **${p.total_points}** pts · ${wins} · ${formatStreak(p.current_streak)} streak`;
+  });
 
   return postDiscord({
     embeds: [
       {
-        title: "📊 LEADERBOARD — Top 5",
+        title: "📊 LEADERBOARD — Top 10",
         description: lines.join("\n"),
         color: DISCORD_EMBED_GOLD,
         footer: { text: "Updated after full time · armowc26.xyz" },

@@ -1,18 +1,12 @@
 import Link from "next/link";
 import { SponsorBanner } from "@/components/SponsorBanner";
 import { WorldCupLogo } from "@/components/WorldCupLogo";
+import { sortProfiles } from "@/lib/standings";
 import type { Profile } from "@/lib/types";
 
 interface StandingsTableProps {
   profiles: Profile[];
   currentUserId?: string;
-}
-
-function sortProfiles(profiles: Profile[]) {
-  return [...profiles].sort((a, b) => {
-    if (b.total_points !== a.total_points) return b.total_points - a.total_points;
-    return b.total_wins - a.total_wins;
-  });
 }
 
 function PlayerAvatar({ profile }: { profile: Profile }) {

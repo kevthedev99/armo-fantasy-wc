@@ -17,6 +17,7 @@ import {
   scorePick,
 } from "@/lib/scoring";
 import type { Pick } from "@/lib/types";
+import { topStandings } from "@/lib/standings";
 import { createServiceClient } from "@/lib/supabase/server";
 
 function authorize(request: Request): boolean {
@@ -206,13 +207,15 @@ export async function GET(request: Request) {
 
   let leaderboardsPosted = 0;
   if (isDiscordConfigured() && justFinishedMatchIds.length > 0) {
-    const { data: leaders } = await supabase
+    const { data: allProfiles } = await supabase
       .from("profiles")
-      .select("display_name, username, total_points")
-      .order("total_points", { ascending: false })
-      .limit(5);
+      .select(
+        "display_name, username, total_points, total_wins, current_streak"
+      );
 
-    if (leaders && leaders.length > 0) {
+    const leaders = topStandings(allProfiles ?? [], 10);
+
+    if (leaders.length > 0) {
       const posted = await postDiscordLeaderboard(leaders);
       if (posted) leaderboardsPosted = 1;
     }
