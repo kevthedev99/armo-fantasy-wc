@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { isMatchLocked } from "@/lib/scoring";
+import { formatStreak, isMatchLocked } from "@/lib/scoring";
 import type { Match, Pick, Profile } from "@/lib/types";
 import { PickReadOnlyCard } from "./PickReadOnlyCard";
 
@@ -93,8 +93,16 @@ export function UserPicksView({
               <p className="text-[10px] uppercase text-gray-500">Wins</p>
             </div>
             <div>
-              <p className="text-2xl font-black text-[#32CD32]">
-                {profile.current_streak > 0 ? profile.current_streak : "—"}
+              <p
+                className={`text-2xl font-black ${
+                  profile.current_streak > 0
+                    ? "text-[#32CD32]"
+                    : profile.current_streak < 0
+                      ? "text-red-400"
+                      : "text-gray-500"
+                }`}
+              >
+                {formatStreak(profile.current_streak)}
               </p>
               <p className="text-[10px] uppercase text-gray-500">Streak</p>
             </div>

@@ -1,3 +1,5 @@
+import { formatStreak } from "@/lib/scoring";
+
 const DISCORD_EMBED_GREEN = 0x32cd32;
 const DISCORD_EMBED_BLUE = 0x0056b3;
 const DISCORD_EMBED_GOLD = 0xffd700;
@@ -86,10 +88,6 @@ export type DiscordLeaderboardEntry = {
   current_streak: number;
 };
 
-function formatStreak(streak: number): string {
-  return streak > 0 ? String(streak) : "—";
-}
-
 export async function postDiscordLeaderboard(
   leaders: DiscordLeaderboardEntry[]
 ): Promise<boolean> {
@@ -97,7 +95,7 @@ export async function postDiscordLeaderboard(
 
   const lines = leaders.map((p, i) => {
     const wins = p.total_wins === 1 ? "1 win" : `${p.total_wins} wins`;
-    return `**${i + 1}.** ${p.display_name} — **${p.total_points}** pts · ${wins} · ${formatStreak(p.current_streak)} streak`;
+    return `**${i + 1}.** ${p.display_name} — **${p.total_points}** pts · ${wins} · ${formatStreak(p.current_streak)}`;
   });
 
   return postDiscord({

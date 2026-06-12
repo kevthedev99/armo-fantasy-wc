@@ -177,9 +177,14 @@ export function aggregateProfileStats(
   return { total_points, total_wins };
 }
 
+function pickIsWin(pick: Pick | undefined): boolean {
+  return !!pick && pick.is_scored && pick.points_earned > 0;
+}
+
 /**
- * Current win streak from most recent finished matches backward.
- * A missed pick (no row) or 0-point result breaks the streak.
+ * Signed streak from most recent finished matches backward.
+ * Positive = consecutive wins (W2 → 2), negative = consecutive losses (L2 → -2).
+ * A missed pick counts as a loss.
  */
 export function computeCurrentStreak(
   finishedMatches: Match[],
@@ -191,14 +196,35 @@ export function computeCurrentStreak(
       new Date(b.kickoff_at).getTime() - new Date(a.kickoff_at).getTime()
   );
 
-  let streak = 0;
+  if (sorted.length === 0) return 0;
+
+  let streakKind: "win" | "loss" | null = null;
+  let count = 0;
+
   for (const match of sorted) {
-    const pick = pickByMatch.get(match.id);
-    if (!pick || !pick.is_scored || pick.points_earned <= 0) {
+    const won = pickIsWin(pickByMatch.get(match.id));
+    const result = won ? "win" : "loss";
+
+    if (streakKind === null) {
+      streakKind = result;
+      count = 1;
+      continue;
+    }
+
+    if (result === streakKind) {
+      count++;
+    } else {
       break;
     }
-    streak++;
   }
 
-  return streak;
+  if (!streakKind || count === 0) return 0;
+  return streakKind === "win" ? count : -count;
+}
+
+/** W2 / L2 for standings; em dash when no finished matches yet. */
+export function formatStreak(streak: number): string {
+  if (streak > 0) return `W${streak}`;
+  if (streak < 0) return `L${Math.abs(streak)}`;
+  return "—";
 }

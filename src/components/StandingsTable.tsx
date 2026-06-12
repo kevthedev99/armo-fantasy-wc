@@ -1,6 +1,7 @@
 import Link from "next/link";
 import { SponsorBanner } from "@/components/SponsorBanner";
 import { WorldCupLogo } from "@/components/WorldCupLogo";
+import { formatStreak } from "@/lib/scoring";
 import { sortProfiles } from "@/lib/standings";
 import type { Profile } from "@/lib/types";
 
@@ -157,9 +158,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                         <span className="text-gray-400">
                           Streak{" "}
                           <span className="font-bold text-white">
-                            {profile.current_streak > 0
-                              ? profile.current_streak
-                              : "—"}
+                            {formatStreak(profile.current_streak)}
                           </span>
                         </span>
                       </div>
@@ -231,7 +230,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                     {profile.total_wins}
                   </span>
                   <span className="text-right text-gray-400">
-                    {profile.current_streak > 0 ? profile.current_streak : "—"}
+                    {formatStreak(profile.current_streak)}
                   </span>
                 </Link>
               );
