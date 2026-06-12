@@ -1,5 +1,6 @@
 import { GamesPage } from "@/components/GamesPage";
 import { Nav } from "@/components/Nav";
+import { fetchWorldCupStandings } from "@/lib/api-football";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function GamesRoute() {
@@ -8,7 +9,7 @@ export default async function GamesRoute() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: matches }, { data: profile }, { data: picks }] =
+  const [{ data: matches }, { data: profile }, { data: picks }, groupBrackets] =
     await Promise.all([
       supabase.from("matches").select("*").order("kickoff_at", { ascending: true }),
       user
@@ -24,6 +25,7 @@ export default async function GamesRoute() {
             .select("match_id, picked_winner")
             .eq("user_id", user.id)
         : Promise.resolve({ data: [] }),
+      fetchWorldCupStandings().catch(() => []),
     ]);
 
   const pickByMatchId = Object.fromEntries(
@@ -35,6 +37,7 @@ export default async function GamesRoute() {
       <Nav username={profile?.username} />
       <GamesPage
         matches={matches ?? []}
+        groupBrackets={groupBrackets}
         pickByMatchId={pickByMatchId}
         isLoggedIn={!!user}
       />

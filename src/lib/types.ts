@@ -55,6 +55,27 @@ export interface NewsItem {
   created_at: string;
 }
 
+export interface GroupStandingTeam {
+  rank: number;
+  teamId: number;
+  name: string;
+  logo: string;
+  played: number;
+  win: number;
+  draw: number;
+  lose: number;
+  goalsFor: number;
+  goalsAgainst: number;
+  goalsDiff: number;
+  points: number;
+  form: string | null;
+}
+
+export interface GroupBracket {
+  name: string;
+  teams: GroupStandingTeam[];
+}
+
 export interface ApiFootballFixture {
   fixture: {
     id: number;

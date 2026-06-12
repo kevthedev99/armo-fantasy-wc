@@ -10,10 +10,12 @@ import {
   getPSTDateKey,
   getStatusLabel,
 } from "@/lib/match-status";
-import type { Match, PickWinner } from "@/lib/types";
+import { GroupBrackets } from "@/components/GroupBrackets";
+import type { GroupBracket, Match, PickWinner } from "@/lib/types";
 
 interface GamesPageProps {
   matches: Match[];
+  groupBrackets?: GroupBracket[];
   pickByMatchId?: Record<number, PickWinner>;
   isLoggedIn?: boolean;
 }
@@ -198,7 +200,7 @@ function MatchGroup({
   );
 }
 
-type GamesView = "future" | "past";
+type GamesView = "future" | "past" | "groups";
 
 function ViewToggle({
   view,
@@ -210,6 +212,7 @@ function ViewToggle({
   const options: { id: GamesView; label: string }[] = [
     { id: "future", label: "Future Games" },
     { id: "past", label: "Past Games" },
+    { id: "groups", label: "Group Brackets" },
   ];
 
   return (
@@ -237,6 +240,7 @@ function ViewToggle({
 
 export function GamesPage({
   matches,
+  groupBrackets = [],
   pickByMatchId = {},
   isLoggedIn = false,
 }: GamesPageProps) {
@@ -311,7 +315,11 @@ export function GamesPage({
         </p>
       </header>
 
-      <div className="mx-auto max-w-2xl space-y-6 px-4 py-6 md:px-8">
+      <div
+        className={`mx-auto space-y-6 px-4 py-6 md:px-8 ${
+          view === "groups" ? "max-w-6xl" : "max-w-2xl"
+        }`}
+      >
         {isLoggedIn && (
           <p className="flex items-center gap-2 text-xs text-gray-500">
             <PickMark />
@@ -322,17 +330,20 @@ export function GamesPage({
           </p>
         )}
 
-        <MatchGroup
-          title="Live Now"
-          matches={live}
-          variant="live"
-          badge={live.length > 0 ? `${live.length} live` : undefined}
-          pickByMatchId={pickByMatchId}
-        />
+        {view !== "groups" && (
+          <MatchGroup
+            title="Live Now"
+            matches={live}
+            variant="live"
+            badge={live.length > 0 ? `${live.length} live` : undefined}
+            pickByMatchId={pickByMatchId}
+          />
+        )}
 
         <ViewToggle view={view} onChange={setView} />
 
-        {live.length === 0 &&
+        {view !== "groups" &&
+          live.length === 0 &&
           upcomingDates.length === 0 &&
           finishedDates.length === 0 && (
             <p className="py-16 text-center text-gray-500">
@@ -387,6 +398,8 @@ export function GamesPage({
             ))}
           </>
         )}
+
+        {view === "groups" && <GroupBrackets groups={groupBrackets} />}
       </div>
     </div>
   );
