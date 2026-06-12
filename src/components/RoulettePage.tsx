@@ -53,7 +53,7 @@ function numberCellClass(value: number, selected: boolean): string {
 
 function ChipBadge({ amount }: { amount: number }) {
   return (
-    <span className="absolute -right-1 -top-1 z-10 flex h-6 min-w-6 items-center justify-center rounded-full border-2 border-[#0d2818] bg-[#FFD700] px-1 text-[10px] font-black text-black shadow-md">
+    <span className="absolute -right-0.5 -top-0.5 z-10 flex h-5 min-w-5 items-center justify-center rounded-full border border-[#0d2818] bg-[#FFD700] px-0.5 text-[8px] font-black text-black shadow-md sm:-right-1 sm:-top-1 sm:h-6 sm:min-w-6 sm:border-2 sm:px-1 sm:text-[10px]">
       ${amount}
     </span>
   );
@@ -203,8 +203,19 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
 
   const disabled = spinning || !balanceState.canPlay;
 
+  const spinButton = (
+    <button
+      type="button"
+      disabled={disabled || placedBets.length === 0 || totalWager < 1}
+      onClick={handleSpin}
+      className="rounded-full bg-gradient-to-r from-[#FF007A] to-[#d4006a] px-8 py-3 text-sm font-black uppercase tracking-widest text-white shadow-[0_4px_24px_rgba(255,0,122,0.4)] transition hover:scale-[1.02] disabled:opacity-40 disabled:hover:scale-100"
+    >
+      {spinning ? "Spinning…" : "Spin"}
+    </button>
+  );
+
   return (
-    <div className="mx-auto max-w-7xl px-4 py-8">
+    <div className="mx-auto max-w-7xl px-3 pb-28 pt-4 sm:px-4 sm:py-8 md:pb-8">
       {winPopup && (
         <CasinoWinPopup
           amount={winPopup.amount}
@@ -212,21 +223,22 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
           onClose={() => setWinPopup(null)}
         />
       )}
-      <div className="mb-8 text-center">
-        <p className="text-xs font-bold tracking-[0.35em] text-[#FFD700]">
+      <div className="mb-4 text-center sm:mb-8">
+        <p className="text-[10px] font-bold tracking-[0.35em] text-[#FFD700] sm:text-xs">
           SIDE LOUNGE
         </p>
-        <h1 className="font-display mt-1 text-5xl text-white">ROULETTE</h1>
-        <p className="mt-2 text-sm text-gray-400">
-          Free play only — not connected to your pick&apos;em standings. Tap
-          multiple spots, then spin.
+        <h1 className="font-display mt-1 text-3xl text-white sm:text-5xl">
+          ROULETTE
+        </h1>
+        <p className="mt-1 text-xs text-gray-400 sm:mt-2 sm:text-sm">
+          Free play only — tap bets, then spin.
         </p>
       </div>
 
       <CasinoBalanceBar balanceState={balanceState} />
 
-      <div className="grid gap-8 xl:grid-cols-[360px_1fr]">
-        <div className="flex flex-col items-center gap-4">
+      <div className="grid gap-5 lg:grid-cols-[minmax(0,320px)_1fr] lg:gap-8 xl:grid-cols-[360px_1fr]">
+        <div className="order-2 flex flex-col items-center gap-3 lg:order-1 lg:gap-4">
           <RouletteWheel
             rotation={wheelRotation}
             animating={wheelAnimating}
@@ -258,8 +270,8 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
           )}
         </div>
 
-        <div className="space-y-5">
-          <div className="rounded-xl border border-white/10 bg-white/5 p-4">
+        <div className="order-1 space-y-3 sm:space-y-5 lg:order-2">
+          <div className="rounded-xl border border-white/10 bg-white/5 p-3 sm:p-4">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-widest text-gray-400">
               Chip value
             </p>
@@ -295,7 +307,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
             </div>
           </div>
 
-          <div className="grid grid-cols-3 gap-2 sm:grid-cols-6">
+          <div className="grid grid-cols-3 gap-1.5 sm:grid-cols-6 sm:gap-2">
             {(
               [
                 { type: "red" as const, label: "Red", className: "bg-[#c41e3a]" },
@@ -314,7 +326,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
                   type="button"
                   disabled={disabled}
                   onClick={() => toggleBet(bet)}
-                  className={`relative rounded-lg py-3 text-sm font-bold uppercase text-white transition hover:brightness-110 disabled:opacity-40 ${b.className} ${
+                  className={`relative rounded-lg py-2.5 text-xs font-bold uppercase text-white transition hover:brightness-110 disabled:opacity-40 sm:py-3 sm:text-sm ${b.className} ${
                     isBetSelected(bet) ? "ring-2 ring-[#FFD700]" : ""
                   }`}
                 >
@@ -329,7 +341,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
             })}
           </div>
 
-          <div className="grid grid-cols-3 gap-2">
+          <div className="grid grid-cols-3 gap-1.5 sm:gap-2">
             {([1, 2, 3] as const).map((d) => {
               const bet: RouletteBet = { type: "dozen", dozen: d };
               const amount = getPlacedAmount(bet);
@@ -339,7 +351,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
                   type="button"
                   disabled={disabled}
                   onClick={() => toggleBet(bet)}
-                  className={`relative rounded-lg bg-[#0056b3] py-3 text-sm font-bold text-white hover:bg-[#0066cc] disabled:opacity-40 ${
+                  className={`relative rounded-lg bg-[#0056b3] py-2.5 text-xs font-bold text-white hover:bg-[#0066cc] disabled:opacity-40 sm:py-3 sm:text-sm ${
                     isBetSelected(bet) ? "ring-2 ring-[#FFD700]" : ""
                   }`}
                 >
@@ -354,9 +366,9 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
             })}
           </div>
 
-          <div className="overflow-x-auto rounded-xl border-2 border-[#FFD700]/50 bg-[#0d2818] p-3 md:p-4">
-            <div className="flex min-w-[560px] gap-2">
-              <div className="flex w-16 shrink-0 flex-col gap-2">
+          <div className="rounded-xl border-2 border-[#FFD700]/50 bg-[#0d2818] p-2 sm:p-3 md:p-4">
+            <div className="flex w-full gap-1 sm:gap-2">
+              <div className="flex w-9 shrink-0 flex-col gap-1 sm:w-14 sm:gap-2 md:w-16">
                 {(["0", "00"] as const).map((z) => {
                   const val: RouletteValue = z === "0" ? 0 : "00";
                   const bet: RouletteBet = { type: "straight", value: val };
@@ -367,7 +379,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
                       type="button"
                       disabled={disabled}
                       onClick={() => toggleBet(bet)}
-                      className={`relative flex-1 rounded-lg bg-[#0d5c2e] py-4 text-base font-bold text-white hover:bg-[#117a3d] disabled:opacity-40 ${
+                      className={`relative flex-1 rounded-md bg-[#0d5c2e] py-3 text-xs font-bold text-white hover:bg-[#117a3d] disabled:opacity-40 sm:rounded-lg sm:py-4 sm:text-base ${
                         isBetSelected(bet) ? "ring-2 ring-[#FFD700]" : ""
                       }`}
                     >
@@ -377,9 +389,9 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
                   );
                 })}
               </div>
-              <div className="flex flex-1 flex-col gap-2">
+              <div className="flex min-w-0 flex-1 flex-col gap-1 sm:gap-2">
                 {TABLE_NUMBERS.map((row, ri) => (
-                  <div key={ri} className="flex flex-1 gap-2">
+                  <div key={ri} className="flex flex-1 gap-1 sm:gap-2">
                     {row.map((n) => {
                       const bet: RouletteBet = { type: "straight", value: n };
                       const amount = getPlacedAmount(bet);
@@ -389,7 +401,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
                           type="button"
                           disabled={disabled}
                           onClick={() => toggleBet(bet)}
-                          className={`relative flex-1 rounded-lg py-3 text-sm font-bold text-white md:py-4 md:text-base disabled:opacity-40 ${numberCellClass(
+                          className={`relative min-w-0 flex-1 rounded-md py-2.5 text-[11px] font-bold text-white disabled:opacity-40 sm:rounded-lg sm:py-3 sm:text-sm md:py-4 md:text-base ${numberCellClass(
                             n,
                             isBetSelected(bet)
                           )}`}
@@ -405,7 +417,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
             </div>
           </div>
 
-          <div className="flex flex-wrap items-center justify-between gap-3">
+          <div className="hidden flex-wrap items-center justify-between gap-3 md:flex">
             <div className="text-sm text-gray-400">
               {placedBets.length > 0 ? (
                 <>
@@ -433,16 +445,7 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
                   Clear bets
                 </button>
               )}
-              <button
-                type="button"
-                disabled={
-                  disabled || placedBets.length === 0 || totalWager < 1
-                }
-                onClick={handleSpin}
-                className="rounded-full bg-gradient-to-r from-[#FF007A] to-[#d4006a] px-8 py-3 text-sm font-black uppercase tracking-widest text-white shadow-[0_4px_24px_rgba(255,0,122,0.4)] transition hover:scale-[1.02] disabled:opacity-40 disabled:hover:scale-100"
-              >
-                {spinning ? "Spinning…" : "Spin"}
-              </button>
+              {spinButton}
             </div>
           </div>
 
@@ -489,6 +492,36 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
       <p className="mt-8 text-center text-[10px] uppercase tracking-wider text-gray-600">
         Play money only · No real gambling · For fun between matches
       </p>
+
+      <div className="fixed inset-x-0 bottom-0 z-30 border-t border-white/10 bg-black/95 px-3 py-3 backdrop-blur-md md:hidden">
+        <div className="mx-auto flex max-w-7xl items-center justify-between gap-3">
+          <div className="min-w-0 flex-1 text-xs text-gray-400">
+            {placedBets.length > 0 ? (
+              <>
+                <span className="font-bold text-[#FFD700]">
+                  {placedBets.length} bet{placedBets.length !== 1 ? "s" : ""}
+                </span>{" "}
+                · <span className="font-bold text-white">${totalWager}</span>
+              </>
+            ) : (
+              "Tap bets on the table"
+            )}
+          </div>
+          <div className="flex shrink-0 items-center gap-2">
+            {placedBets.length > 0 && (
+              <button
+                type="button"
+                disabled={disabled}
+                onClick={clearBets}
+                className="rounded-full border border-white/20 px-3 py-2 text-[10px] font-bold uppercase tracking-wide text-gray-300 disabled:opacity-40"
+              >
+                Clear
+              </button>
+            )}
+            {spinButton}
+          </div>
+        </div>
+      </div>
     </div>
   );
 }

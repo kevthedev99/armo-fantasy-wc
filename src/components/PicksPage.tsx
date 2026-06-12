@@ -1,7 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
-import { isMatchLocked } from "@/lib/scoring";
+import { isMatchFinished, isMatchLocked } from "@/lib/scoring";
 import type { AppSettings, Match, Pick } from "@/lib/types";
 import { MatchCard } from "./MatchCard";
 
@@ -22,9 +22,30 @@ const KNOCKOUT_ROUNDS = [
   "Final",
 ];
 
+type PicksView = "upcoming" | "past";
+
+function sortUpcoming(matches: Match[]): Match[] {
+  return [...matches].sort((a, b) => {
+    const aLocked = isMatchLocked(a);
+    const bLocked = isMatchLocked(b);
+    if (aLocked !== bLocked) return aLocked ? 1 : -1;
+    return new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime();
+  });
+}
+
+function sortPast(matches: Match[]): Match[] {
+  return [...matches]
+    .filter((m) => isMatchFinished(m.status))
+    .sort(
+      (a, b) =>
+        new Date(b.kickoff_at).getTime() - new Date(a.kickoff_at).getTime()
+    );
+}
+
 export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageProps) {
   const [picks, setPicks] = useState(initialPicks);
   const [tab, setTab] = useState<"group" | "knockout">("group");
+  const [view, setView] = useState<PicksView>("upcoming");
 
   const pickMap = useMemo(() => {
     const map = new Map<number, Pick>();
@@ -35,16 +56,9 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
   const groupMatches = matches.filter((m) => m.stage === "group");
   const knockoutMatches = matches.filter((m) => m.stage === "knockout");
 
-  const visibleMatches = (tab === "group" ? groupMatches : knockoutMatches).sort(
-    (a, b) => {
-      const aLocked = isMatchLocked(a);
-      const bLocked = isMatchLocked(b);
-      if (aLocked !== bLocked) return aLocked ? 1 : -1;
-      return (
-        new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime()
-      );
-    }
-  );
+  const stageMatches = tab === "group" ? groupMatches : knockoutMatches;
+  const visibleMatches =
+    view === "past" ? sortPast(stageMatches) : sortUpcoming(stageMatches);
 
   const lockedWithoutPick = visibleMatches.filter(
     (m) => isMatchLocked(m) && !pickMap.has(m.id)
@@ -79,14 +93,39 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
         Group stage: winner (or tie) + score for bonus. Knockouts: winner only.
       </p>
 
-      {lockedWithoutPick > 0 && (
+      {view === "upcoming" && lockedWithoutPick > 0 && (
         <p className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-xs font-medium text-amber-900">
           {lockedWithoutPick} match{lockedWithoutPick !== 1 ? "es" : ""} already
           started with no pick — those are locked and cannot be changed.
         </p>
       )}
 
-      <div className="flex flex-wrap gap-2 px-6 py-4">
+      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-6 py-4">
+        <button
+          type="button"
+          onClick={() => setView("upcoming")}
+          className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wide transition ${
+            view === "upcoming"
+              ? "bg-[#0056b3] text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          Upcoming
+        </button>
+        <button
+          type="button"
+          onClick={() => setView("past")}
+          className={`rounded-full px-4 py-2 text-xs font-bold uppercase tracking-wide transition ${
+            view === "past"
+              ? "bg-[#0056b3] text-white"
+              : "bg-gray-100 text-gray-600 hover:bg-gray-200"
+          }`}
+        >
+          Past Games
+        </button>
+
+        <span className="mx-1 hidden h-5 w-px bg-gray-300 sm:block" aria-hidden />
+
         <button
           type="button"
           onClick={() => setTab("group")}
@@ -134,8 +173,9 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
         </p>
       ) : visibleMatches.length === 0 ? (
         <p className="px-6 py-12 text-center text-gray-600">
-          No matches loaded yet. Run the sync cron or check your API-Football
-          key.
+          {view === "past"
+            ? "No past games in this stage yet."
+            : "No upcoming matches loaded yet. Run the sync cron or check your API-Football key."}
         </p>
       ) : (
         <div className="grid gap-4 px-6 pb-12 sm:grid-cols-2 lg:grid-cols-3">

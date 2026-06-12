@@ -6,16 +6,16 @@ interface CasinoBalanceBarProps {
 
 export function CasinoBalanceBar({ balanceState }: CasinoBalanceBarProps) {
   return (
-    <div className="mb-6 flex flex-wrap items-center justify-between gap-4 rounded-xl border border-[#FFD700]/30 bg-[#0d2818]/80 px-5 py-4">
+    <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-[#FFD700]/30 bg-[#0d2818]/80 px-4 py-3 sm:mb-6 sm:gap-4 sm:px-5 sm:py-4">
       <div>
         <p className="text-[10px] font-bold uppercase tracking-widest text-gray-400">
           Your chips
         </p>
-        <p className="font-display text-4xl text-[#FFD700]">
+        <p className="font-display text-3xl text-[#FFD700] sm:text-4xl">
           ${balanceState.balance.toLocaleString()}
         </p>
       </div>
-      <div className="text-right text-sm text-gray-400">
+      <div className="text-right text-xs text-gray-400 sm:text-sm">
         <p>
           <span className="text-white">${balanceState.dailyAllowance}</span> free
           play daily
