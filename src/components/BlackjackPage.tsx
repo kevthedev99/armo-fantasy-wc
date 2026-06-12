@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { CasinoBalanceBar } from "@/components/CasinoBalanceBar";
+import { CasinoLeaderboard } from "@/components/CasinoLeaderboard";
 import {
   CasinoWinPopup,
   getBlackjackWinProfit,
@@ -17,18 +18,22 @@ import {
   type TableDisplay,
 } from "@/lib/blackjack-display";
 import { handValue } from "@/lib/blackjack";
-import type { BalanceState } from "@/lib/casino-types";
+import type { BalanceState, CasinoLeaderboardRow } from "@/lib/casino-types";
 
 const CHIP_PRESETS = [5, 10, 25, 50, 100];
 
 interface BlackjackPageProps {
   initialBalance: BalanceState;
   initialView: BlackjackClientView;
+  initialLeaderboard?: CasinoLeaderboardRow[];
+  currentUserId?: string | null;
 }
 
 interface ApiResponse extends BlackjackClientView {
   balance: number;
   canPlay: boolean;
+  resetIn?: string;
+  resetInMs?: number;
   fullPlayerHand: Card[];
   fullDealerHand: Card[];
 }
@@ -45,6 +50,8 @@ function cardAnim(
 export function BlackjackPage({
   initialBalance,
   initialView,
+  initialLeaderboard = [],
+  currentUserId,
 }: BlackjackPageProps) {
   const [balanceState, setBalanceState] = useState<BalanceState>(initialBalance);
   const [chipAmount, setChipAmount] = useState(25);
@@ -81,7 +88,8 @@ export function BlackjackPage({
               ...prev,
               balance: data.balance,
               canPlay: data.canPlay,
-              resetIn: data.resetIn,
+              resetIn: data.resetIn ?? "",
+              resetInMs: data.resetInMs ?? 0,
             }));
           }
         });
@@ -116,6 +124,8 @@ export function BlackjackPage({
       ...prev,
       balance: data.balance,
       canPlay: data.canPlay,
+      resetIn: data.resetIn ?? "",
+      resetInMs: data.resetInMs ?? 0,
     }));
 
     const player = data.fullPlayerHand;
@@ -360,8 +370,8 @@ export function BlackjackPage({
 
       {!balanceState.canPlay && (
         <p className="mt-4 rounded-lg border border-[#FF007A]/30 bg-[#FF007A]/10 px-3 py-2 text-center text-sm text-[#FF007A]">
-          You&apos;re out of chips! Fresh ${balanceState.dailyAllowance} drops at
-          midnight Eastern.
+          You&apos;re out of chips! ${balanceState.dailyAllowance} returns in{" "}
+          {balanceState.resetIn || "12h"}.
         </p>
       )}
 
@@ -409,11 +419,17 @@ export function BlackjackPage({
           </li>
           <li>
             <span className="font-bold text-white">Chips:</span> $
-            {balanceState.dailyAllowance} free play per day, shared with Roulette.
-            Resets at midnight Eastern.
+            {balanceState.dailyAllowance} starting stack, shared with Roulette.
+            Balances carry over until you hit $0 — then chips return after 12
+            hours.
           </li>
         </ul>
       </div>
+
+      <CasinoLeaderboard
+        initialLeaders={initialLeaderboard}
+        currentUserId={currentUserId}
+      />
 
       <p className="mt-6 text-center text-[10px] uppercase tracking-wider text-gray-600">
         Play money only · No real gambling

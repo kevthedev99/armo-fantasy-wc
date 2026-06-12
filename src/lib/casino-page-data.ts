@@ -1,14 +1,12 @@
 import { toClientView } from "@/lib/blackjack";
-import {
-  DAILY_FREE_PLAY,
-  formatCountdown,
-  msUntilNextCasinoReset,
-} from "@/lib/casino-day";
+import { DAILY_FREE_PLAY } from "@/lib/casino-day";
 import {
   getBlackjackState,
+  getCasinoLeaderboard,
   getOrResetCasinoBalance,
+  toBalanceState,
 } from "@/lib/casino-balance";
-import type { BalanceState } from "@/lib/casino-types";
+import type { BalanceState, CasinoLeaderboardRow } from "@/lib/casino-types";
 import { createClient } from "@/lib/supabase/server";
 
 export async function loadCasinoPageData() {
@@ -28,29 +26,29 @@ export async function loadCasinoPageData() {
   let initialBalance: BalanceState = {
     balance: DAILY_FREE_PLAY,
     canPlay: true,
-    resetIn: formatCountdown(msUntilNextCasinoReset()),
+    resetIn: "",
+    resetInMs: 0,
     dailyAllowance: DAILY_FREE_PLAY,
   };
+
+  let leaderboard: CasinoLeaderboardRow[] = [];
 
   if (user) {
     try {
       const state = await getOrResetCasinoBalance(user.id);
-      initialBalance = {
-        balance: state.balance,
-        canPlay: state.balance > 0,
-        resetIn: formatCountdown(msUntilNextCasinoReset()),
-        dailyAllowance: DAILY_FREE_PLAY,
-      };
+      initialBalance = toBalanceState(state);
+      leaderboard = await getCasinoLeaderboard(10);
     } catch {
       // Table may not exist yet.
     }
   }
 
-  return { profile, initialBalance, userId: user?.id ?? null };
+  return { profile, initialBalance, userId: user?.id ?? null, leaderboard };
 }
 
 export async function loadBlackjackPageData() {
-  const { profile, initialBalance, userId } = await loadCasinoPageData();
+  const { profile, initialBalance, userId, leaderboard } =
+    await loadCasinoPageData();
   let initialView = toClientView(null, initialBalance.balance);
 
   if (userId) {
@@ -62,5 +60,5 @@ export async function loadBlackjackPageData() {
     }
   }
 
-  return { profile, initialBalance, initialView };
+  return { profile, initialBalance, initialView, userId, leaderboard };
 }

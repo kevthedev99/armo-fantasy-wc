@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { CasinoBalanceBar } from "@/components/CasinoBalanceBar";
+import { CasinoLeaderboard } from "@/components/CasinoLeaderboard";
 import { CasinoWinPopup } from "@/components/CasinoWinPopup";
 import { RouletteWheel } from "@/components/RouletteWheel";
 import { getNextWheelRotation } from "@/lib/roulette";
-import type { BalanceState } from "@/lib/casino-types";
+import type { BalanceState, CasinoLeaderboardRow } from "@/lib/casino-types";
 import {
   TABLE_NUMBERS,
   formatRouletteValue,
@@ -20,6 +21,8 @@ const CHIP_PRESETS = [5, 10, 25, 50, 100];
 
 interface RoulettePageProps {
   initialBalance: BalanceState;
+  initialLeaderboard?: CasinoLeaderboardRow[];
+  currentUserId?: string | null;
 }
 
 interface SpinResult {
@@ -59,7 +62,11 @@ function ChipBadge({ amount }: { amount: number }) {
   );
 }
 
-export function RoulettePage({ initialBalance }: RoulettePageProps) {
+export function RoulettePage({
+  initialBalance,
+  initialLeaderboard = [],
+  currentUserId,
+}: RoulettePageProps) {
   const [balanceState, setBalanceState] = useState<BalanceState>(initialBalance);
   const [chipAmount, setChipAmount] = useState(25);
   const [customChip, setCustomChip] = useState("");
@@ -100,7 +107,8 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
       setBalanceState({
         balance: data.balance,
         canPlay: data.canPlay,
-        resetIn: data.resetIn,
+        resetIn: data.resetIn ?? "",
+        resetInMs: data.resetInMs ?? 0,
         dailyAllowance: data.dailyAllowance,
       });
     }
@@ -457,8 +465,8 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
 
           {!balanceState.canPlay && (
             <p className="rounded-lg border border-[#FF007A]/30 bg-[#FF007A]/10 px-3 py-2 text-center text-sm text-[#FF007A]">
-              You&apos;re busted! Fresh ${balanceState.dailyAllowance} chips drop
-              at midnight Eastern.
+              You&apos;re busted! ${balanceState.dailyAllowance} chips return in{" "}
+              {balanceState.resetIn || "12h"}.
             </p>
           )}
         </div>
@@ -488,6 +496,11 @@ export function RoulettePage({ initialBalance }: RoulettePageProps) {
           </div>
         </div>
       )}
+
+      <CasinoLeaderboard
+        initialLeaders={initialLeaderboard}
+        currentUserId={currentUserId}
+      />
 
       <p className="mt-8 text-center text-[10px] uppercase tracking-wider text-gray-600">
         Play money only · No real gambling · For fun between matches

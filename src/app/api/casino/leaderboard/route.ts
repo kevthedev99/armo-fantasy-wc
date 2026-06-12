@@ -1,8 +1,5 @@
 import { NextResponse } from "next/server";
-import {
-  getOrResetCasinoBalance,
-  toBalanceState,
-} from "@/lib/casino-balance";
+import { getCasinoLeaderboard } from "@/lib/casino-balance";
 import { createClient } from "@/lib/supabase/server";
 
 export async function GET() {
@@ -16,13 +13,8 @@ export async function GET() {
   }
 
   try {
-    const state = await getOrResetCasinoBalance(user.id);
-    const balance = toBalanceState(state);
-
-    return NextResponse.json({
-      ...balance,
-      justReset: state.justReset,
-    });
+    const leaders = await getCasinoLeaderboard(10);
+    return NextResponse.json({ leaders });
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error.";
     return NextResponse.json({ error: message }, { status: 500 });

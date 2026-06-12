@@ -1,7 +1,8 @@
 import { NextResponse } from "next/server";
-import { getCasinoDay } from "@/lib/casino-day";
 import {
+  DAILY_FREE_PLAY,
   getOrResetCasinoBalance,
+  toBalanceState,
   updateCasinoBalance,
 } from "@/lib/casino-balance";
 import {
@@ -52,8 +53,11 @@ export async function POST(request: Request) {
     const state = await getOrResetCasinoBalance(user.id);
 
     if (state.balance <= 0) {
+      const meta = toBalanceState(state);
       return NextResponse.json(
-        { error: "You're out of chips. Come back at midnight for $500 free play." },
+        {
+          error: `You're out of chips. $${DAILY_FREE_PLAY} returns in ${meta.resetIn}.`,
+        },
         { status: 403 }
       );
     }
@@ -70,11 +74,7 @@ export async function POST(request: Request) {
     );
     const newBalance = state.balance - totalWager + totalPayout;
 
-    const balance = await updateCasinoBalance(
-      user.id,
-      newBalance,
-      getCasinoDay()
-    );
+    const balance = await updateCasinoBalance(user.id, newBalance);
 
     const winningOutcomes = outcomes.filter((o) => o.won);
 

@@ -1,35 +1,13 @@
-/** Daily free-play reset at midnight Eastern (World Cup host timezone). */
-export const CASINO_TIMEZONE = "America/New_York";
+/** Starting chip stack when a player joins or recovers from a bust. */
 export const DAILY_FREE_PLAY = 500;
 
-export function getCasinoDay(date = new Date()): string {
-  return new Intl.DateTimeFormat("en-CA", {
-    timeZone: CASINO_TIMEZONE,
-  }).format(date);
-}
+/** Wait time after balance hits $0 before chips return. */
+export const BUST_RESET_MS = 12 * 60 * 60 * 1000;
 
-export function msUntilNextCasinoReset(date = new Date()): number {
-  const parts = new Intl.DateTimeFormat("en-US", {
-    timeZone: CASINO_TIMEZONE,
-    year: "numeric",
-    month: "2-digit",
-    day: "2-digit",
-    hour: "2-digit",
-    minute: "2-digit",
-    second: "2-digit",
-    hour12: false,
-  }).formatToParts(date);
-
-  const get = (type: string) =>
-    Number(parts.find((p) => p.type === type)?.value ?? 0);
-
-  const h = get("hour");
-  const min = get("minute");
-  const s = get("second");
-
-  const elapsedToday = ((h * 60 + min) * 60 + s) * 1000;
-  const msInDay = 24 * 60 * 60 * 1000;
-  return msInDay - elapsedToday;
+export function msUntilBustReset(bustedAt: string | null, now = Date.now()): number {
+  if (!bustedAt) return BUST_RESET_MS;
+  const readyAt = new Date(bustedAt).getTime() + BUST_RESET_MS;
+  return Math.max(0, readyAt - now);
 }
 
 export function formatCountdown(ms: number): string {

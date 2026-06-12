@@ -3,7 +3,8 @@ import { Nav } from "@/components/Nav";
 import { loadBlackjackPageData } from "@/lib/casino-page-data";
 
 export default async function BlackjackRoutePage() {
-  const { profile, initialBalance, initialView } = await loadBlackjackPageData();
+  const { profile, initialBalance, initialView, userId, leaderboard } =
+    await loadBlackjackPageData();
 
   return (
     <div className="min-h-screen bg-black">
@@ -12,6 +13,8 @@ export default async function BlackjackRoutePage() {
         <BlackjackPage
           initialBalance={initialBalance}
           initialView={initialView}
+          initialLeaderboard={leaderboard}
+          currentUserId={userId}
         />
       </div>
     </div>

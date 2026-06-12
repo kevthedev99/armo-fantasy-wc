@@ -1,22 +1,48 @@
 import type { BlackjackState } from "@/lib/blackjack";
-import { CASINO_TIMEZONE, DAILY_FREE_PLAY, getCasinoDay } from "@/lib/casino-day";
+import {
+  BUST_RESET_MS,
+  DAILY_FREE_PLAY,
+  formatCountdown,
+  msUntilBustReset,
+} from "@/lib/casino-day";
+import type { BalanceState } from "@/lib/casino-types";
 import { createServiceClient } from "@/lib/supabase/server";
 
 export interface CasinoBalanceState {
   balance: number;
-  lastResetDate: string;
-  resetAtMidnight: boolean;
+  bustedAt: string | null;
+  justReset: boolean;
+}
+
+type BalanceRow = {
+  balance: number;
+  busted_at: string | null;
+};
+
+function bustReady(bustedAt: string, now = Date.now()): boolean {
+  return new Date(bustedAt).getTime() + BUST_RESET_MS <= now;
+}
+
+export function toBalanceState(state: CasinoBalanceState): BalanceState {
+  const canPlay = state.balance > 0;
+  return {
+    balance: state.balance,
+    canPlay,
+    resetIn: canPlay ? "" : formatCountdown(msUntilBustReset(state.bustedAt)),
+    resetInMs: canPlay ? 0 : msUntilBustReset(state.bustedAt),
+    dailyAllowance: DAILY_FREE_PLAY,
+  };
 }
 
 export async function getOrResetCasinoBalance(
   userId: string
 ): Promise<CasinoBalanceState> {
   const service = createServiceClient();
-  const today = getCasinoDay();
+  const nowIso = new Date().toISOString();
 
   const { data: existing } = await service
     .from("casino_balances")
-    .select("balance, last_reset_date")
+    .select("balance, busted_at")
     .eq("user_id", userId)
     .maybeSingle();
 
@@ -26,9 +52,9 @@ export async function getOrResetCasinoBalance(
       .insert({
         user_id: userId,
         balance: DAILY_FREE_PLAY,
-        last_reset_date: today,
+        busted_at: null,
       })
-      .select("balance, last_reset_date")
+      .select("balance, busted_at")
       .single();
 
     if (error || !created) {
@@ -37,53 +63,80 @@ export async function getOrResetCasinoBalance(
 
     return {
       balance: created.balance,
-      lastResetDate: created.last_reset_date,
-      resetAtMidnight: false,
+      bustedAt: created.busted_at,
+      justReset: false,
     };
   }
 
-  if (existing.last_reset_date < today) {
-    const { data: updated, error } = await service
+  const row = existing as BalanceRow;
+
+  if (row.balance > 0) {
+    return {
+      balance: row.balance,
+      bustedAt: row.busted_at,
+      justReset: false,
+    };
+  }
+
+  let bustedAt = row.busted_at;
+
+  if (!bustedAt) {
+    const { data: stamped, error } = await service
+      .from("casino_balances")
+      .update({ busted_at: nowIso, updated_at: nowIso })
+      .eq("user_id", userId)
+      .select("balance, busted_at")
+      .single();
+
+    if (error || !stamped) {
+      throw new Error(error?.message ?? "Could not stamp bust time.");
+    }
+
+    bustedAt = stamped.busted_at;
+  }
+
+  if (bustedAt && bustReady(bustedAt)) {
+    const { data: refreshed, error } = await service
       .from("casino_balances")
       .update({
         balance: DAILY_FREE_PLAY,
-        last_reset_date: today,
-        updated_at: new Date().toISOString(),
+        busted_at: null,
+        updated_at: nowIso,
       })
       .eq("user_id", userId)
-      .select("balance, last_reset_date")
+      .select("balance, busted_at")
       .single();
 
-    if (error || !updated) {
+    if (error || !refreshed) {
       throw new Error(error?.message ?? "Could not reset casino balance.");
     }
 
     return {
-      balance: updated.balance,
-      lastResetDate: updated.last_reset_date,
-      resetAtMidnight: true,
+      balance: refreshed.balance,
+      bustedAt: refreshed.busted_at,
+      justReset: true,
     };
   }
 
   return {
-    balance: existing.balance,
-    lastResetDate: existing.last_reset_date,
-    resetAtMidnight: false,
+    balance: 0,
+    bustedAt,
+    justReset: false,
   };
 }
 
 export async function updateCasinoBalance(
   userId: string,
-  newBalance: number,
-  lastResetDate: string
+  newBalance: number
 ): Promise<number> {
   const service = createServiceClient();
+  const nowIso = new Date().toISOString();
   const { data, error } = await service
     .from("casino_balances")
     .update({
       balance: newBalance,
-      last_reset_date: lastResetDate,
-      updated_at: new Date().toISOString(),
+      busted_at: newBalance <= 0 ? nowIso : null,
+      updated_at: nowIso,
     })
     .eq("user_id", userId)
     .select("balance")
@@ -112,17 +165,17 @@ export async function getBlackjackState(
 export async function saveCasinoSession(
   userId: string,
   balance: number,
-  lastResetDate: string,
   blackjackState: BlackjackState | null
 ): Promise<number> {
   const service = createServiceClient();
+  const nowIso = new Date().toISOString();
   const { data, error } = await service
     .from("casino_balances")
     .update({
       balance,
-      last_reset_date: lastResetDate,
+      busted_at: balance <= 0 ? nowIso : null,
       blackjack_state: blackjackState,
-      updated_at: new Date().toISOString(),
+      updated_at: nowIso,
     })
     .eq("user_id", userId)
     .select("balance")
@@ -135,4 +188,46 @@ export async function saveCasinoSession(
   return data.balance;
 }
 
-export { CASINO_TIMEZONE, DAILY_FREE_PLAY };
+export interface CasinoLeaderboardEntry {
+  rank: number;
+  userId: string;
+  username: string;
+  displayName: string;
+  avatarColor: string;
+  balance: number;
+}
+
+export async function getCasinoLeaderboard(
+  limit = 10
+): Promise<CasinoLeaderboardEntry[]> {
+  const service = createServiceClient();
+  const { data, error } = await service
+    .from("casino_balances")
+    .select(
+      "balance, user_id, profiles!inner(username, display_name, avatar_color)"
+    )
+    .order("balance", { ascending: false })
+    .limit(limit);
+
+  if (error) {
+    throw new Error(error.message);
+  }
+
+  return (data ?? []).map((row, index) => {
+    const profile = row.profiles as unknown as {
+      username: string;
+      display_name: string;
+      avatar_color: string;
+    };
+    return {
+      rank: index + 1,
+      userId: row.user_id as string,
+      username: profile.username,
+      displayName: profile.display_name,
+      avatarColor: profile.avatar_color,
+      balance: row.balance as number,
+    };
+  });
+}
+
+export { DAILY_FREE_PLAY };

@@ -7,11 +7,11 @@ import {
   stand,
   toClientView,
 } from "@/lib/blackjack";
-import { getCasinoDay } from "@/lib/casino-day";
 import {
   getBlackjackState,
   getOrResetCasinoBalance,
   saveCasinoSession,
+  toBalanceState,
 } from "@/lib/casino-balance";
 import { validateBetAmount } from "@/lib/roulette";
 import { createClient } from "@/lib/supabase/server";
@@ -19,14 +19,15 @@ import { createClient } from "@/lib/supabase/server";
 type BlackjackAction = "deal" | "hit" | "stand" | "double";
 
 function respondWithHand(
-  balance: number,
+  balanceState: Awaited<ReturnType<typeof getOrResetCasinoBalance>>,
   hand: Parameters<typeof toClientView>[0]
 ) {
+  const balance = balanceState.balance;
   const view = toClientView(hand, balance);
+  const meta = toBalanceState(balanceState);
   return NextResponse.json({
     ...view,
-    balance,
-    canPlay: balance > 0,
+    ...meta,
     fullPlayerHand: hand?.playerHand ?? [],
     fullDealerHand: hand?.dealerHand ?? [],
   });
@@ -45,7 +46,7 @@ export async function GET() {
   try {
     const balanceState = await getOrResetCasinoBalance(user.id);
     const hand = await getBlackjackState(user.id);
-    return respondWithHand(balanceState.balance, hand);
+    return respondWithHand(balanceState, hand);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error.";
     return NextResponse.json({ error: message }, { status: 500 });
@@ -75,7 +76,6 @@ export async function POST(request: Request) {
   try {
     const balanceState = await getOrResetCasinoBalance(user.id);
     let balance = balanceState.balance;
-    const today = getCasinoDay();
     let hand = await getBlackjackState(user.id);
 
     if (action === "deal") {
@@ -99,12 +99,14 @@ export async function POST(request: Request) {
 
       if (hand.status !== "playing") {
         balance += getPayout(hand);
-        await saveCasinoSession(user.id, balance, today, null);
-        return respondWithHand(balance, hand);
+        await saveCasinoSession(user.id, balance, null);
+        const nextState = await getOrResetCasinoBalance(user.id);
+        return respondWithHand(nextState, hand);
       }
 
-      await saveCasinoSession(user.id, balance, today, hand);
-      return respondWithHand(balance, hand);
+      await saveCasinoSession(user.id, balance, hand);
+      const nextState = await getOrResetCasinoBalance(user.id);
+      return respondWithHand(nextState, hand);
     }
 
     if (!hand || hand.status !== "playing") {
@@ -131,12 +133,14 @@ export async function POST(request: Request) {
 
     if (hand.status !== "playing") {
       balance += getPayout(hand);
-      await saveCasinoSession(user.id, balance, today, null);
-      return respondWithHand(balance, hand);
+      await saveCasinoSession(user.id, balance, null);
+      const nextState = await getOrResetCasinoBalance(user.id);
+      return respondWithHand(nextState, hand);
     }
 
-    await saveCasinoSession(user.id, balance, today, hand);
-    return respondWithHand(balance, hand);
+    await saveCasinoSession(user.id, balance, hand);
+    const nextState = await getOrResetCasinoBalance(user.id);
+    return respondWithHand(nextState, hand);
   } catch (err) {
     const message = err instanceof Error ? err.message : "Unknown error.";
     return NextResponse.json({ error: message }, { status: 500 });

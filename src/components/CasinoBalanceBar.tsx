@@ -17,13 +17,15 @@ export function CasinoBalanceBar({ balanceState }: CasinoBalanceBarProps) {
       </div>
       <div className="text-right text-xs text-gray-400 sm:text-sm">
         <p>
-          <span className="text-white">${balanceState.dailyAllowance}</span> free
-          play daily
+          <span className="text-white">${balanceState.dailyAllowance}</span> refill
+          after bust
         </p>
-        <p className="text-xs text-gray-500">Shared across Roulette & Blackjack</p>
-        {!balanceState.canPlay && (
+        <p className="text-xs text-gray-500">
+          Chips carry over while you&apos;re above $0
+        </p>
+        {!balanceState.canPlay && balanceState.resetIn && (
           <p className="mt-1 text-[#FF007A]">
-            Resets in {balanceState.resetIn} (midnight ET)
+            ${balanceState.dailyAllowance} returns in {balanceState.resetIn}
           </p>
         )}
       </div>
