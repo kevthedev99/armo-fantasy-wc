@@ -177,15 +177,9 @@ export function RoulettePage({
     }
 
     pendingResult.current = data;
-    setLastResult(data);
     setWheelRotation((r) => getNextWheelRotation(r, data.wheelIndex));
     setWheelAnimating(true);
     setPlacedBets([]);
-    setBalanceState((prev) => ({
-      ...prev,
-      balance: data.balance,
-      canPlay: data.canPlay,
-    }));
   }
 
   function handleSpinEnd() {
@@ -193,6 +187,12 @@ export function RoulettePage({
     setWheelAnimating(false);
     const result = pendingResult.current;
     if (result) {
+      setBalanceState((prev) => ({
+        ...prev,
+        balance: result.balance,
+        canPlay: result.canPlay,
+      }));
+      setLastResult(result);
       setHistory((h) => [result, ...h].slice(0, 8));
       setMessage(
         result.won
