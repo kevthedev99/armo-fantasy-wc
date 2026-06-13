@@ -5,7 +5,7 @@ function TeamLogo({ src, name }: { src: string; name: string }) {
     // eslint-disable-next-line @next/next/no-img-element
     <img
       src={src}
-      alt=""
+      alt={name}
       className="h-5 w-5 shrink-0 object-contain sm:h-6 sm:w-6"
     />
   );
@@ -123,14 +123,41 @@ function GroupTable({ group }: { group: GroupBracket }) {
 
 interface GroupBracketsProps {
   groups: GroupBracket[];
+  loading?: boolean;
+  error?: string | null;
+  onRetry?: () => void;
 }
 
-export function GroupBrackets({ groups }: GroupBracketsProps) {
-  if (groups.length === 0) {
+export function GroupBrackets({
+  groups,
+  loading = false,
+  error = null,
+  onRetry,
+}: GroupBracketsProps) {
+  if (loading) {
     return (
       <p className="py-12 text-center text-sm text-gray-500">
-        Group standings are not available yet. Check back after matches kick off.
+        Loading group standings…
       </p>
+    );
+  }
+
+  if (groups.length === 0) {
+    return (
+      <div className="space-y-3 py-12 text-center">
+        <p className="text-sm text-gray-500">
+          {error ?? "Group standings are not available right now."}
+        </p>
+        {onRetry && (
+          <button
+            type="button"
+            onClick={onRetry}
+            className="rounded-full bg-[#0056b3] px-4 py-2 text-xs font-bold uppercase tracking-wide text-white"
+          >
+            Retry
+          </button>
+        )}
+      </div>
     );
   }
 

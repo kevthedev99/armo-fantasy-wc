@@ -74,6 +74,11 @@ function mapStandingRow(row: ApiStandingRow): GroupStandingTeam {
   };
 }
 
+function parseStandingGroupLabel(groupLabel: string): string | null {
+  const match = groupLabel.match(/Group\s+([A-L])$/i);
+  return match ? `GROUP ${match[1].toUpperCase()}` : null;
+}
+
 /** Group-stage tables for World Cup (12 groups of 4). */
 export async function fetchWorldCupStandings(): Promise<GroupBracket[]> {
   const key = process.env.API_FOOTBALL_KEY;
@@ -85,7 +90,7 @@ export async function fetchWorldCupStandings(): Promise<GroupBracket[]> {
 
   const res = await fetch(url.toString(), {
     headers: { "x-apisports-key": key },
-    next: { revalidate: 300 },
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -96,14 +101,13 @@ export async function fetchWorldCupStandings(): Promise<GroupBracket[]> {
   const groups = (json.response?.[0]?.league?.standings ?? []) as ApiStandingRow[][];
 
   return groups
-    .filter((group) => /Group Stage - Group [A-L]/i.test(group[0]?.group ?? ""))
-    .map((group) => {
-      const letter =
-        group[0].group.match(/Group ([A-L])$/i)?.[1]?.toUpperCase() ?? "?";
-      return {
-        name: `GROUP ${letter}`,
-        teams: group.map(mapStandingRow),
-      };
+    .filter((group) => {
+      const label = group[0]?.group ?? "";
+      return group.length === 4 && parseStandingGroupLabel(label) !== null;
     })
+    .map((group) => ({
+      name: parseStandingGroupLabel(group[0].group)!,
+      teams: group.map(mapStandingRow),
+    }))
     .sort((a, b) => a.name.localeCompare(b.name));
 }

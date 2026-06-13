@@ -25,7 +25,10 @@ export default async function GamesRoute() {
             .select("match_id, picked_winner")
             .eq("user_id", user.id)
         : Promise.resolve({ data: [] }),
-      fetchWorldCupStandings().catch(() => []),
+      fetchWorldCupStandings().catch((err) => {
+        console.error("Group standings prefetch failed:", err);
+        return [];
+      }),
     ]);
 
   const pickByMatchId = Object.fromEntries(

@@ -240,12 +240,47 @@ function ViewToggle({
 
 export function GamesPage({
   matches,
-  groupBrackets = [],
+  groupBrackets: initialGroupBrackets = [],
   pickByMatchId = {},
   isLoggedIn = false,
 }: GamesPageProps) {
   const router = useRouter();
   const [view, setView] = useState<GamesView>("future");
+  const [groupBrackets, setGroupBrackets] =
+    useState<GroupBracket[]>(initialGroupBrackets);
+  const [groupsLoading, setGroupsLoading] = useState(false);
+  const [groupsError, setGroupsError] = useState<string | null>(null);
+
+  async function loadGroupBrackets() {
+    setGroupsLoading(true);
+    setGroupsError(null);
+    const res = await fetch("/api/games/standings");
+    const data = await res.json();
+    setGroupsLoading(false);
+
+    if (res.ok && Array.isArray(data.groups) && data.groups.length > 0) {
+      setGroupBrackets(data.groups);
+      return;
+    }
+
+    setGroupsError(
+      data.error ??
+        (Array.isArray(data.groups) && data.groups.length === 0
+          ? "No group tables returned from the API."
+          : "Could not load group standings.")
+    );
+  }
+
+  function selectView(next: GamesView) {
+    setView(next);
+    if (
+      next === "groups" &&
+      groupBrackets.length === 0 &&
+      !groupsLoading
+    ) {
+      void loadGroupBrackets();
+    }
+  }
 
   useEffect(() => {
     const interval = setInterval(() => router.refresh(), 60_000);
@@ -340,7 +375,7 @@ export function GamesPage({
           />
         )}
 
-        <ViewToggle view={view} onChange={setView} />
+        <ViewToggle view={view} onChange={selectView} />
 
         {view !== "groups" &&
           live.length === 0 &&
@@ -399,7 +434,14 @@ export function GamesPage({
           </>
         )}
 
-        {view === "groups" && <GroupBrackets groups={groupBrackets} />}
+        {view === "groups" && (
+          <GroupBrackets
+            groups={groupBrackets}
+            loading={groupsLoading}
+            error={groupsError}
+            onRetry={() => void loadGroupBrackets()}
+          />
+        )}
       </div>
     </div>
   );
