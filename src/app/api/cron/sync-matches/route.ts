@@ -1,22 +1,29 @@
 import { NextResponse } from "next/server";
 import {
+  fetchFixtureEvents,
   fetchWorldCupFixtures,
   parseGroupName,
   parseStage,
 } from "@/lib/api-football";
 import { isDiscordConfigured, postDiscordLeaderboard } from "@/lib/discord";
 import {
+  findNewEvents,
+  parseFixtureEvents,
+  shouldBootstrapEvents,
+} from "@/lib/match-events";
+import {
   notifyFullTime,
-  notifyGoalEvents,
+  notifyMatchEvents,
   shouldNotifyFullTime,
 } from "@/lib/match-notifications";
 import {
   aggregateProfileStats,
   computeCurrentStreak,
   isMatchFinished,
+  isMatchInProgress,
   scorePick,
 } from "@/lib/scoring";
-import type { Pick } from "@/lib/types";
+import type { MatchEvent, Pick } from "@/lib/types";
 import { topStandings } from "@/lib/standings";
 import { createServiceClient } from "@/lib/supabase/server";
 
@@ -52,6 +59,31 @@ async function fetchAllPicks(
   return all;
 }
 
+type ExistingMatch = {
+  id: number;
+  home_score: number | null;
+  away_score: number | null;
+  status: string;
+  match_events: MatchEvent[] | null;
+  home_team_id: number;
+  away_team_id: number;
+};
+
+function shouldFetchEvents(
+  status: string,
+  oldMatch: ExistingMatch | null,
+  homeScore: number | null,
+  awayScore: number | null
+): boolean {
+  if (isMatchInProgress(status) || isMatchFinished(status)) return true;
+  if (!oldMatch) return false;
+  const oldHome = oldMatch.home_score ?? 0;
+  const oldAway = oldMatch.away_score ?? 0;
+  const nextHome = homeScore ?? 0;
+  const nextAway = awayScore ?? 0;
+  return oldHome !== nextHome || oldAway !== nextAway;
+}
+
 export async function GET(request: Request) {
   if (!authorize(request)) {
     return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
@@ -62,14 +94,20 @@ export async function GET(request: Request) {
 
   const { data: existingMatches } = await supabase
     .from("matches")
-    .select("id, home_score, away_score, status");
+    .select("id, home_score, away_score, status, match_events, home_team_id, away_team_id");
 
-  const existingById = new Map(
-    (existingMatches ?? []).map((m) => [m.id, m])
+  const existingById = new Map<number, ExistingMatch>(
+    (existingMatches ?? []).map((m) => [
+      m.id,
+      {
+        ...m,
+        match_events: (m.match_events as MatchEvent[] | null) ?? [],
+      },
+    ])
   );
 
   const justFinishedMatchIds: number[] = [];
-  let goalsNotified = 0;
+  let eventsNotified = 0;
 
   let groupFinishedCount = 0;
   let groupTotal = 0;
@@ -89,8 +127,24 @@ export async function GET(request: Request) {
     const oldMatch = existingById.get(matchId) ?? null;
     const groupOrRound = parseGroupName(f.league.round) ?? f.league.round;
 
+    let matchEvents: MatchEvent[] = oldMatch?.match_events ?? [];
+    if (shouldFetchEvents(status, oldMatch, homeScore, awayScore)) {
+      try {
+        const rawEvents = await fetchFixtureEvents(matchId);
+        matchEvents = parseFixtureEvents(
+          rawEvents,
+          f.teams.home.id
+        );
+      } catch (err) {
+        console.error(`Failed to fetch events for match ${matchId}:`, err);
+      }
+    }
+
+    const newEvents = findNewEvents(oldMatch?.match_events, matchEvents);
+    const bootstrap = shouldBootstrapEvents(oldMatch?.match_events, matchEvents);
+
     if (isDiscordConfigured()) {
-      goalsNotified += await notifyGoalEvents({
+      eventsNotified += await notifyMatchEvents({
         oldMatch,
         homeTeam: f.teams.home.name,
         awayTeam: f.teams.away.name,
@@ -98,6 +152,8 @@ export async function GET(request: Request) {
         awayScore,
         status,
         groupOrRound,
+        newEvents,
+        bootstrap,
       });
 
       if (shouldNotifyFullTime(oldMatch, status)) {
@@ -130,6 +186,7 @@ export async function GET(request: Request) {
         home_score: homeScore,
         away_score: awayScore,
         winning_goal_minute: null,
+        match_events: matchEvents,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "id" }
@@ -227,7 +284,7 @@ export async function GET(request: Request) {
     groupComplete,
     discord: {
       configured: isDiscordConfigured(),
-      goalsNotified,
+      goalsNotified: eventsNotified,
       fullTimeMatches: justFinishedMatchIds.length,
       leaderboardsPosted,
     },

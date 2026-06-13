@@ -1,4 +1,5 @@
 import type { ApiFootballFixture, GroupBracket, GroupStandingTeam } from "./types";
+import type { ApiFootballEvent } from "./match-events";
 
 const BASE_URL = "https://v3.football.api-sports.io";
 
@@ -24,6 +25,28 @@ export async function fetchWorldCupFixtures(): Promise<ApiFootballFixture[]> {
 
   if (!res.ok) {
     throw new Error(`API-Football error: ${res.status} ${res.statusText}`);
+  }
+
+  const json = await res.json();
+  return json.response ?? [];
+}
+
+export async function fetchFixtureEvents(
+  fixtureId: number
+): Promise<ApiFootballEvent[]> {
+  const key = process.env.API_FOOTBALL_KEY;
+  if (!key) throw new Error("API_FOOTBALL_KEY is not set");
+
+  const url = new URL(`${BASE_URL}/fixtures/events`);
+  url.searchParams.set("fixture", String(fixtureId));
+
+  const res = await fetch(url.toString(), {
+    headers: { "x-apisports-key": key },
+    cache: "no-store",
+  });
+
+  if (!res.ok) {
+    throw new Error(`API-Football events error: ${res.status} ${res.statusText}`);
   }
 
   const json = await res.json();

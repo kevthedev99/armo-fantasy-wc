@@ -1,38 +1,22 @@
 import {
   postDiscordFullTime,
   postDiscordGoal,
+  postDiscordRedCard,
 } from "@/lib/discord";
+import { formatEventMinute } from "@/lib/match-events";
 import { getStatusLabel } from "@/lib/match-status";
 import { isMatchFinished, isMatchInProgress } from "@/lib/scoring";
-import type { Match } from "@/lib/types";
+import type { Match, MatchEvent } from "@/lib/types";
 
 type ScoreSnapshot = {
   home_score: number | null;
   away_score: number | null;
   status: string;
+  match_events?: MatchEvent[] | null;
 };
 
 function score(n: number | null | undefined): number {
   return n ?? 0;
-}
-
-/** Detect home/away goal events when the score increases. */
-export function detectGoalEvents(
-  oldMatch: ScoreSnapshot | null,
-  newHome: number | null,
-  newAway: number | null
-): ("home" | "away")[] {
-  if (!oldMatch) return [];
-
-  const oldHome = score(oldMatch.home_score);
-  const oldAway = score(oldMatch.away_score);
-  const nextHome = score(newHome);
-  const nextAway = score(newAway);
-
-  const events: ("home" | "away")[] = [];
-  for (let i = oldHome; i < nextHome; i++) events.push("home");
-  for (let i = oldAway; i < nextAway; i++) events.push("away");
-  return events;
 }
 
 export function shouldNotifyFullTime(
@@ -44,7 +28,7 @@ export function shouldNotifyFullTime(
   return !isMatchFinished(oldMatch.status);
 }
 
-export async function notifyGoalEvents(params: {
+export async function notifyMatchEvents(params: {
   oldMatch: ScoreSnapshot | null;
   homeTeam: string;
   awayTeam: string;
@@ -52,29 +36,59 @@ export async function notifyGoalEvents(params: {
   awayScore: number | null;
   status: string;
   groupOrRound?: string | null;
+  newEvents: MatchEvent[];
+  bootstrap: boolean;
 }): Promise<number> {
-  const { oldMatch, homeTeam, awayTeam, homeScore, awayScore, status } =
-    params;
+  const {
+    oldMatch,
+    homeTeam,
+    awayTeam,
+    homeScore,
+    awayScore,
+    status,
+    newEvents,
+    bootstrap,
+  } = params;
 
-  if (!oldMatch) return 0;
+  if (!oldMatch || bootstrap) return 0;
   if (!isMatchInProgress(status) && !isMatchFinished(status)) return 0;
-  if (isMatchFinished(oldMatch.status)) return 0;
+  if (isMatchFinished(oldMatch.status) && isMatchFinished(status)) return 0;
 
-  const events = detectGoalEvents(oldMatch, homeScore, awayScore);
   const statusLabel = getStatusLabel(status);
   let sent = 0;
 
-  for (const team of events) {
-    const ok = await postDiscordGoal({
-      scorerName: team === "home" ? homeTeam : awayTeam,
-      homeTeam,
-      awayTeam,
-      homeScore: score(homeScore),
-      awayScore: score(awayScore),
-      statusLabel,
-      groupOrRound: params.groupOrRound,
-    });
-    if (ok) sent++;
+  for (const event of newEvents) {
+    if (event.type === "goal") {
+      const minute = formatEventMinute(event);
+      const ownGoal = event.detail.toLowerCase().includes("own");
+      const ok = await postDiscordGoal({
+        scorerName: event.playerName,
+        minute,
+        ownGoal,
+        homeTeam,
+        awayTeam,
+        homeScore: score(homeScore),
+        awayScore: score(awayScore),
+        statusLabel,
+        groupOrRound: params.groupOrRound,
+      });
+      if (ok) sent++;
+    }
+
+    if (event.type === "red_card") {
+      const ok = await postDiscordRedCard({
+        playerName: event.playerName,
+        teamName: event.side === "home" ? homeTeam : awayTeam,
+        minute: formatEventMinute(event),
+        homeTeam,
+        awayTeam,
+        homeScore: score(homeScore),
+        awayScore: score(awayScore),
+        statusLabel,
+        groupOrRound: params.groupOrRound,
+      });
+      if (ok) sent++;
+    }
   }
 
   return sent;

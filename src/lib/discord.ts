@@ -35,6 +35,8 @@ async function postDiscord(body: object): Promise<boolean> {
 
 export async function postDiscordGoal(params: {
   scorerName: string;
+  minute: string;
+  ownGoal?: boolean;
   homeTeam: string;
   awayTeam: string;
   homeScore: number;
@@ -42,16 +44,60 @@ export async function postDiscordGoal(params: {
   statusLabel: string;
   groupOrRound?: string | null;
 }): Promise<boolean> {
-  const { scorerName, homeTeam, awayTeam, homeScore, awayScore, statusLabel } =
-    params;
+  const {
+    scorerName,
+    minute,
+    ownGoal,
+    homeTeam,
+    awayTeam,
+    homeScore,
+    awayScore,
+    statusLabel,
+  } = params;
   const context = params.groupOrRound ? ` · ${params.groupOrRound}` : "";
+  const scorerLabel = ownGoal ? `${scorerName} (OG)` : scorerName;
 
   return postDiscord({
     embeds: [
       {
         title: "⚽ GOAL!",
-        description: `**${scorerName}** scores!\n${homeTeam} **${homeScore}–${awayScore}** ${awayTeam}`,
+        description: `**${scorerLabel}** ${minute}\n${homeTeam} **${homeScore}–${awayScore}** ${awayTeam}`,
         color: DISCORD_EMBED_GREEN,
+        footer: { text: `${statusLabel}${context}` },
+      },
+    ],
+  });
+}
+
+export async function postDiscordRedCard(params: {
+  playerName: string;
+  teamName: string;
+  minute: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  statusLabel: string;
+  groupOrRound?: string | null;
+}): Promise<boolean> {
+  const {
+    playerName,
+    teamName,
+    minute,
+    homeTeam,
+    awayTeam,
+    homeScore,
+    awayScore,
+    statusLabel,
+  } = params;
+  const context = params.groupOrRound ? ` · ${params.groupOrRound}` : "";
+
+  return postDiscord({
+    embeds: [
+      {
+        title: "🟥 RED CARD",
+        description: `**${playerName}** (${teamName}) ${minute}\n${homeTeam} **${homeScore}–${awayScore}** ${awayTeam}`,
+        color: 0xdc2626,
         footer: { text: `${statusLabel}${context}` },
       },
     ],

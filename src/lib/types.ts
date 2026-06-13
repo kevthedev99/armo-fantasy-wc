@@ -29,6 +29,20 @@ export interface Match {
   home_score: number | null;
   away_score: number | null;
   winning_goal_minute: number | null;
+  match_events: MatchEvent[];
+}
+
+export type MatchEventType = "goal" | "red_card";
+
+export interface MatchEvent {
+  id: string;
+  type: MatchEventType;
+  minute: number;
+  extraMinute: number | null;
+  playerName: string;
+  teamId: number;
+  side: "home" | "away";
+  detail: string;
 }
 
 export interface Pick {
