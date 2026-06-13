@@ -26,6 +26,16 @@ const SPONSORS = [
     src: "/sponsors/black-crest-capital-group.png",
     lightBg: false,
   },
+  {
+    name: "Mission Liquor",
+    src: "/sponsors/mission-liquor.png",
+    lightBg: true,
+  },
+  {
+    name: "Encore Realty",
+    src: "/sponsors/encore-realty.png",
+    lightBg: true,
+  },
 ] as const;
 
 function sponsorTileClass(lightBg: boolean, isLogin: boolean): string {
@@ -55,7 +65,7 @@ export function SponsorBanner({ variant = "login" }: SponsorBannerProps) {
         Proud sponsors
       </p>
 
-      <div className="mx-auto grid max-w-5xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-5 lg:gap-4">
+      <div className="mx-auto grid max-w-6xl grid-cols-2 gap-3 sm:grid-cols-3 lg:grid-cols-4 xl:grid-cols-7 lg:gap-4">
         {SPONSORS.map((sponsor) => (
           <div
             key={sponsor.name}
