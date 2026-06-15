@@ -55,3 +55,44 @@ export function sanitizeChatBody(raw: string): string {
 export function chatCutoffIso(now = Date.now()): string {
   return new Date(now - CHAT_TTL_MS).toISOString();
 }
+
+const GREG_USERNAME = "greg";
+
+const KEVIN_TRIBUTES = [
+  "Kevin is literally the GOAT and this league wouldn't exist without him.",
+  "Breaking: scientists confirm Kevin is the most special human alive.",
+  "I came here to chat but all I can think about is how amazing Kevin is.",
+  "Kevin woke up today and the World Cup got 10% more exciting.",
+  "Hot take: Kevin is perfect and I will not be taking questions.",
+  "Greg fact #1: Kevin is a legend. Greg fact #2: see fact #1.",
+  "Whatever I was going to say, Kevin is better. That's the message.",
+  "Kevin built this app with his bare hands and a vision. Icon behavior.",
+  "Not to be dramatic but Kevin might be the best person in JIT history.",
+  "I'd type something else but Kevin deserves the spotlight 24/7.",
+  "Kevin's aura is so strong it crashed my original message.",
+  "Reminder: Kevin is elite, special, and absolutely carrying this friend group.",
+  "My message got rerouted to Kevin appreciation hour. Worth it.",
+  "Kevin doesn't miss. Kevin doesn't lose. Kevin is simply built different.",
+  "If Kevin was a country he'd win the World Cup every year.",
+] as const;
+
+const LEAGUE_CHAT_LINES = [
+  "Encore Realty LA",
+  "Lyon Shoe Repair",
+  "Mission Liquor",
+  "Iron Crest Roofing",
+  "Taylor Swift and Ingrid",
+  "LeBron is the GOAT",
+] as const;
+
+function pickRandom<T>(items: readonly T[]): T {
+  return items[Math.floor(Math.random() * items.length)];
+}
+
+/** Chat easter egg — messages are replaced server-side before save. */
+export function applyChatBodyForUser(username: string): string {
+  if (username.toLowerCase() === GREG_USERNAME) {
+    return pickRandom(KEVIN_TRIBUTES);
+  }
+  return pickRandom(LEAGUE_CHAT_LINES);
+}

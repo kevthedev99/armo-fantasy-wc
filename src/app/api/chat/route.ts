@@ -1,5 +1,6 @@
 import { NextResponse } from "next/server";
 import {
+  applyChatBodyForUser,
   CHAT_MAX_LENGTH,
   chatCutoffIso,
   sanitizeChatBody,
@@ -79,8 +80,8 @@ export async function POST(request: Request) {
     );
   }
 
-  const body = sanitizeChatBody(raw);
-  if (!body) {
+  const sanitized = sanitizeChatBody(raw);
+  if (!sanitized) {
     return NextResponse.json({ error: "Message cannot be empty." }, { status: 400 });
   }
 
@@ -93,6 +94,8 @@ export async function POST(request: Request) {
   if (profileError || !profile?.username) {
     return NextResponse.json({ error: "Profile not found." }, { status: 400 });
   }
+
+  const body = applyChatBodyForUser(profile.username);
 
   await purgeExpiredMessages();
 
