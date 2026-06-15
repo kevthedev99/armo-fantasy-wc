@@ -1,4 +1,45 @@
 import type { MatchEvent } from "./types";
+import { isMatchFinished, isMatchInProgress } from "./scoring";
+
+export type MatchEventFetchSnapshot = {
+  home_score: number | null;
+  away_score: number | null;
+  status: string;
+  match_events: MatchEvent[] | null;
+};
+
+/** Only call fixtures/events when we may get new goals, cards, or need a one-time backfill. */
+export function shouldFetchEvents(
+  status: string,
+  oldMatch: MatchEventFetchSnapshot | null,
+  homeScore: number | null,
+  awayScore: number | null
+): boolean {
+  if (isMatchInProgress(status)) return true;
+
+  const nextHome = homeScore ?? 0;
+  const nextAway = awayScore ?? 0;
+
+  if (!oldMatch) {
+    return isMatchFinished(status);
+  }
+
+  const oldHome = oldMatch.home_score ?? 0;
+  const oldAway = oldMatch.away_score ?? 0;
+  if (oldHome !== nextHome || oldAway !== nextAway) return true;
+
+  if (isMatchFinished(status) && !isMatchFinished(oldMatch.status)) return true;
+
+  if (
+    isMatchFinished(status) &&
+    (!oldMatch.match_events || oldMatch.match_events.length === 0) &&
+    nextHome + nextAway > 0
+  ) {
+    return true;
+  }
+
+  return false;
+}
 
 export type ApiFootballEvent = {
   time: { elapsed: number; extra: number | null };

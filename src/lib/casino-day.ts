@@ -2,7 +2,7 @@
 export const DAILY_FREE_PLAY = 500;
 
 /** Wait time after balance hits $0 before chips return. */
-export const BUST_RESET_MS = 12 * 60 * 60 * 1000;
+export const BUST_RESET_MS = 60 * 60 * 1000;
 
 export function msUntilBustReset(bustedAt: string | null, now = Date.now()): number {
   if (!bustedAt) return BUST_RESET_MS;

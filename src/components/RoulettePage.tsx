@@ -466,7 +466,7 @@ export function RoulettePage({
           {!balanceState.canPlay && (
             <p className="rounded-lg border border-[#FF007A]/30 bg-[#FF007A]/10 px-3 py-2 text-center text-sm text-[#FF007A]">
               You&apos;re busted! ${balanceState.dailyAllowance} chips return in{" "}
-              {balanceState.resetIn || "12h"}.
+              {balanceState.resetIn || "1h"}.
             </p>
           )}
         </div>

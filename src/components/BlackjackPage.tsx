@@ -371,7 +371,7 @@ export function BlackjackPage({
       {!balanceState.canPlay && (
         <p className="mt-4 rounded-lg border border-[#FF007A]/30 bg-[#FF007A]/10 px-3 py-2 text-center text-sm text-[#FF007A]">
           You&apos;re out of chips! ${balanceState.dailyAllowance} returns in{" "}
-          {balanceState.resetIn || "12h"}.
+          {balanceState.resetIn || "1h"}.
         </p>
       )}
 
@@ -420,8 +420,8 @@ export function BlackjackPage({
           <li>
             <span className="font-bold text-white">Chips:</span> $
             {balanceState.dailyAllowance} starting stack, shared with Roulette.
-            Balances carry over until you hit $0 — then chips return after 12
-            hours.
+            Balances carry over until you hit $0 — then chips return after 1
+            hour.
           </li>
         </ul>
       </div>
