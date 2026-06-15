@@ -59,69 +59,18 @@ function showAwayPick(picked?: PickWinner): boolean {
 function TeamLogo({ src, name }: { src: string | null; name: string }) {
   if (!src) {
     return (
-      <span className="flex h-8 w-8 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[10px] font-bold text-gray-500">
+      <span className="flex h-6 w-6 shrink-0 items-center justify-center rounded-full bg-gray-100 text-[9px] font-bold text-gray-500 sm:h-8 sm:w-8 sm:text-[10px]">
         {name.slice(0, 2).toUpperCase()}
       </span>
     );
   }
   return (
     // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt="" className="h-8 w-8 shrink-0 object-contain" />
-  );
-}
-
-function TeamSide({
-  name,
-  logo,
-  emphasized,
-  showPick,
-  mobileAlign = "left",
-}: {
-  name: string;
-  logo: string | null;
-  emphasized: boolean;
-  showPick: boolean;
-  mobileAlign?: "left" | "right";
-}) {
-  return (
-    <div
-      className={`flex min-w-0 items-center gap-2 ${
-        mobileAlign === "right" ? "md:flex-row-reverse" : ""
-      }`}
-    >
-      <TeamLogo src={logo} name={name} />
-      <span
-        className={`min-w-0 flex-1 text-sm font-semibold leading-snug break-words md:truncate ${
-          mobileAlign === "right" ? "text-left md:text-right" : ""
-        } ${emphasized ? "text-black" : "text-gray-700"}`}
-      >
-        {name}
-      </span>
-      {showPick && <PickMark />}
-    </div>
-  );
-}
-
-function MatchStatus({
-  live,
-  finished,
-  status,
-}: {
-  live: boolean;
-  finished: boolean;
-  status: string;
-}) {
-  return (
-    <span
-      className={`text-[10px] font-bold uppercase tracking-wide ${
-        live ? "text-red-600" : finished ? "text-gray-500" : "text-gray-400"
-      }`}
-    >
-      {live && (
-        <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500 align-middle" />
-      )}
-      {getStatusLabel(status)}
-    </span>
+    <img
+      src={src}
+      alt=""
+      className="h-6 w-6 shrink-0 object-contain sm:h-8 sm:w-8"
+    />
   );
 }
 
@@ -167,75 +116,76 @@ function MatchRow({
       homeRedCards.length > 0 ||
       awayRedCards.length > 0);
 
-  const homeEmphasized =
-    showScore &&
-    match.home_score !== null &&
-    match.away_score !== null &&
-    match.home_score > match.away_score;
-  const awayEmphasized =
-    showScore &&
-    match.home_score !== null &&
-    match.away_score !== null &&
-    match.away_score > match.home_score;
-
   return (
     <article
-      className={`border-b border-gray-100 px-3 py-3 last:border-b-0 sm:px-4 ${
+      className={`border-b border-gray-100 px-3 py-2.5 last:border-b-0 sm:px-4 sm:py-3 ${
         live ? "bg-red-50/60" : "bg-white"
       }`}
     >
-      {/* Mobile: score on top, teams stacked */}
-      <div className="mb-2.5 flex flex-col items-center gap-0.5 md:hidden">
-        {showScore ? (
-          <span className="font-display text-2xl tracking-wide text-black">
-            {formatScore(match)}
+      <div className="flex items-start gap-1.5 sm:items-center sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-start gap-1.5 sm:items-center sm:gap-2">
+          <TeamLogo src={match.home_team_logo} name={match.home_team_name} />
+          <span
+            className={`min-w-0 flex-1 text-xs font-semibold leading-tight line-clamp-2 sm:text-sm sm:line-clamp-none sm:truncate ${
+              showScore &&
+              match.home_score !== null &&
+              match.away_score !== null &&
+              match.home_score > match.away_score
+                ? "text-black"
+                : "text-gray-700"
+            }`}
+          >
+            {match.home_team_name}
           </span>
-        ) : (
-          <span className="text-sm font-bold text-[#0056b3]">
-            {formatPSTTime(match.kickoff_at)}
-          </span>
-        )}
-        <MatchStatus live={live} finished={finished} status={match.status} />
-      </div>
-
-      <div className="flex flex-col gap-2.5 md:flex-row md:items-center md:gap-3">
-        <div className="min-w-0 flex-1">
-          <TeamSide
-            name={match.home_team_name}
-            logo={match.home_team_logo}
-            emphasized={homeEmphasized}
-            showPick={showHomePick(pickedWinner)}
-          />
+          {showHomePick(pickedWinner) && <PickMark />}
         </div>
 
-        <div className="hidden w-20 shrink-0 flex-col items-center md:flex">
+        <div className="flex w-14 shrink-0 flex-col items-center pt-0.5 sm:w-20 sm:pt-0">
           {showScore ? (
-            <span className="font-display text-xl tracking-wide text-black">
+            <span className="font-display text-lg tracking-wide text-black sm:text-xl">
               {formatScore(match)}
             </span>
           ) : (
-            <span className="text-sm font-bold text-[#0056b3]">
+            <span className="text-xs font-bold text-[#0056b3] sm:text-sm">
               {formatPSTTime(match.kickoff_at)}
             </span>
           )}
-          <span className="mt-0.5">
-            <MatchStatus live={live} finished={finished} status={match.status} />
+          <span
+            className={`mt-0.5 text-[10px] font-bold uppercase tracking-wide ${
+              live
+                ? "text-red-600"
+                : finished
+                  ? "text-gray-500"
+                  : "text-gray-400"
+            }`}
+          >
+            {live && (
+              <span className="mr-1 inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500 align-middle" />
+            )}
+            {getStatusLabel(match.status)}
           </span>
         </div>
 
-        <div className="min-w-0 flex-1">
-          <TeamSide
-            name={match.away_team_name}
-            logo={match.away_team_logo}
-            emphasized={awayEmphasized}
-            showPick={showAwayPick(pickedWinner)}
-            mobileAlign="right"
-          />
+        <div className="flex min-w-0 flex-1 flex-row-reverse items-start gap-1.5 sm:items-center sm:gap-2">
+          <TeamLogo src={match.away_team_logo} name={match.away_team_name} />
+          <span
+            className={`min-w-0 flex-1 text-right text-xs font-semibold leading-tight line-clamp-2 sm:text-sm sm:line-clamp-none sm:truncate ${
+              showScore &&
+              match.home_score !== null &&
+              match.away_score !== null &&
+              match.away_score > match.home_score
+                ? "text-black"
+                : "text-gray-700"
+            }`}
+          >
+            {match.away_team_name}
+          </span>
+          {showAwayPick(pickedWinner) && <PickMark />}
         </div>
       </div>
 
       {showEvents && (
-        <div className="mt-2.5 space-y-2 border-t border-gray-100 pt-2.5 sm:mt-2 sm:grid sm:grid-cols-2 sm:gap-2 sm:space-y-0">
+        <div className="mt-2 grid grid-cols-[1fr_1fr] gap-2 border-t border-gray-100 pt-2">
           <div className="min-w-0 space-y-0.5">
             {homeGoals.map((event) => (
               <GoalLine key={event.id} event={event} />
@@ -244,7 +194,7 @@ function MatchRow({
               <RedCardLine key={event.id} event={event} />
             ))}
           </div>
-          <div className="min-w-0 space-y-0.5 sm:text-right">
+          <div className="min-w-0 space-y-0.5 text-right">
             {awayGoals.map((event) => (
               <GoalLine key={event.id} event={event} />
             ))}
