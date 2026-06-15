@@ -8,14 +8,15 @@ interface NavProps {
   username?: string;
 }
 
-const MAIN_LINKS = [
+const MAIN_LINKS: { href: string; label: string; beta?: boolean }[] = [
   { href: "/", label: "Standings" },
   { href: "/games", label: "Games" },
   { href: "/picks", label: "Picks" },
+  { href: "/chat", label: "Chat", beta: true },
   { href: "/rules", label: "Rules" },
   { href: "/casino", label: "Roulette" },
   { href: "/casino/blackjack", label: "Blackjack" },
-] as const;
+];
 
 export function Nav({ username }: NavProps) {
   const router = useRouter();
@@ -43,7 +44,7 @@ export function Nav({ username }: NavProps) {
         <span>Armo Fantasy WC</span>
       </Link>
       <div className="flex flex-wrap items-center gap-5 sm:gap-7 md:gap-8">
-        {MAIN_LINKS.map(({ href, label }) => (
+        {MAIN_LINKS.map(({ href, label, beta }) => (
           <Link
             key={href}
             href={href}
@@ -58,6 +59,11 @@ export function Nav({ username }: NavProps) {
             }`}
           >
             {label}
+            {beta && (
+              <span className="ml-1 text-[9px] font-bold uppercase text-gray-500">
+                β
+              </span>
+            )}
           </Link>
         ))}
         {username ? (
