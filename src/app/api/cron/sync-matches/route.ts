@@ -126,7 +126,11 @@ export async function GET(request: Request) {
     }
 
     const newEvents = findNewEvents(oldMatch?.match_events, matchEvents);
-    const bootstrap = shouldBootstrapEvents(oldMatch?.match_events, matchEvents);
+    const bootstrap = shouldBootstrapEvents(
+      oldMatch?.match_events,
+      matchEvents,
+      status
+    );
 
     if (isDiscordConfigured()) {
       eventsNotified += await notifyMatchEvents({

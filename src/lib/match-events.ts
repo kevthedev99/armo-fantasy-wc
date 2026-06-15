@@ -94,8 +94,10 @@ export function findNewEvents(
 
 export function shouldBootstrapEvents(
   previous: MatchEvent[] | null | undefined,
-  current: MatchEvent[]
+  current: MatchEvent[],
+  status: string
 ): boolean {
+  if (!isMatchFinished(status)) return false;
   return (!previous || previous.length === 0) && current.length > 0;
 }
 

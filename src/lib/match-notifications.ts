@@ -50,9 +50,22 @@ export async function notifyMatchEvents(params: {
     bootstrap,
   } = params;
 
-  if (!oldMatch || bootstrap) return 0;
+  if (bootstrap) return 0;
+  if (
+    !oldMatch &&
+    !isMatchInProgress(status) &&
+    !isMatchFinished(status)
+  ) {
+    return 0;
+  }
   if (!isMatchInProgress(status) && !isMatchFinished(status)) return 0;
-  if (isMatchFinished(oldMatch.status) && isMatchFinished(status)) return 0;
+  if (
+    oldMatch &&
+    isMatchFinished(oldMatch.status) &&
+    isMatchFinished(status)
+  ) {
+    return 0;
+  }
 
   const statusLabel = getStatusLabel(status);
   let sent = 0;
