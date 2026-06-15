@@ -77,7 +77,7 @@ function TeamLogo({ src, name }: { src: string | null; name: string }) {
 function GoalLine({ event }: { event: MatchEvent }) {
   const ownGoal = event.detail.toLowerCase().includes("own");
   return (
-    <p className="text-[10px] leading-tight break-words text-gray-600 sm:truncate">
+    <p className="truncate text-[10px] leading-tight text-gray-600">
       ⚽ {event.playerName}
       {ownGoal ? " (OG)" : ""} {formatEventMinute(event)}
     </p>
@@ -86,7 +86,7 @@ function GoalLine({ event }: { event: MatchEvent }) {
 
 function RedCardLine({ event }: { event: MatchEvent }) {
   return (
-    <p className="text-[10px] leading-tight break-words text-red-700 sm:truncate">
+    <p className="truncate text-[10px] leading-tight text-red-700">
       🟥 {event.playerName} {formatEventMinute(event)}
     </p>
   );
@@ -122,11 +122,11 @@ function MatchRow({
         live ? "bg-red-50/60" : "bg-white"
       }`}
     >
-      <div className="flex items-start gap-1.5 sm:items-center sm:gap-3">
-        <div className="flex min-w-0 flex-1 items-start gap-1.5 sm:items-center sm:gap-2">
+      <div className="flex items-center gap-1.5 sm:gap-3">
+        <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
           <TeamLogo src={match.home_team_logo} name={match.home_team_name} />
           <span
-            className={`min-w-0 flex-1 text-xs font-semibold leading-tight line-clamp-2 sm:text-sm sm:line-clamp-none sm:truncate ${
+            className={`min-w-0 flex-1 truncate text-sm font-semibold ${
               showScore &&
               match.home_score !== null &&
               match.away_score !== null &&
@@ -140,7 +140,7 @@ function MatchRow({
           {showHomePick(pickedWinner) && <PickMark />}
         </div>
 
-        <div className="flex w-14 shrink-0 flex-col items-center pt-0.5 sm:w-20 sm:pt-0">
+        <div className="flex w-14 shrink-0 flex-col items-center sm:w-20">
           {showScore ? (
             <span className="font-display text-lg tracking-wide text-black sm:text-xl">
               {formatScore(match)}
@@ -166,10 +166,10 @@ function MatchRow({
           </span>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-row-reverse items-start gap-1.5 sm:items-center sm:gap-2">
+        <div className="flex min-w-0 flex-1 flex-row-reverse items-center gap-1.5 sm:gap-2">
           <TeamLogo src={match.away_team_logo} name={match.away_team_name} />
           <span
-            className={`min-w-0 flex-1 text-right text-xs font-semibold leading-tight line-clamp-2 sm:text-sm sm:line-clamp-none sm:truncate ${
+            className={`min-w-0 flex-1 truncate text-right text-sm font-semibold ${
               showScore &&
               match.home_score !== null &&
               match.away_score !== null &&
