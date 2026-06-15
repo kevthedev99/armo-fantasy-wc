@@ -141,12 +141,6 @@ export function ChatPage({ username }: ChatPageProps) {
           {loading && (
             <p className="px-3 py-8 text-center text-gray-500">Loading chat…</p>
           )}
-          {!loading && messages.length === 0 && (
-            <p className="px-3 py-8 text-center text-gray-500">
-              No messages yet. Say something — it&apos;ll disappear after 30
-              minutes.
-            </p>
-          )}
           {messages.map((message) => (
             <ChatLine key={message.id} message={message} />
           ))}
