@@ -125,8 +125,7 @@ export function ChatPage({ username }: ChatPageProps) {
           </span>
         </div>
         <p className="mx-auto mt-2 max-w-3xl text-sm text-gray-400">
-          Session chat for the league — messages clear every 30 minutes. No @
-          mentions. Logged in as{" "}
+          Session chat for the league. Logged in as{" "}
           <span className="font-semibold text-[#FFD700]">{username}</span>.
         </p>
       </header>
