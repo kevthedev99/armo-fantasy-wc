@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import {
   applyChatBodyForUser,
+  canClearChat,
   CHAT_MAX_LENGTH,
   chatCutoffIso,
   sanitizeChatBody,
@@ -34,6 +35,18 @@ async function fetchRecentMessages(): Promise<ChatMessage[]> {
   }
 
   return (data ?? []) as ChatMessage[];
+}
+
+async function clearAllChatMessages(): Promise<void> {
+  const supabase = createServiceClient();
+  const { error } = await supabase
+    .from("chat_messages")
+    .delete()
+    .gte("created_at", "1970-01-01");
+
+  if (error) {
+    throw error;
+  }
 }
 
 export async function GET() {
@@ -115,4 +128,37 @@ export async function POST(request: Request) {
   }
 
   return NextResponse.json({ message: inserted as ChatMessage });
+}
+
+export async function DELETE() {
+  const supabase = await createClient();
+  const {
+    data: { user },
+  } = await supabase.auth.getUser();
+
+  if (!user) {
+    return NextResponse.json({ error: "Not authenticated." }, { status: 401 });
+  }
+
+  const { data: profile, error: profileError } = await supabase
+    .from("profiles")
+    .select("username")
+    .eq("id", user.id)
+    .single();
+
+  if (profileError || !profile?.username) {
+    return NextResponse.json({ error: "Profile not found." }, { status: 400 });
+  }
+
+  if (!canClearChat(profile.username)) {
+    return NextResponse.json({ error: "Forbidden." }, { status: 403 });
+  }
+
+  try {
+    await clearAllChatMessages();
+    return NextResponse.json({ ok: true });
+  } catch (err) {
+    console.error("Chat clear failed:", err);
+    return NextResponse.json({ error: "Could not clear chat." }, { status: 500 });
+  }
 }

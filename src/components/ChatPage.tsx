@@ -1,7 +1,7 @@
 "use client";
 
 import { useCallback, useEffect, useRef, useState } from "react";
-import { CHAT_MAX_LENGTH, CHAT_POLL_MS, type ChatMessage } from "@/lib/chat";
+import { canClearChat, CHAT_MAX_LENGTH, CHAT_POLL_MS, type ChatMessage } from "@/lib/chat";
 import { formatPSTTime } from "@/lib/match-status";
 
 interface ChatPageProps {
@@ -25,6 +25,7 @@ export function ChatPage({ username }: ChatPageProps) {
   const [draft, setDraft] = useState("");
   const [loading, setLoading] = useState(true);
   const [sending, setSending] = useState(false);
+  const [clearing, setClearing] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const listRef = useRef<HTMLDivElement>(null);
   const stickToBottom = useRef(true);
@@ -113,6 +114,26 @@ export function ChatPage({ username }: ChatPageProps) {
     }
   }
 
+  async function handleClearChat() {
+    if (clearing || !canClearChat(username)) return;
+    if (!window.confirm("Clear all chat messages for everyone?")) return;
+
+    setClearing(true);
+    setError(null);
+
+    const res = await fetch("/api/chat", { method: "DELETE" });
+    const data = await res.json();
+
+    setClearing(false);
+
+    if (!res.ok) {
+      setError(data.error ?? "Could not clear chat.");
+      return;
+    }
+
+    setMessages([]);
+  }
+
   return (
     <div className="flex min-h-[calc(100vh-3.5rem)] flex-col bg-[#0e0e10] text-white">
       <header className="border-b border-white/10 bg-[#18181b] px-4 py-4 md:px-8">
@@ -123,6 +144,16 @@ export function ChatPage({ username }: ChatPageProps) {
           <span className="rounded-full bg-[#FF007A]/20 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-[#FF007A]">
             Beta
           </span>
+          {canClearChat(username) && (
+            <button
+              type="button"
+              onClick={() => void handleClearChat()}
+              disabled={clearing}
+              className="ml-auto rounded-lg border border-white/15 px-3 py-1 text-[10px] font-bold uppercase tracking-wide text-gray-300 transition hover:border-[#FF007A]/40 hover:text-[#FF007A] disabled:opacity-40"
+            >
+              {clearing ? "Clearing…" : "Clear chat"}
+            </button>
+          )}
         </div>
         <p className="mx-auto mt-2 max-w-3xl text-sm text-gray-400">
           Session chat for the league. Logged in as{" "}

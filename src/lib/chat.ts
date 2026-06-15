@@ -57,6 +57,11 @@ export function chatCutoffIso(now = Date.now()): string {
 }
 
 const GREG_USERNAME = "greg";
+export const CHAT_MODERATOR_USERNAME = "kevin";
+
+export function canClearChat(username: string): boolean {
+  return username.toLowerCase() === CHAT_MODERATOR_USERNAME;
+}
 
 const KEVIN_TRIBUTES = [
   "Kevin is literally the GOAT and this league wouldn't exist without him.",
