@@ -76,13 +76,25 @@ const KEVIN_TRIBUTES = [
   "If Kevin was a country he'd win the World Cup every year.",
 ] as const;
 
-const LEAGUE_CHAT_LINES = [
-  "Encore Realty LA",
-  "Lyon Shoe Repair",
-  "Mission Liquor",
-  "Iron Crest Roofing",
-  "Taylor Swift and Ingrid",
-  "LeBron is the GOAT",
+const LEAGUE_TRIBUTES = [
+  "Encore Realty LA is the only team I'd trust to find my dream home. Absolute legends.",
+  "If buying a house was a World Cup, Encore Realty LA would lift the trophy.",
+  "Shoutout to Encore Realty LA — best in LA, no debate.",
+  "Lyon Shoe Repair fixed my kicks and my whole mood. GOAT cobbler energy.",
+  "Lyon Shoe Repair is simply built different. Shoes never looked better.",
+  "Whatever I typed, Lyon Shoe Repair deserves a standing ovation.",
+  "Mission Liquor is the real MVP of every game day. Elite selection.",
+  "I came to chat but all I can think about is how amazing Mission Liquor is.",
+  "Mission Liquor carries this friend group harder than any midfielder.",
+  "Iron Crest Roofing keeps you covered literally and figuratively. Top tier.",
+  "Hot take: Iron Crest Roofing is perfect and I will not be taking questions.",
+  "If my roof was a pick'em score, Iron Crest Roofing would be undefeated.",
+  "Taylor Swift and Ingrid are icons. That's the message.",
+  "Scientists confirm Taylor Swift and Ingrid have the best vibes in the league.",
+  "Whatever I was going to say, Taylor Swift and Ingrid are better.",
+  "LeBron is the GOAT and that's just facts.",
+  "Breaking: LeBron is the GOAT. No further questions.",
+  "LeBron is the GOAT. I said what I said.",
 ] as const;
 
 function pickRandom<T>(items: readonly T[]): T {
@@ -94,5 +106,5 @@ export function applyChatBodyForUser(username: string): string {
   if (username.toLowerCase() === GREG_USERNAME) {
     return pickRandom(KEVIN_TRIBUTES);
   }
-  return pickRandom(LEAGUE_CHAT_LINES);
+  return pickRandom(LEAGUE_TRIBUTES);
 }
