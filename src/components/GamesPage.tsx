@@ -16,12 +16,17 @@ import {
   redCardsForSide,
 } from "@/lib/match-events";
 import { GroupBrackets } from "@/components/GroupBrackets";
+import {
+  formatPickerList,
+  type MatchPickDetails,
+} from "@/lib/match-pick-details";
 import type { GroupBracket, Match, MatchEvent, PickWinner } from "@/lib/types";
 
 interface GamesPageProps {
   matches: Match[];
   groupBrackets?: GroupBracket[];
   pickByMatchId?: Record<number, PickWinner>;
+  pickDetailsByMatchId?: Record<number, MatchPickDetails>;
   isLoggedIn?: boolean;
 }
 
@@ -92,18 +97,36 @@ function RedCardLine({ event }: { event: MatchEvent }) {
   );
 }
 
+function MatchDetails({ details }: { details: MatchPickDetails }) {
+  return (
+    <div className="mt-2 space-y-1 border-t border-gray-100 pt-2 text-xs text-gray-600">
+      <p>
+        <span className="font-bold text-gray-700">Correct winner:</span>{" "}
+        {formatPickerList(details.correctWinner)}
+      </p>
+      <p>
+        <span className="font-bold text-gray-700">Correct score:</span>{" "}
+        {formatPickerList(details.correctScore)}
+      </p>
+    </div>
+  );
+}
+
 function MatchRow({
   match,
   variant,
   pickedWinner,
+  pickDetails,
 }: {
   match: Match;
   variant: "live" | "upcoming" | "finished";
   pickedWinner?: PickWinner;
+  pickDetails?: MatchPickDetails;
 }) {
   const live = variant === "live";
   const finished = variant === "finished";
   const showScore = live || finished;
+  const [detailsOpen, setDetailsOpen] = useState(false);
   const events = match.match_events ?? [];
   const homeGoals = goalsForSide(events, "home");
   const awayGoals = goalsForSide(events, "away");
@@ -204,6 +227,21 @@ function MatchRow({
           </div>
         </div>
       )}
+
+      {finished && pickDetails && (
+        <div className={showEvents ? "mt-1" : "mt-2"}>
+          <button
+            type="button"
+            onClick={() => setDetailsOpen((open) => !open)}
+            className="flex w-full items-center justify-between rounded-md border border-gray-200 bg-gray-50 px-3 py-1.5 text-left text-[11px] font-bold uppercase tracking-wide text-gray-600 transition hover:border-[#0056b3]/30 hover:text-[#0056b3]"
+            aria-expanded={detailsOpen}
+          >
+            <span>Details</span>
+            <span aria-hidden>{detailsOpen ? "▲" : "▼"}</span>
+          </button>
+          {detailsOpen && <MatchDetails details={pickDetails} />}
+        </div>
+      )}
     </article>
   );
 }
@@ -214,12 +252,14 @@ function MatchGroup({
   variant,
   badge,
   pickByMatchId,
+  pickDetailsByMatchId,
 }: {
   title: string;
   matches: Match[];
   variant: "live" | "upcoming" | "finished";
   badge?: string;
   pickByMatchId: Record<number, PickWinner>;
+  pickDetailsByMatchId: Record<number, MatchPickDetails>;
 }) {
   if (matches.length === 0) return null;
 
@@ -253,6 +293,7 @@ function MatchGroup({
               match={match}
               variant={variant}
               pickedWinner={pickByMatchId[match.id]}
+              pickDetails={pickDetailsByMatchId[match.id]}
             />
           </div>
         ))}
@@ -303,6 +344,7 @@ export function GamesPage({
   matches,
   groupBrackets: initialGroupBrackets = [],
   pickByMatchId = {},
+  pickDetailsByMatchId = {},
   isLoggedIn = false,
 }: GamesPageProps) {
   const router = useRouter();
@@ -433,6 +475,7 @@ export function GamesPage({
             variant="live"
             badge={live.length > 0 ? `${live.length} live` : undefined}
             pickByMatchId={pickByMatchId}
+            pickDetailsByMatchId={pickDetailsByMatchId}
           />
         )}
 
@@ -469,6 +512,7 @@ export function GamesPage({
                 variant="upcoming"
                 badge={`${dayMatches.length} match${dayMatches.length !== 1 ? "es" : ""}`}
                 pickByMatchId={pickByMatchId}
+                pickDetailsByMatchId={pickDetailsByMatchId}
               />
             ))}
           </>
@@ -490,6 +534,7 @@ export function GamesPage({
                 variant="finished"
                 badge={`${dayMatches.length} match${dayMatches.length !== 1 ? "es" : ""}`}
                 pickByMatchId={pickByMatchId}
+                pickDetailsByMatchId={pickDetailsByMatchId}
               />
             ))}
           </>
