@@ -1,5 +1,9 @@
 import { isMatchFinished } from "@/lib/scoring";
 import type { Match, PickWinner } from "@/lib/types";
+import type { SupabaseClient } from "@supabase/supabase-js";
+
+/** PostgREST default max rows per request. */
+const PICKS_PAGE_SIZE = 1000;
 
 export type MatchPickDetails = {
   correctWinner: string[];
@@ -67,6 +71,34 @@ type PickWithProfileRow = {
     | { display_name: string; username: string }
     | { display_name: string; username: string }[];
 };
+
+/** Paginate picks+profiles so we don't miss rows past the 1000-row cap. */
+export async function fetchAllPicksWithProfiles(
+  supabase: SupabaseClient
+): Promise<PickWithProfileRow[]> {
+  const all: PickWithProfileRow[] = [];
+  let from = 0;
+
+  while (true) {
+    const { data, error } = await supabase
+      .from("picks")
+      .select(
+        "match_id, picked_winner, home_score_pred, away_score_pred, profiles!inner(display_name, username)"
+      )
+      .order("match_id", { ascending: true })
+      .order("user_id", { ascending: true })
+      .range(from, from + PICKS_PAGE_SIZE - 1);
+
+    if (error) throw error;
+    if (!data?.length) break;
+
+    all.push(...(data as PickWithProfileRow[]));
+    if (data.length < PICKS_PAGE_SIZE) break;
+    from += PICKS_PAGE_SIZE;
+  }
+
+  return all;
+}
 
 function profileFromRow(
   profiles: PickWithProfileRow["profiles"]

@@ -40,16 +40,52 @@ function escapeRegExp(value: string): string {
   return value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 }
 
-/** Strip @ (no mentions) and mask profanity. */
+const NEGATIVE_WORDS = [
+  "awful",
+  "bad",
+  "cringe",
+  "disgusting",
+  "dumb",
+  "dumbass",
+  "garbage",
+  "hate",
+  "horrible",
+  "idiot",
+  "lame",
+  "moron",
+  "pathetic",
+  "suck",
+  "sucks",
+  "sucked",
+  "stupid",
+  "terrible",
+  "trash",
+  "useless",
+  "worthless",
+  "worst",
+] as const;
+
+function containsWord(text: string, word: string): boolean {
+  const pattern = new RegExp(`\\b${escapeRegExp(word)}\\b`, "i");
+  return pattern.test(text);
+}
+
+function containsProfanity(text: string): boolean {
+  return PROFANITY.some((word) => containsWord(text, word));
+}
+
+function containsNegativeLanguage(text: string): boolean {
+  return NEGATIVE_WORDS.some((word) => containsWord(text, word));
+}
+
+/** True when the message should be replaced with a troll tribute. */
+export function shouldTrollRewrite(text: string): boolean {
+  return containsProfanity(text) || containsNegativeLanguage(text);
+}
+
+/** Strip @ (no mentions) and normalize whitespace. */
 export function sanitizeChatBody(raw: string): string {
-  let text = raw.replace(/@/g, "").replace(/\s+/g, " ").trim();
-
-  for (const word of PROFANITY) {
-    const pattern = new RegExp(`\\b${escapeRegExp(word)}\\b`, "gi");
-    text = text.replace(pattern, "*".repeat(word.length));
-  }
-
-  return text;
+  return raw.replace(/@/g, "").replace(/\s+/g, " ").trim();
 }
 
 export function chatCutoffIso(now = Date.now()): string {
@@ -103,10 +139,17 @@ function pickRandom<T>(items: readonly T[]): T {
   return items[Math.floor(Math.random() * items.length)];
 }
 
-/** Chat easter egg — messages are replaced server-side before save. */
-export function applyChatBodyForUser(username: string): string {
+function pickTrollTribute(username: string): string {
   if (username.toLowerCase() === GREG_USERNAME) {
     return pickRandom(KEVIN_TRIBUTES);
   }
   return pickRandom(LEAGUE_TRIBUTES);
+}
+
+/** Pass through casual chat; troll rewrite only for profanity or negative language. */
+export function applyChatBodyForUser(username: string, body: string): string {
+  if (shouldTrollRewrite(body)) {
+    return pickTrollTribute(username);
+  }
+  return body;
 }

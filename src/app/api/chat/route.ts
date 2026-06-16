@@ -108,7 +108,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Profile not found." }, { status: 400 });
   }
 
-  const body = applyChatBodyForUser(profile.username);
+  const body = applyChatBodyForUser(profile.username, sanitized);
 
   await purgeExpiredMessages();
 
