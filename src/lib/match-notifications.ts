@@ -1,4 +1,5 @@
 import {
+  postDiscordKickoff,
   postDiscordFullTime,
   postDiscordGoal,
   postDiscordRedCard,
@@ -26,6 +27,17 @@ export function shouldNotifyFullTime(
   if (!isMatchFinished(newStatus)) return false;
   if (!oldMatch) return false;
   return !isMatchFinished(oldMatch.status);
+}
+
+export function shouldNotifyKickoff(
+  oldMatch: ScoreSnapshot | null,
+  newStatus: string
+): boolean {
+  if (!isMatchInProgress(newStatus)) return false;
+  if (!oldMatch) return false;
+  return (
+    !isMatchInProgress(oldMatch.status) && !isMatchFinished(oldMatch.status)
+  );
 }
 
 export async function notifyMatchEvents(params: {
@@ -123,6 +135,18 @@ export async function notifyFullTime(
     awayTeam: match.away_team_name,
     homeScore: score(match.home_score),
     awayScore: score(match.away_score),
+    groupOrRound: match.group_name ?? match.round,
+  });
+}
+
+export async function notifyKickoff(
+  match: Pick<Match, "home_team_name" | "away_team_name" | "group_name" | "round">,
+  status: string
+): Promise<boolean> {
+  return postDiscordKickoff({
+    homeTeam: match.home_team_name,
+    awayTeam: match.away_team_name,
+    statusLabel: getStatusLabel(status),
     groupOrRound: match.group_name ?? match.round,
   });
 }

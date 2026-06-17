@@ -3,6 +3,7 @@ import { formatStreak } from "@/lib/scoring";
 const DISCORD_EMBED_GREEN = 0x32cd32;
 const DISCORD_EMBED_BLUE = 0x0056b3;
 const DISCORD_EMBED_GOLD = 0xffd700;
+const DISCORD_EMBED_ORANGE = 0xf59e0b;
 
 function webhookUrl(): string | null {
   const url = process.env.DISCORD_WEBHOOK_URL?.trim();
@@ -121,6 +122,27 @@ export async function postDiscordFullTime(params: {
         description: `${homeTeam} **${homeScore}–${awayScore}** ${awayTeam}`,
         color: DISCORD_EMBED_BLUE,
         footer: { text: `Armo Fantasy WC${context}` },
+      },
+    ],
+  });
+}
+
+export async function postDiscordKickoff(params: {
+  homeTeam: string;
+  awayTeam: string;
+  statusLabel: string;
+  groupOrRound?: string | null;
+}): Promise<boolean> {
+  const { homeTeam, awayTeam, statusLabel } = params;
+  const context = params.groupOrRound ? ` · ${params.groupOrRound}` : "";
+
+  return postDiscord({
+    embeds: [
+      {
+        title: "🚨 GAME STARTED",
+        description: `${homeTeam} vs ${awayTeam}`,
+        color: DISCORD_EMBED_ORANGE,
+        footer: { text: `${statusLabel}${context}` },
       },
     ],
   });

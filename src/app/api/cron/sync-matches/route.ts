@@ -14,8 +14,10 @@ import {
 } from "@/lib/match-events";
 import {
   notifyFullTime,
+  notifyKickoff,
   notifyMatchEvents,
   shouldNotifyFullTime,
+  shouldNotifyKickoff,
 } from "@/lib/match-notifications";
 import {
   aggregateProfileStats,
@@ -92,6 +94,7 @@ export async function GET(request: Request) {
   );
 
   const justFinishedMatchIds: number[] = [];
+  const justStartedMatchIds: number[] = [];
   let eventsNotified = 0;
 
   let groupFinishedCount = 0;
@@ -133,6 +136,19 @@ export async function GET(request: Request) {
     );
 
     if (isDiscordConfigured()) {
+      if (shouldNotifyKickoff(oldMatch, status)) {
+        justStartedMatchIds.push(matchId);
+        await notifyKickoff(
+          {
+            home_team_name: f.teams.home.name,
+            away_team_name: f.teams.away.name,
+            group_name: parseGroupName(f.league.round),
+            round: f.league.round,
+          },
+          status
+        );
+      }
+
       eventsNotified += await notifyMatchEvents({
         oldMatch,
         homeTeam: f.teams.home.name,
@@ -273,6 +289,7 @@ export async function GET(request: Request) {
     groupComplete,
     discord: {
       configured: isDiscordConfigured(),
+      gameStartedMatches: justStartedMatchIds.length,
       goalsNotified: eventsNotified,
       fullTimeMatches: justFinishedMatchIds.length,
       leaderboardsPosted,
