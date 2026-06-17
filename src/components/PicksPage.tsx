@@ -86,7 +86,7 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <header className="bg-[#0056b3] px-6 py-8 text-white">
+      <header className="bg-[#0056b3] px-4 py-8 text-center text-white sm:px-6 sm:text-left">
         <h1 className="text-4xl font-black uppercase tracking-tight md:text-5xl">
           Matches
         </h1>
@@ -95,20 +95,20 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
         </p>
       </header>
 
-      <p className="border-b border-gray-200 bg-white px-6 py-3 text-xs text-gray-600">
+      <p className="border-b border-gray-200 bg-white px-4 py-3 text-center text-xs text-gray-600 sm:px-6 sm:text-left">
         Change picks anytime before kickoff. Once a match starts, it locks —
         you cannot add or change a pick, even if you forgot to pick that game.
         Group stage: winner (or tie) + score for bonus. Knockouts: winner only.
       </p>
 
       {view === "upcoming" && lockedWithoutPick > 0 && (
-        <p className="border-b border-amber-200 bg-amber-50 px-6 py-2 text-xs font-medium text-amber-900">
+        <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-900 sm:px-6 sm:text-left">
           {lockedWithoutPick} match{lockedWithoutPick !== 1 ? "es" : ""} already
           started with no pick — those are locked and cannot be changed.
         </p>
       )}
 
-      <div className="flex flex-wrap items-center gap-2 border-b border-gray-200 bg-white px-6 py-4">
+      <div className="flex flex-wrap items-center justify-center gap-2 border-b border-gray-200 bg-white px-4 py-4 sm:justify-start sm:px-6">
         <button
           type="button"
           onClick={() => setView("upcoming")}
@@ -159,7 +159,7 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
           {!settings.knockout_unlocked && " (locked)"}
         </button>
         {tab === "knockout" && settings.knockout_unlocked && (
-          <div className="flex flex-wrap gap-2">
+          <div className="flex w-full flex-wrap justify-center gap-2 sm:w-auto sm:justify-start">
             {KNOCKOUT_ROUNDS.filter((r) =>
               knockoutMatches.some((m) => m.round === r)
             ).map((round) => (
@@ -186,7 +186,7 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
             : "No upcoming matches loaded yet. Run the sync cron or check your API-Football key."}
         </p>
       ) : (
-        <div className="grid gap-4 px-6 pb-12 sm:grid-cols-2 lg:grid-cols-3">
+        <div className="mx-auto grid w-full max-w-md grid-cols-1 gap-4 px-4 pb-12 sm:max-w-none sm:grid-cols-2 sm:px-6 lg:max-w-7xl lg:grid-cols-3">
           {visibleMatches.map((match) => (
             <MatchCard
               key={match.id}

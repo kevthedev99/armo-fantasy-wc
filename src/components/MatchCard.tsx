@@ -126,7 +126,7 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
         </div>
       </div>
 
-      <div className="mb-4 flex items-center justify-center gap-2 text-center text-sm font-black uppercase">
+      <div className="mb-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-sm font-black uppercase">
         {match.home_team_logo && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
@@ -151,7 +151,7 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
       {locked ? (
         <>
           {pick && summary ? (
-            <div className="mb-3 flex items-center justify-between gap-2">
+            <div className="mb-3 flex flex-col items-center gap-2 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
               <span
                 className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase text-white ${
                   isLive ? "bg-red-600" : "bg-gray-500"
@@ -186,7 +186,7 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
       ) : (
         <>
           {summary && (
-            <div className="mb-3 flex items-center justify-between">
+            <div className="mb-3 flex flex-col items-center gap-2 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
               <span className="rounded-full bg-[#32CD32] px-2 py-0.5 text-[10px] font-bold uppercase text-white">
                 Saved
               </span>
