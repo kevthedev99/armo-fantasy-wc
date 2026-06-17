@@ -1,6 +1,7 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { getMatchBucket } from "@/lib/match-status";
 import { isMatchFinished, isMatchLocked } from "@/lib/scoring";
 import type { AppSettings, Match, Pick } from "@/lib/types";
 import { MatchCard } from "./MatchCard";
@@ -25,12 +26,19 @@ const KNOCKOUT_ROUNDS = [
 type PicksView = "upcoming" | "past";
 
 function sortUpcoming(matches: Match[]): Match[] {
-  return [...matches].sort((a, b) => {
-    const aLocked = isMatchLocked(a);
-    const bLocked = isMatchLocked(b);
-    if (aLocked !== bLocked) return aLocked ? 1 : -1;
-    return new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime();
-  });
+  return [...matches]
+    .filter((m) => !isMatchFinished(m.status))
+    .sort((a, b) => {
+      const aLive = getMatchBucket(a) === "live";
+      const bLive = getMatchBucket(b) === "live";
+      if (aLive !== bLive) return aLive ? -1 : 1;
+
+      const aLocked = isMatchLocked(a);
+      const bLocked = isMatchLocked(b);
+      if (aLocked !== bLocked) return aLocked ? 1 : -1;
+
+      return new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime();
+    });
 }
 
 function sortPast(matches: Match[]): Match[] {

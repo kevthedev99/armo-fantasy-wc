@@ -4,6 +4,11 @@ import { useState } from "react";
 import { format } from "date-fns";
 import { useIsMatchLocked } from "@/hooks/useIsMatchLocked";
 import {
+  formatScore,
+  getMatchBucket,
+  getStatusLabel,
+} from "@/lib/match-status";
+import {
   formatPickSummary,
   getMatchLockMessage,
   isMatchFinished,
@@ -35,9 +40,8 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
   const resolvedHome = normalizeGroupScore(homeScore);
   const resolvedAway = normalizeGroupScore(awayScore);
 
-  const summary = pick
-    ? formatPickSummary(match, pick)
-    : null;
+  const isLive = getMatchBucket(match) === "live";
+  const summary = pick ? formatPickSummary(match, pick) : null;
 
   async function savePick() {
     if (locked) return;
@@ -72,15 +76,19 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
     onSaved(data.pick);
   }
 
-  const cardClass = locked
+  const cardClass = isLive
     ? pick
-      ? "border-gray-300 bg-gray-50"
-      : "border-amber-300 bg-amber-50/80"
-    : "border-gray-200 bg-white";
+      ? "border-red-400 bg-red-50/70 ring-2 ring-red-200"
+      : "border-red-400 bg-red-50 ring-2 ring-red-200"
+    : locked
+      ? pick
+        ? "border-gray-300 bg-gray-50"
+        : "border-amber-300 bg-amber-50/80"
+      : "border-gray-200 bg-white";
 
   return (
     <article
-      className={`rounded-xl border p-4 shadow-sm ${cardClass} ${locked ? "opacity-95" : ""}`}
+      className={`rounded-xl border p-4 shadow-sm ${cardClass} ${locked && !isLive ? "opacity-95" : ""}`}
     >
       <div className="mb-3 flex items-center justify-between gap-2">
         {match.group_name ? (
@@ -93,9 +101,21 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
           </span>
         )}
         <div className="text-right">
-          <time className="block text-[10px] font-medium uppercase text-gray-500">
-            {format(new Date(match.kickoff_at), "EEE, MMM d, h:mm a")}
-          </time>
+          {isLive ? (
+            <span className="flex items-center justify-end gap-1 text-[10px] font-bold uppercase text-red-600">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+              {getStatusLabel(match.status)}
+            </span>
+          ) : (
+            <time className="block text-[10px] font-medium uppercase text-gray-500">
+              {format(new Date(match.kickoff_at), "EEE, MMM d, h:mm a")}
+            </time>
+          )}
+          {isLive && match.home_score !== null && match.away_score !== null && (
+            <span className="text-[10px] font-bold text-red-700">
+              {formatScore(match)}
+            </span>
+          )}
           {isMatchFinished(match.status) &&
             match.home_score !== null &&
             match.away_score !== null && (
@@ -131,11 +151,21 @@ export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
       {locked ? (
         <>
           {pick && summary ? (
-            <div className="mb-3 flex items-center justify-between">
-              <span className="rounded-full bg-gray-500 px-2 py-0.5 text-[10px] font-bold uppercase text-white">
-                Locked pick
+            <div className="mb-3 flex items-center justify-between gap-2">
+              <span
+                className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase text-white ${
+                  isLive ? "bg-red-600" : "bg-gray-500"
+                }`}
+              >
+                {isLive ? "Live pick" : "Locked pick"}
               </span>
-              <span className="rounded-full bg-[#32CD32]/15 px-3 py-1 text-xs font-bold uppercase text-[#1a7a1a]">
+              <span
+                className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                  isLive
+                    ? "bg-red-100 text-red-800"
+                    : "bg-[#32CD32]/15 text-[#1a7a1a]"
+                }`}
+              >
                 {summary}
               </span>
             </div>
