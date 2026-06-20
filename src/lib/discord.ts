@@ -154,7 +154,13 @@ export type DiscordLeaderboardEntry = {
   total_points: number;
   total_wins: number;
   current_streak: number;
+  rank_change?: number;
 };
+
+function formatRankChange(change: number): string {
+  if (change === 0) return "";
+  return change > 0 ? ` ↑${change}` : ` ↓${Math.abs(change)}`;
+}
 
 export async function postDiscordLeaderboard(
   leaders: DiscordLeaderboardEntry[]
@@ -163,7 +169,7 @@ export async function postDiscordLeaderboard(
 
   const lines = leaders.map((p, i) => {
     const wins = p.total_wins === 1 ? "1 win" : `${p.total_wins} wins`;
-    return `**${i + 1}.** ${p.display_name} — **${p.total_points}** pts · ${wins} · ${formatStreak(p.current_streak)}`;
+    return `**${i + 1}.** ${p.display_name}${formatRankChange(p.rank_change ?? 0)} — **${p.total_points}** pts · ${wins} · ${formatStreak(p.current_streak)}`;
   });
 
   return postDiscord({

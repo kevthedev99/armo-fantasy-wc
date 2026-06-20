@@ -10,6 +10,7 @@ export interface Profile {
   total_points: number;
   total_wins: number;
   current_streak: number;
+  rank_change?: number;
   created_at: string;
 }
 

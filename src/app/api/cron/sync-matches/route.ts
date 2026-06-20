@@ -26,7 +26,7 @@ import {
   scorePick,
 } from "@/lib/scoring";
 import type { MatchEvent, Pick } from "@/lib/types";
-import { topStandings } from "@/lib/standings";
+import { topStandings, computeRankChanges } from "@/lib/standings";
 import { createServiceClient } from "@/lib/supabase/server";
 
 function authorize(request: Request): boolean {
@@ -212,6 +212,10 @@ export async function GET(request: Request) {
     .eq("id", 1);
 
   // Score finished matches
+  const { data: profilesBeforeScoring } = await supabase
+    .from("profiles")
+    .select("id, total_points, total_wins");
+
   const { data: finishedMatches } = await supabase
     .from("matches")
     .select("*")
@@ -253,6 +257,13 @@ export async function GET(request: Request) {
     picksByUser.set(pick.user_id, list);
   }
 
+  const rebuiltProfiles: {
+    id: string;
+    total_points: number;
+    total_wins: number;
+    current_streak: number;
+  }[] = [];
+
   for (const profile of profiles ?? []) {
     const userPicks = picksByUser.get(profile.id) ?? [];
     const { total_points, total_wins } = aggregateProfileStats(userPicks);
@@ -261,10 +272,36 @@ export async function GET(request: Request) {
       userPicks
     );
 
-    await supabase
-      .from("profiles")
-      .update({ total_points, total_wins, current_streak })
-      .eq("id", profile.id);
+    rebuiltProfiles.push({
+      id: profile.id,
+      total_points,
+      total_wins,
+      current_streak,
+    });
+  }
+
+  const rankChanges =
+    justFinishedMatchIds.length > 0
+      ? computeRankChanges(profilesBeforeScoring ?? [], rebuiltProfiles)
+      : new Map<string, number>();
+
+  for (const profile of rebuiltProfiles) {
+    const update: {
+      total_points: number;
+      total_wins: number;
+      current_streak: number;
+      rank_change?: number;
+    } = {
+      total_points: profile.total_points,
+      total_wins: profile.total_wins,
+      current_streak: profile.current_streak,
+    };
+
+    if (justFinishedMatchIds.length > 0) {
+      update.rank_change = rankChanges.get(profile.id) ?? 0;
+    }
+
+    await supabase.from("profiles").update(update).eq("id", profile.id);
   }
 
   let leaderboardsPosted = 0;
@@ -272,7 +309,7 @@ export async function GET(request: Request) {
     const { data: allProfiles } = await supabase
       .from("profiles")
       .select(
-        "display_name, username, total_points, total_wins, current_streak"
+        "display_name, username, total_points, total_wins, current_streak, rank_change"
       );
 
     const leaders = topStandings(allProfiles ?? [], 10);

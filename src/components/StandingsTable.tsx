@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { RankChangeBadge } from "@/components/RankChangeBadge";
 import { SponsorBanner } from "@/components/SponsorBanner";
 import { WorldCupLogo } from "@/components/WorldCupLogo";
 import { formatStreak } from "@/lib/scoring";
@@ -125,6 +126,10 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                     <div className="min-w-0 flex-1">
                       <p className="break-words text-base font-bold leading-snug text-white">
                         {profile.display_name}
+                        <RankChangeBadge
+                          change={profile.rank_change ?? 0}
+                          className="ml-1.5 align-middle"
+                        />
                         {isYou && (
                           <span className="ml-1.5 text-xs font-normal text-[#32CD32]">
                             (you)
@@ -201,6 +206,10 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                     <PlayerAvatar profile={profile} />
                     <span className="truncate font-medium text-white hover:text-[#FF007A]">
                       {profile.display_name}
+                      <RankChangeBadge
+                        change={profile.rank_change ?? 0}
+                        className="ml-2 align-middle"
+                      />
                       {isYou && (
                         <span className="ml-2 text-xs text-[#32CD32]">
                           (you)
