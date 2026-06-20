@@ -135,9 +135,9 @@ export async function GET(request: Request) {
       status
     );
 
-    if (isDiscordConfigured()) {
-      if (shouldNotifyKickoff(oldMatch, status)) {
-        justStartedMatchIds.push(matchId);
+    if (shouldNotifyKickoff(oldMatch, status)) {
+      justStartedMatchIds.push(matchId);
+      if (isDiscordConfigured()) {
         await notifyKickoff(
           {
             home_team_name: f.teams.home.name,
@@ -148,7 +148,23 @@ export async function GET(request: Request) {
           status
         );
       }
+    }
 
+    if (shouldNotifyFullTime(oldMatch, status)) {
+      justFinishedMatchIds.push(matchId);
+      if (isDiscordConfigured()) {
+        await notifyFullTime({
+          home_team_name: f.teams.home.name,
+          away_team_name: f.teams.away.name,
+          home_score: homeScore,
+          away_score: awayScore,
+          group_name: parseGroupName(f.league.round),
+          round: f.league.round,
+        });
+      }
+    }
+
+    if (isDiscordConfigured()) {
       eventsNotified += await notifyMatchEvents({
         oldMatch,
         homeTeam: f.teams.home.name,
@@ -160,18 +176,6 @@ export async function GET(request: Request) {
         newEvents,
         bootstrap,
       });
-
-      if (shouldNotifyFullTime(oldMatch, status)) {
-        justFinishedMatchIds.push(matchId);
-        await notifyFullTime({
-          home_team_name: f.teams.home.name,
-          away_team_name: f.teams.away.name,
-          home_score: homeScore,
-          away_score: awayScore,
-          group_name: parseGroupName(f.league.round),
-          round: f.league.round,
-        });
-      }
     }
 
     await supabase.from("matches").upsert(
@@ -210,6 +214,17 @@ export async function GET(request: Request) {
       updated_at: new Date().toISOString(),
     })
     .eq("id", 1);
+
+  if (justStartedMatchIds.length > 0) {
+    const { error: clearError } = await supabase
+      .from("profiles")
+      .update({ rank_change: 0 })
+      .not("id", "is", null);
+
+    if (clearError) {
+      console.error("Failed to clear rank_change on kickoff:", clearError);
+    }
+  }
 
   // Score finished matches
   const { data: profilesBeforeScoring } = await supabase
