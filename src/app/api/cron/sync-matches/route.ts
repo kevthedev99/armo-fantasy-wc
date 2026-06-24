@@ -90,6 +90,170 @@ async function fetchAllPicks(
   return all;
 }
 
+async function fetchPicksForUsers(
+  supabase: ReturnType<typeof createServiceClient>,
+  userIds: string[]
+): Promise<Pick[]> {
+  if (userIds.length === 0) return [];
+
+  const all: Pick[] = [];
+  const chunkSize = 100;
+
+  for (let i = 0; i < userIds.length; i += chunkSize) {
+    const chunk = userIds.slice(i, i + chunkSize);
+    const { data, error } = await supabase
+      .from("picks")
+      .select("*")
+      .in("user_id", chunk);
+
+    if (error) throw error;
+    all.push(...((data ?? []) as Pick[]));
+  }
+
+  return all;
+}
+
+function groupPicksByUser(picks: Pick[]): Map<string, Pick[]> {
+  const map = new Map<string, Pick[]>();
+  for (const pick of picks) {
+    const list = map.get(pick.user_id) ?? [];
+    list.push(pick);
+    map.set(pick.user_id, list);
+  }
+  return map;
+}
+
+type ProfileStandingRow = {
+  id: string;
+  total_points: number;
+  total_wins: number;
+  current_streak: number;
+  rank_change: number;
+};
+
+type RebuiltProfileStats = {
+  total_points: number;
+  total_wins: number;
+  current_streak: number;
+};
+
+async function fetchFinishedMatchesForStreak(
+  supabase: ReturnType<typeof createServiceClient>
+): Promise<Match[]> {
+  const { data, error } = await supabase
+    .from("matches")
+    .select("*")
+    .in("status", ["FT", "AET", "PEN"])
+    .order("kickoff_at", { ascending: true });
+
+  if (error) throw error;
+  return (data ?? []) as Match[];
+}
+
+async function rebuildLeaderboard(params: {
+  supabase: ReturnType<typeof createServiceClient>;
+  affectedUserIds: Set<string>;
+  gameJustFinished: boolean;
+}): Promise<{ profilesUpdated: number }> {
+  const { supabase, affectedUserIds, gameJustFinished } = params;
+
+  const { data: profilesBeforeScoring, error: beforeError } = await supabase
+    .from("profiles")
+    .select("id, total_points, total_wins, current_streak, rank_change");
+
+  if (beforeError) throw beforeError;
+
+  const profiles = (profilesBeforeScoring ?? []) as ProfileStandingRow[];
+  if (profiles.length === 0) return { profilesUpdated: 0 };
+
+  const finishedForStreak = await fetchFinishedMatchesForStreak(supabase);
+  const statsByUserId = new Map<string, RebuiltProfileStats>();
+
+  if (gameJustFinished) {
+    const allPicks = await fetchAllPicks(supabase);
+    const picksByUser = groupPicksByUser(allPicks);
+
+    for (const profile of profiles) {
+      const userPicks = picksByUser.get(profile.id) ?? [];
+      const { total_points, total_wins } = aggregateProfileStats(userPicks);
+      statsByUserId.set(profile.id, {
+        total_points,
+        total_wins,
+        current_streak: computeCurrentStreak(finishedForStreak, userPicks),
+      });
+    }
+  } else {
+    const picks = await fetchPicksForUsers(supabase, [...affectedUserIds]);
+    const picksByUser = groupPicksByUser(picks);
+
+    for (const userId of affectedUserIds) {
+      const userPicks = picksByUser.get(userId) ?? [];
+      const { total_points, total_wins } = aggregateProfileStats(userPicks);
+      statsByUserId.set(userId, {
+        total_points,
+        total_wins,
+        current_streak: computeCurrentStreak(finishedForStreak, userPicks),
+      });
+    }
+  }
+
+  const afterForRank = profiles.map((profile) => {
+    const updated = statsByUserId.get(profile.id);
+    return {
+      id: profile.id,
+      total_points: updated?.total_points ?? profile.total_points,
+      total_wins: updated?.total_wins ?? profile.total_wins,
+    };
+  });
+
+  const rankChanges = gameJustFinished
+    ? computeRankChanges(profiles, afterForRank)
+    : new Map<string, number>();
+
+  let profilesUpdated = 0;
+
+  for (const profile of profiles) {
+    const updated = statsByUserId.get(profile.id);
+    const update: {
+      total_points?: number;
+      total_wins?: number;
+      current_streak?: number;
+      rank_change?: number;
+    } = {};
+
+    if (updated) {
+      if (updated.total_points !== profile.total_points) {
+        update.total_points = updated.total_points;
+      }
+      if (updated.total_wins !== profile.total_wins) {
+        update.total_wins = updated.total_wins;
+      }
+      if (updated.current_streak !== profile.current_streak) {
+        update.current_streak = updated.current_streak;
+      }
+    }
+
+    if (gameJustFinished) {
+      const rankChange = rankChanges.get(profile.id) ?? 0;
+      if (rankChange !== profile.rank_change) {
+        update.rank_change = rankChange;
+      }
+    }
+
+    if (Object.keys(update).length === 0) continue;
+
+    const { error } = await supabase
+      .from("profiles")
+      .update(update)
+      .eq("id", profile.id);
+
+    if (error) throw error;
+    profilesUpdated++;
+  }
+
+  return { profilesUpdated };
+}
+
 type ExistingMatch = {
   id: number;
   home_score: number | null;
@@ -276,6 +440,7 @@ export async function GET(request: Request) {
 
   // Score picks only when needed — not every finished match on every tick.
   let picksScored = 0;
+  const affectedUserIds = new Set<string>();
 
   if (justFinishedMatchIds.length > 0) {
     const { data: justFinishedMatches } = await supabase
@@ -297,6 +462,7 @@ export async function GET(request: Request) {
           .update({ points_earned: points, is_scored: true })
           .eq("id", pick.id);
         picksScored++;
+        affectedUserIds.add(pick.user_id);
       }
     }
   } else {
@@ -317,81 +483,21 @@ export async function GET(request: Request) {
         .update({ points_earned: points, is_scored: true })
         .eq("id", row.id);
       picksScored++;
+      affectedUserIds.add(row.user_id);
     }
   }
 
   const shouldRebuildLeaderboard =
     justFinishedMatchIds.length > 0 || picksScored > 0;
 
+  let profilesUpdated = 0;
   if (shouldRebuildLeaderboard) {
-    const { data: profilesBeforeScoring } = await supabase
-      .from("profiles")
-      .select("id, total_points, total_wins");
-
-    const [{ data: profiles }, allPicks, { data: finishedForStreak }] =
-      await Promise.all([
-        supabase.from("profiles").select("id"),
-        fetchAllPicks(supabase),
-        supabase
-          .from("matches")
-          .select("*")
-          .in("status", ["FT", "AET", "PEN"])
-          .order("kickoff_at", { ascending: true }),
-      ]);
-
-    const picksByUser = new Map<string, Pick[]>();
-    for (const pick of allPicks) {
-      const list = picksByUser.get(pick.user_id) ?? [];
-      list.push(pick);
-      picksByUser.set(pick.user_id, list);
-    }
-
-    const rebuiltProfiles: {
-      id: string;
-      total_points: number;
-      total_wins: number;
-      current_streak: number;
-    }[] = [];
-
-    for (const profile of profiles ?? []) {
-      const userPicks = picksByUser.get(profile.id) ?? [];
-      const { total_points, total_wins } = aggregateProfileStats(userPicks);
-      const current_streak = computeCurrentStreak(
-        finishedForStreak ?? [],
-        userPicks
-      );
-
-      rebuiltProfiles.push({
-        id: profile.id,
-        total_points,
-        total_wins,
-        current_streak,
-      });
-    }
-
-    const rankChanges =
-      justFinishedMatchIds.length > 0
-        ? computeRankChanges(profilesBeforeScoring ?? [], rebuiltProfiles)
-        : new Map<string, number>();
-
-    for (const profile of rebuiltProfiles) {
-      const update: {
-        total_points: number;
-        total_wins: number;
-        current_streak: number;
-        rank_change?: number;
-      } = {
-        total_points: profile.total_points,
-        total_wins: profile.total_wins,
-        current_streak: profile.current_streak,
-      };
-
-      if (justFinishedMatchIds.length > 0) {
-        update.rank_change = rankChanges.get(profile.id) ?? 0;
-      }
-
-      await supabase.from("profiles").update(update).eq("id", profile.id);
-    }
+    const result = await rebuildLeaderboard({
+      supabase,
+      affectedUserIds,
+      gameJustFinished: justFinishedMatchIds.length > 0,
+    });
+    profilesUpdated = result.profilesUpdated;
   }
 
   let leaderboardsPosted = 0;
@@ -416,6 +522,7 @@ export async function GET(request: Request) {
     fixturesFetched: fixtures.length,
     matchesUpserted,
     picksScored,
+    profilesUpdated,
     leaderboardRebuilt: shouldRebuildLeaderboard,
     groupComplete,
     discord: {
