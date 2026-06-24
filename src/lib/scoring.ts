@@ -11,7 +11,7 @@ export const SCORING = {
   },
   knockout: {
     "Round of 32": 4,
-    "Round of 16": 8,
+    "Round of 16": 6,
     "8th Finals": 4,
     "Quarter-finals": 8,
     "Semi-finals": 16,
