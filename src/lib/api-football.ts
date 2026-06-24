@@ -8,19 +8,22 @@ export const WORLD_CUP = {
   season: 2026,
 } as const;
 
-export async function fetchWorldCupFixtures(): Promise<ApiFootballFixture[]> {
-  const key = process.env.API_FOOTBALL_KEY;
-  if (!key) throw new Error("API_FOOTBALL_KEY is not set");
+const FIXTURE_HEADERS = (key: string) => ({ "x-apisports-key": key });
 
+async function fetchFixturesFromApi(
+  key: string,
+  params: Record<string, string>
+): Promise<ApiFootballFixture[]> {
   const url = new URL(`${BASE_URL}/fixtures`);
   url.searchParams.set("league", String(WORLD_CUP.leagueId));
   url.searchParams.set("season", String(WORLD_CUP.season));
+  for (const [name, value] of Object.entries(params)) {
+    url.searchParams.set(name, value);
+  }
 
   const res = await fetch(url.toString(), {
-    headers: {
-      "x-apisports-key": key,
-    },
-    next: { revalidate: 0 },
+    headers: FIXTURE_HEADERS(key),
+    cache: "no-store",
   });
 
   if (!res.ok) {
@@ -29,6 +32,73 @@ export async function fetchWorldCupFixtures(): Promise<ApiFootballFixture[]> {
 
   const json = await res.json();
   return json.response ?? [];
+}
+
+/** YYYY-MM-DD in Pacific — matches how the app displays kickoffs. */
+export function getLightSyncDates(now = new Date()): string[] {
+  const timeZone = "America/Los_Angeles";
+  const msPerDay = 24 * 60 * 60 * 1000;
+  const dates = new Set<string>();
+
+  for (const offset of [-1, 0, 1]) {
+    dates.add(
+      new Intl.DateTimeFormat("en-CA", {
+        timeZone,
+        year: "numeric",
+        month: "2-digit",
+        day: "2-digit",
+      }).format(new Date(now.getTime() + offset * msPerDay))
+    );
+  }
+
+  return [...dates];
+}
+
+export function mergeFixturesById(
+  fixtures: ApiFootballFixture[]
+): ApiFootballFixture[] {
+  const byId = new Map<number, ApiFootballFixture>();
+  for (const fixture of fixtures) {
+    byId.set(fixture.fixture.id, fixture);
+  }
+  return [...byId.values()];
+}
+
+export async function fetchWorldCupFixtures(): Promise<ApiFootballFixture[]> {
+  const key = process.env.API_FOOTBALL_KEY;
+  if (!key) throw new Error("API_FOOTBALL_KEY is not set");
+  return fetchFixturesFromApi(key, {});
+}
+
+export async function fetchLiveWorldCupFixtures(): Promise<ApiFootballFixture[]> {
+  const key = process.env.API_FOOTBALL_KEY;
+  if (!key) throw new Error("API_FOOTBALL_KEY is not set");
+  return fetchFixturesFromApi(key, { live: "all" });
+}
+
+export async function fetchWorldCupFixturesByDate(
+  date: string
+): Promise<ApiFootballFixture[]> {
+  const key = process.env.API_FOOTBALL_KEY;
+  if (!key) throw new Error("API_FOOTBALL_KEY is not set");
+  return fetchFixturesFromApi(key, { date });
+}
+
+/** Full season list, or live + nearby dates for frequent cron ticks. */
+export async function fetchFixturesForSync(
+  mode: "full" | "light"
+): Promise<ApiFootballFixture[]> {
+  if (mode === "full") {
+    return fetchWorldCupFixtures();
+  }
+
+  const dates = getLightSyncDates();
+  const [live, ...byDate] = await Promise.all([
+    fetchLiveWorldCupFixtures(),
+    ...dates.map((date) => fetchWorldCupFixturesByDate(date)),
+  ]);
+
+  return mergeFixturesById([...live, ...byDate.flat()]);
 }
 
 export async function fetchFixtureEvents(

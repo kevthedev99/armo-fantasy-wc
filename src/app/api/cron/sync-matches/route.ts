@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
 import {
+  fetchFixturesForSync,
   fetchFixtureEvents,
-  fetchWorldCupFixtures,
   parseGroupName,
   parseStage,
 } from "@/lib/api-football";
@@ -25,7 +25,7 @@ import {
   isMatchFinished,
   scorePick,
 } from "@/lib/scoring";
-import type { MatchEvent, Pick } from "@/lib/types";
+import type { Match, MatchEvent, Pick } from "@/lib/types";
 import { topStandings, computeRankChanges } from "@/lib/standings";
 import { createServiceClient } from "@/lib/supabase/server";
 
@@ -34,6 +34,35 @@ function authorize(request: Request): boolean {
   if (!secret) return false;
   const auth = request.headers.get("authorization");
   return auth === `Bearer ${secret}`;
+}
+
+const FULL_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+
+function shouldFullSync(
+  request: Request,
+  lastFullSyncAt: string | null | undefined
+): boolean {
+  const url = new URL(request.url);
+  if (url.searchParams.get("full") === "1") return true;
+  if (request.headers.get("x-vercel-cron") === "1") return true;
+  if (!lastFullSyncAt) return true;
+  return Date.now() - new Date(lastFullSyncAt).getTime() > FULL_SYNC_INTERVAL_MS;
+}
+
+function matchRowChanged(
+  oldMatch: ExistingMatch | null,
+  status: string,
+  homeScore: number | null,
+  awayScore: number | null,
+  matchEvents: MatchEvent[]
+): boolean {
+  if (!oldMatch) return true;
+  if (oldMatch.status !== status) return true;
+  if (oldMatch.home_score !== homeScore) return true;
+  if (oldMatch.away_score !== awayScore) return true;
+  const prevEvents = oldMatch.match_events ?? [];
+  if (prevEvents.length !== matchEvents.length) return true;
+  return prevEvents.some((event, index) => event.id !== matchEvents[index]?.id);
 }
 
 /** Supabase/PostgREST caps responses at 1000 rows — paginate to avoid missing picks. */
@@ -77,7 +106,16 @@ export async function GET(request: Request) {
   }
 
   const supabase = createServiceClient();
-  const fixtures = await fetchWorldCupFixtures();
+
+  const { data: settings } = await supabase
+    .from("app_settings")
+    .select("last_full_sync_at")
+    .eq("id", 1)
+    .single();
+
+  const fullSync = shouldFullSync(request, settings?.last_full_sync_at);
+  const syncMode = fullSync ? "full" : "light";
+  const fixtures = await fetchFixturesForSync(syncMode);
 
   const { data: existingMatches } = await supabase
     .from("matches")
@@ -99,18 +137,14 @@ export async function GET(request: Request) {
 
   let groupFinishedCount = 0;
   let groupTotal = 0;
+  let matchesUpserted = 0;
 
   for (const f of fixtures) {
     const stage = parseStage(f.league.round);
-    if (stage === "group") groupTotal++;
-
     const homeScore = f.goals.home ?? f.score.fulltime.home;
     const awayScore = f.goals.away ?? f.score.fulltime.away;
-    const finished = isMatchFinished(f.fixture.status.short);
     const status = f.fixture.status.short;
     const matchId = f.fixture.id;
-
-    if (stage === "group" && finished) groupFinishedCount++;
 
     const oldMatch = existingById.get(matchId) ?? null;
     const groupOrRound = parseGroupName(f.league.round) ?? f.league.round;
@@ -119,10 +153,7 @@ export async function GET(request: Request) {
     if (shouldFetchEvents(status, oldMatch, homeScore, awayScore)) {
       try {
         const rawEvents = await fetchFixtureEvents(matchId);
-        matchEvents = parseFixtureEvents(
-          rawEvents,
-          f.teams.home.id
-        );
+        matchEvents = parseFixtureEvents(rawEvents, f.teams.home.id);
       } catch (err) {
         console.error(`Failed to fetch events for match ${matchId}:`, err);
       }
@@ -178,40 +209,57 @@ export async function GET(request: Request) {
       });
     }
 
-    await supabase.from("matches").upsert(
-      {
-        id: matchId,
-        round: f.league.round,
-        group_name: parseGroupName(f.league.round),
-        stage,
-        home_team_id: f.teams.home.id,
-        home_team_name: f.teams.home.name,
-        home_team_logo: f.teams.home.logo,
-        away_team_id: f.teams.away.id,
-        away_team_name: f.teams.away.name,
-        away_team_logo: f.teams.away.logo,
-        kickoff_at: f.fixture.date,
-        status,
-        home_score: homeScore,
-        away_score: awayScore,
-        winning_goal_minute: null,
-        match_events: matchEvents,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "id" }
-    );
+    if (
+      matchRowChanged(oldMatch, status, homeScore, awayScore, matchEvents)
+    ) {
+      await supabase.from("matches").upsert(
+        {
+          id: matchId,
+          round: f.league.round,
+          group_name: parseGroupName(f.league.round),
+          stage,
+          home_team_id: f.teams.home.id,
+          home_team_name: f.teams.home.name,
+          home_team_logo: f.teams.home.logo,
+          away_team_id: f.teams.away.id,
+          away_team_name: f.teams.away.name,
+          away_team_logo: f.teams.away.logo,
+          kickoff_at: f.fixture.date,
+          status,
+          home_score: homeScore,
+          away_score: awayScore,
+          winning_goal_minute: null,
+          match_events: matchEvents,
+          updated_at: new Date().toISOString(),
+        },
+        { onConflict: "id" }
+      );
+      matchesUpserted++;
+    }
+  }
+
+  const { data: groupStageMatches } = await supabase
+    .from("matches")
+    .select("status")
+    .eq("stage", "group");
+
+  for (const match of groupStageMatches ?? []) {
+    groupTotal++;
+    if (isMatchFinished(match.status)) groupFinishedCount++;
   }
 
   const groupComplete =
     groupTotal > 0 && groupFinishedCount === groupTotal;
 
+  const nowIso = new Date().toISOString();
   await supabase
     .from("app_settings")
     .update({
       knockout_unlocked: groupComplete,
       group_stage_complete: groupComplete,
-      last_sync_at: new Date().toISOString(),
-      updated_at: new Date().toISOString(),
+      last_sync_at: nowIso,
+      last_full_sync_at: fullSync ? nowIso : settings?.last_full_sync_at ?? null,
+      updated_at: nowIso,
     })
     .eq("id", 1);
 
@@ -226,97 +274,124 @@ export async function GET(request: Request) {
     }
   }
 
-  // Score finished matches
-  const { data: profilesBeforeScoring } = await supabase
-    .from("profiles")
-    .select("id, total_points, total_wins");
+  // Score picks only when needed — not every finished match on every tick.
+  let picksScored = 0;
 
-  const { data: finishedMatches } = await supabase
-    .from("matches")
-    .select("*")
-    .in("status", ["FT", "AET", "PEN"]);
+  if (justFinishedMatchIds.length > 0) {
+    const { data: justFinishedMatches } = await supabase
+      .from("matches")
+      .select("*")
+      .in("id", justFinishedMatchIds);
 
-  for (const match of finishedMatches ?? []) {
+    for (const match of justFinishedMatches ?? []) {
+      const { data: unscoredPicks } = await supabase
+        .from("picks")
+        .select("*")
+        .eq("match_id", match.id)
+        .eq("is_scored", false);
+
+      for (const pick of unscoredPicks ?? []) {
+        const points = scorePick(match, pick);
+        await supabase
+          .from("picks")
+          .update({ points_earned: points, is_scored: true })
+          .eq("id", pick.id);
+        picksScored++;
+      }
+    }
+  } else {
     const { data: unscoredPicks } = await supabase
       .from("picks")
-      .select("*")
-      .eq("match_id", match.id)
-      .eq("is_scored", false);
+      .select("*, matches(*)")
+      .eq("is_scored", false)
+      .limit(50);
 
-    for (const pick of unscoredPicks ?? []) {
-      const points = scorePick(match, pick);
+    for (const row of unscoredPicks ?? []) {
+      const joined = row.matches as Match | Match[] | null;
+      const match = Array.isArray(joined) ? joined[0] : joined;
+      if (!match || !isMatchFinished(match.status)) continue;
 
+      const points = scorePick(match, row as Pick);
       await supabase
         .from("picks")
         .update({ points_earned: points, is_scored: true })
-        .eq("id", pick.id);
+        .eq("id", row.id);
+      picksScored++;
     }
   }
 
-  // Rebuild leaderboard from scored picks only — no pick row means 0 for that match.
-  const [{ data: profiles }, allPicks, { data: finishedForStreak }] =
-    await Promise.all([
-      supabase.from("profiles").select("id"),
-      fetchAllPicks(supabase),
-      supabase
-        .from("matches")
-        .select("*")
-        .in("status", ["FT", "AET", "PEN"])
-        .order("kickoff_at", { ascending: true }),
-    ]);
+  const shouldRebuildLeaderboard =
+    justFinishedMatchIds.length > 0 || picksScored > 0;
 
-  const picksByUser = new Map<string, Pick[]>();
-  for (const pick of allPicks) {
-    const list = picksByUser.get(pick.user_id) ?? [];
-    list.push(pick);
-    picksByUser.set(pick.user_id, list);
-  }
+  if (shouldRebuildLeaderboard) {
+    const { data: profilesBeforeScoring } = await supabase
+      .from("profiles")
+      .select("id, total_points, total_wins");
 
-  const rebuiltProfiles: {
-    id: string;
-    total_points: number;
-    total_wins: number;
-    current_streak: number;
-  }[] = [];
+    const [{ data: profiles }, allPicks, { data: finishedForStreak }] =
+      await Promise.all([
+        supabase.from("profiles").select("id"),
+        fetchAllPicks(supabase),
+        supabase
+          .from("matches")
+          .select("*")
+          .in("status", ["FT", "AET", "PEN"])
+          .order("kickoff_at", { ascending: true }),
+      ]);
 
-  for (const profile of profiles ?? []) {
-    const userPicks = picksByUser.get(profile.id) ?? [];
-    const { total_points, total_wins } = aggregateProfileStats(userPicks);
-    const current_streak = computeCurrentStreak(
-      finishedForStreak ?? [],
-      userPicks
-    );
+    const picksByUser = new Map<string, Pick[]>();
+    for (const pick of allPicks) {
+      const list = picksByUser.get(pick.user_id) ?? [];
+      list.push(pick);
+      picksByUser.set(pick.user_id, list);
+    }
 
-    rebuiltProfiles.push({
-      id: profile.id,
-      total_points,
-      total_wins,
-      current_streak,
-    });
-  }
-
-  const rankChanges =
-    justFinishedMatchIds.length > 0
-      ? computeRankChanges(profilesBeforeScoring ?? [], rebuiltProfiles)
-      : new Map<string, number>();
-
-  for (const profile of rebuiltProfiles) {
-    const update: {
+    const rebuiltProfiles: {
+      id: string;
       total_points: number;
       total_wins: number;
       current_streak: number;
-      rank_change?: number;
-    } = {
-      total_points: profile.total_points,
-      total_wins: profile.total_wins,
-      current_streak: profile.current_streak,
-    };
+    }[] = [];
 
-    if (justFinishedMatchIds.length > 0) {
-      update.rank_change = rankChanges.get(profile.id) ?? 0;
+    for (const profile of profiles ?? []) {
+      const userPicks = picksByUser.get(profile.id) ?? [];
+      const { total_points, total_wins } = aggregateProfileStats(userPicks);
+      const current_streak = computeCurrentStreak(
+        finishedForStreak ?? [],
+        userPicks
+      );
+
+      rebuiltProfiles.push({
+        id: profile.id,
+        total_points,
+        total_wins,
+        current_streak,
+      });
     }
 
-    await supabase.from("profiles").update(update).eq("id", profile.id);
+    const rankChanges =
+      justFinishedMatchIds.length > 0
+        ? computeRankChanges(profilesBeforeScoring ?? [], rebuiltProfiles)
+        : new Map<string, number>();
+
+    for (const profile of rebuiltProfiles) {
+      const update: {
+        total_points: number;
+        total_wins: number;
+        current_streak: number;
+        rank_change?: number;
+      } = {
+        total_points: profile.total_points,
+        total_wins: profile.total_wins,
+        current_streak: profile.current_streak,
+      };
+
+      if (justFinishedMatchIds.length > 0) {
+        update.rank_change = rankChanges.get(profile.id) ?? 0;
+      }
+
+      await supabase.from("profiles").update(update).eq("id", profile.id);
+    }
   }
 
   let leaderboardsPosted = 0;
@@ -337,7 +412,11 @@ export async function GET(request: Request) {
 
   return NextResponse.json({
     ok: true,
-    synced: fixtures.length,
+    syncMode,
+    fixturesFetched: fixtures.length,
+    matchesUpserted,
+    picksScored,
+    leaderboardRebuilt: shouldRebuildLeaderboard,
     groupComplete,
     discord: {
       configured: isDiscordConfigured(),

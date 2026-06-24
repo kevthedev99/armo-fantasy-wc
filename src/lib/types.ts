@@ -62,6 +62,7 @@ export interface AppSettings {
   knockout_unlocked: boolean;
   group_stage_complete: boolean;
   last_sync_at: string | null;
+  last_full_sync_at?: string | null;
 }
 
 export interface NewsItem {
