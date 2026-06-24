@@ -1,4 +1,14 @@
 import type { Match, Pick, PickWinner } from "./types";
+import {
+  buildKnockoutScoringContext,
+  isKnockoutBracketPathAlive,
+  type BracketMatch,
+} from "./bracket-tree";
+
+export type ScorePickContext = {
+  knockoutMatches: BracketMatch[];
+  picksByMatchId: Map<number, Pick>;
+};
 
 /**
  * Point values — edit here when you send your custom scoring rules.
@@ -77,13 +87,33 @@ function actualWinner(
  * Score a single saved pick against a finished match.
  * No pick row for a match means 0 points — nothing is scored or invented.
  */
-export function scorePick(match: Match, pick: Pick): number {
+export function scorePick(
+  match: Match,
+  pick: Pick,
+  context?: ScorePickContext
+): number {
   if (
     match.home_score === null ||
     match.away_score === null ||
     !isMatchFinished(match.status)
   ) {
     return 0;
+  }
+
+  if (match.stage === "knockout" && context) {
+    const { parentMap, matchesById } = buildKnockoutScoringContext(
+      context.knockoutMatches
+    );
+    if (
+      !isKnockoutBracketPathAlive(
+        match,
+        context.picksByMatchId,
+        matchesById,
+        parentMap
+      )
+    ) {
+      return 0;
+    }
   }
 
   const home = match.home_score;
@@ -102,6 +132,12 @@ export function scorePick(match: Match, pick: Pick): number {
       }
     } else {
       points += getKnockoutBasePoints(match.round);
+      if (
+        pick.home_score_pred === home &&
+        pick.away_score_pred === away
+      ) {
+        points += SCORING.group.exactScoreBonus;
+      }
     }
   }
 
@@ -159,6 +195,17 @@ export function validatePickScores(
   }
 
   return null;
+}
+
+export function validateKnockoutPickScores(
+  pickedWinner: PickWinner,
+  homeScore: number,
+  awayScore: number
+): string | null {
+  if (pickedWinner === "draw") {
+    return "Knockout picks must choose a winner — no ties.";
+  }
+  return validatePickScores(pickedWinner, homeScore, awayScore);
 }
 
 /** Leaderboard totals from scored picks only — missed matches contribute nothing. */

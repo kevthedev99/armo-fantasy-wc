@@ -106,9 +106,11 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
       </header>
 
       <p className="border-b border-gray-200 bg-white px-4 py-3 text-center text-xs text-gray-600 sm:px-6 sm:text-left">
-        Group stage: change picks until each match kicks off (+5 for exact
-        score). Knockout: fill your full bracket before Round of 32 starts on{" "}
-        {ro32StartLabel} — then the entire bracket locks, like March Madness.
+        Group stage: change picks until each match kicks off (+1 winner, +5
+        exact score). Knockout: winner + score for every match — round points
+        plus +5 for exact score — with NCAA bracket chaining (a wrong feeder
+        pick kills that path). Fill your full bracket before Round of 32 starts
+        on {ro32StartLabel}.
       </p>
 
       {tab === "knockout" &&

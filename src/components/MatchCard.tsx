@@ -26,6 +26,7 @@ interface MatchCardProps {
 export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) {
   const locked = useIsPickLocked(match, allMatches);
   const lockMessage = getPickLockMessage(match, allMatches);
+  const isKnockout = match.stage === "knockout";
   const [pickedWinner, setPickedWinner] = useState<PickWinner>(
     pick?.picked_winner ?? "home"
   );
@@ -44,16 +45,25 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
   const isLive = getMatchBucket(match) === "live";
   const summary = pick ? formatPickSummary(match, pick) : null;
 
+  const winnerOptions: ReadonlyArray<readonly [PickWinner, string]> = isKnockout
+    ? [
+        ["home", match.home_team_name],
+        ["away", match.away_team_name],
+      ]
+    : [
+        ["home", match.home_team_name],
+        ["draw", "Tie"],
+        ["away", match.away_team_name],
+      ];
+
   async function savePick() {
     if (locked) return;
 
     setSaving(true);
     setError(null);
 
-    const homeScorePred =
-      match.stage === "group" ? normalizeGroupScore(homeScore) : null;
-    const awayScorePred =
-      match.stage === "group" ? normalizeGroupScore(awayScore) : null;
+    const homeScorePred = normalizeGroupScore(homeScore);
+    const awayScorePred = normalizeGroupScore(awayScore);
 
     const res = await fetch("/api/picks", {
       method: "POST",
@@ -76,6 +86,13 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
 
     onSaved(data.pick);
   }
+
+  const previewPick = {
+    ...pick,
+    picked_winner: pickedWinner,
+    home_score_pred: resolvedHome,
+    away_score_pred: resolvedAway,
+  } as Pick;
 
   const cardClass = isLive
     ? pick
@@ -192,26 +209,15 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
                 Saved
               </span>
               <span className="rounded-full bg-[#32CD32]/15 px-3 py-1 text-xs font-bold uppercase text-[#1a7a1a]">
-                {formatPickSummary(match, {
-                  ...pick,
-                  picked_winner: pickedWinner,
-                  home_score_pred:
-                    match.stage === "group" ? resolvedHome : null,
-                  away_score_pred:
-                    match.stage === "group" ? resolvedAway : null,
-                } as Pick)}
+                {formatPickSummary(match, previewPick)}
               </span>
             </div>
           )}
 
-          <div className="mb-3 grid grid-cols-3 gap-2">
-            {(
-              [
-                ["home", match.home_team_name],
-                ["draw", "Tie"],
-                ["away", match.away_team_name],
-              ] as const
-            ).map(([value, label]) => (
+          <div
+            className={`mb-3 grid gap-2 ${isKnockout ? "grid-cols-2" : "grid-cols-3"}`}
+          >
+            {winnerOptions.map(([value, label]) => (
               <button
                 key={value}
                 type="button"
@@ -227,39 +233,32 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
             ))}
           </div>
 
-          {match.stage === "group" ? (
-            <>
-              <div className="mb-2 flex items-center justify-center gap-2">
-                <input
-                  type="number"
-                  min={0}
-                  max={20}
-                  value={homeScore}
-                  onChange={(e) => setHomeScore(e.target.value)}
-                  className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
-                  placeholder="0"
-                />
-                <span className="text-gray-400">—</span>
-                <input
-                  type="number"
-                  min={0}
-                  max={20}
-                  value={awayScore}
-                  onChange={(e) => setAwayScore(e.target.value)}
-                  className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
-                  placeholder="0"
-                />
-              </div>
-              <p className="mb-3 text-center text-[10px] text-gray-500">
-                Scores default to 0-0. Leave a box blank to keep that team at
-                0. Scores must match your chosen winner for the +5 bonus.
-              </p>
-            </>
-          ) : (
-            <p className="mb-3 text-center text-[10px] text-gray-500">
-              Pick the winner — deeper knockout rounds earn more points.
-            </p>
-          )}
+          <div className="mb-2 flex items-center justify-center gap-2">
+            <input
+              type="number"
+              min={0}
+              max={20}
+              value={homeScore}
+              onChange={(e) => setHomeScore(e.target.value)}
+              className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
+              placeholder="0"
+            />
+            <span className="text-gray-400">—</span>
+            <input
+              type="number"
+              min={0}
+              max={20}
+              value={awayScore}
+              onChange={(e) => setAwayScore(e.target.value)}
+              className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
+              placeholder="0"
+            />
+          </div>
+          <p className="mb-3 text-center text-[10px] text-gray-500">
+            {isKnockout
+              ? "Pick the winner and score — correct winner earns round points, exact score adds +5."
+              : "Scores default to 0-0. Scores must match your chosen winner for the +5 bonus."}
+          </p>
 
           {error && (
             <p className="mb-2 text-center text-xs text-red-600">{error}</p>

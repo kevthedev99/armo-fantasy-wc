@@ -20,10 +20,13 @@ import {
   shouldNotifyKickoff,
 } from "@/lib/match-notifications";
 import {
+  scoreFinishedMatchPicks,
+  scoreUnscoredPickBackfill,
+} from "@/lib/score-finished-picks";
+import {
   aggregateProfileStats,
   computeCurrentStreak,
   isMatchFinished,
-  scorePick,
 } from "@/lib/scoring";
 import type { Match, MatchEvent, Pick } from "@/lib/types";
 import { topStandings, computeRankChanges } from "@/lib/standings";
@@ -443,48 +446,16 @@ export async function GET(request: Request) {
   const affectedUserIds = new Set<string>();
 
   if (justFinishedMatchIds.length > 0) {
-    const { data: justFinishedMatches } = await supabase
-      .from("matches")
-      .select("*")
-      .in("id", justFinishedMatchIds);
-
-    for (const match of justFinishedMatches ?? []) {
-      const { data: unscoredPicks } = await supabase
-        .from("picks")
-        .select("*")
-        .eq("match_id", match.id)
-        .eq("is_scored", false);
-
-      for (const pick of unscoredPicks ?? []) {
-        const points = scorePick(match, pick);
-        await supabase
-          .from("picks")
-          .update({ points_earned: points, is_scored: true })
-          .eq("id", pick.id);
-        picksScored++;
-        affectedUserIds.add(pick.user_id);
-      }
-    }
+    const scored = await scoreFinishedMatchPicks(
+      supabase,
+      justFinishedMatchIds
+    );
+    picksScored = scored.picksScored;
+    scored.affectedUserIds.forEach((id) => affectedUserIds.add(id));
   } else {
-    const { data: unscoredPicks } = await supabase
-      .from("picks")
-      .select("*, matches(*)")
-      .eq("is_scored", false)
-      .limit(50);
-
-    for (const row of unscoredPicks ?? []) {
-      const joined = row.matches as Match | Match[] | null;
-      const match = Array.isArray(joined) ? joined[0] : joined;
-      if (!match || !isMatchFinished(match.status)) continue;
-
-      const points = scorePick(match, row as Pick);
-      await supabase
-        .from("picks")
-        .update({ points_earned: points, is_scored: true })
-        .eq("id", row.id);
-      picksScored++;
-      affectedUserIds.add(row.user_id);
-    }
+    const scored = await scoreUnscoredPickBackfill(supabase, 50);
+    picksScored = scored.picksScored;
+    scored.affectedUserIds.forEach((id) => affectedUserIds.add(id));
   }
 
   const shouldRebuildLeaderboard =

@@ -139,10 +139,10 @@ export function RulesPage() {
             <li className="flex gap-3">
               <span className="mt-0.5 font-black text-[#FFD700]">04</span>
               <span>
-                Knockout picks are <strong className="text-white">winner only</strong>{" "}
-                — deeper rounds earn more points (see scoring below). Group stage
-                scoring is unchanged: +1 for the correct winner or tie, +5 bonus
-                for an exact score.
+                Pick the winner plus both scores for every knockout match.
+                Correct winner earns round points (see below); exact score adds
+                a <strong className="text-white">+5 bonus</strong>, same as
+                group stage.
               </span>
             </li>
             <li className="flex gap-3">
@@ -198,10 +198,21 @@ export function RulesPage() {
                   <span className="font-black text-white">+{points} pts</span>
                 </div>
               ))}
+              <div className="flex items-center justify-between rounded-lg bg-black/50 px-4 py-3">
+                <span className="text-sm text-gray-300">Exact score bonus</span>
+                <span className="font-black text-[#32CD32]">
+                  +{SCORING.group.exactScoreBonus} pts
+                </span>
+              </div>
               <p className="text-xs text-gray-500">
-                Deeper rounds are worth more — like March Madness. Pick the
-                correct winner to earn points. Fill your full bracket before
-                Round of 32 starts; after that, no knockout changes are allowed.
+                Pick winner and score for every knockout match. Deeper rounds pay
+                more for the correct winner; nail the exact score for +5 more.
+                <strong className="text-gray-300">
+                  {" "}
+                  Bracket chaining applies: a wrong pick on any feeder match
+                  zeros out every later round below it on that path.
+                </strong>{" "}
+                Fill your full bracket before Round of 32 starts — then it locks.
               </p>
             </div>
           </section>
@@ -231,6 +242,12 @@ export function RulesPage() {
             <li>
               • Missed knockout picks stay at 0 points. There is no late entry
               once the bracket closes.
+            </li>
+            <li>
+              • <strong className="text-white">Bracket chaining:</strong> like
+              NCAA March Madness, if you miss a winner on any feeder match, every
+              pick further down that side of the bracket scores 0 — even if you
+              later pick the right winner for the real teams playing.
             </li>
             <li>
               • Round of 32 starts <strong className="text-white">{roundOf32Start}</strong>{" "}

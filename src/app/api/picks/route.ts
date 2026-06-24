@@ -3,6 +3,7 @@ import { isPickLocked } from "@/lib/knockout-bracket";
 import { createClient } from "@/lib/supabase/server";
 import {
   normalizeGroupScore,
+  validateKnockoutPickScores,
   validatePickScores,
 } from "@/lib/scoring";
 import type { PickWinner } from "@/lib/types";
@@ -67,29 +68,23 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: knockoutMessage }, { status: 403 });
   }
 
-  let resolvedHome = homeScorePred;
-  let resolvedAway = awayScorePred;
+  const resolvedHome = normalizeGroupScore(homeScorePred);
+  const resolvedAway = normalizeGroupScore(awayScorePred);
 
-  if (match.stage === "group") {
-    resolvedHome = normalizeGroupScore(homeScorePred);
-    resolvedAway = normalizeGroupScore(awayScorePred);
-
-    const scoreError = validatePickScores(
-      pickedWinner,
-      resolvedHome,
-      resolvedAway
-    );
-    if (scoreError) {
-      return NextResponse.json({ error: scoreError }, { status: 400 });
-    }
+  const scoreError =
+    match.stage === "knockout"
+      ? validateKnockoutPickScores(pickedWinner, resolvedHome, resolvedAway)
+      : validatePickScores(pickedWinner, resolvedHome, resolvedAway);
+  if (scoreError) {
+    return NextResponse.json({ error: scoreError }, { status: 400 });
   }
 
   const pickRow = {
     user_id: user.id,
     match_id: matchId,
     picked_winner: pickedWinner,
-    home_score_pred: match.stage === "group" ? resolvedHome : null,
-    away_score_pred: match.stage === "group" ? resolvedAway : null,
+    home_score_pred: resolvedHome,
+    away_score_pred: resolvedAway,
     winning_goal_minute_pred: null,
     updated_at: new Date().toISOString(),
   };
