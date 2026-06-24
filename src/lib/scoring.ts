@@ -27,7 +27,7 @@ export const SCORING = {
     "Semi-finals": 16,
     "3rd Place Final": 8,
     "Third place": 8,
-    Final: 32,
+    Final: 24,
     correctWinnerDefault: 4,
   },
 } as const;
