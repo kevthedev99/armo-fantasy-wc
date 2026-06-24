@@ -10,9 +10,9 @@ export const SCORING = {
     exactScoreBonus: 5,
   },
   knockout: {
-    "Round of 32": 2,
-    "Round of 16": 4,
-    "8th Finals": 2,
+    "Round of 32": 4,
+    "Round of 16": 8,
+    "8th Finals": 4,
     "Quarter-finals": 8,
     "Semi-finals": 16,
     "3rd Place Final": 8,
