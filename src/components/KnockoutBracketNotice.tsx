@@ -3,15 +3,11 @@
 import Link from "next/link";
 import { useEffect, useSyncExternalStore } from "react";
 import {
-  formatRoundOf32Deadline,
-  resolveRoundOf32Kickoff,
+  formatRoundOf32StartLabel,
+  ROUND_OF_32_START_DATE,
 } from "@/lib/knockout-bracket";
-import type { Match } from "@/lib/types";
-
-type BracketMatch = Pick<Match, "stage" | "round" | "kickoff_at" | "status">;
 
 interface KnockoutBracketNoticeProps {
-  matches: BracketMatch[];
   bracketLocked: boolean;
 }
 
@@ -46,13 +42,10 @@ function useBracketNoticeDismissed(kickoffIso: string) {
 }
 
 export function KnockoutBracketNotice({
-  matches,
   bracketLocked,
 }: KnockoutBracketNoticeProps) {
-  const ro32Kickoff = resolveRoundOf32Kickoff(matches);
-  const kickoffIso = ro32Kickoff.toISOString();
-  const deadlineLabel = formatRoundOf32Deadline(ro32Kickoff);
-  const dismissed = useBracketNoticeDismissed(kickoffIso);
+  const deadlineLabel = formatRoundOf32StartLabel();
+  const dismissed = useBracketNoticeDismissed(ROUND_OF_32_START_DATE);
 
   const open = !bracketLocked && !dismissed;
 
@@ -66,7 +59,7 @@ export function KnockoutBracketNotice({
   }, [open]);
 
   function dismiss() {
-    localStorage.setItem(storageKey(kickoffIso), "1");
+    localStorage.setItem(storageKey(ROUND_OF_32_START_DATE), "1");
     notifyDismiss();
   }
 

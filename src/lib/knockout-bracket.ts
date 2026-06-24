@@ -4,11 +4,29 @@ import type { Match } from "@/lib/types";
 
 export const ROUND_OF_32_ROUNDS = new Set(["Round of 32", "8th Finals"]);
 
-/** Used when knockout fixtures are not synced yet — first Round of 32 window. */
-export const ROUND_OF_32_FALLBACK_KICKOFF = "2026-06-28T23:00:00.000Z";
+/** Official Round of 32 start date (Pacific). */
+export const ROUND_OF_32_START_DATE = "2026-06-28";
+
+const ROUND_OF_32_LABEL_FORMATTER = new Intl.DateTimeFormat("en-US", {
+  timeZone: "America/Los_Angeles",
+  weekday: "long",
+  month: "long",
+  day: "numeric",
+  year: "numeric",
+});
 
 export function isRoundOf32Match(match: { round: string }): boolean {
   return ROUND_OF_32_ROUNDS.has(match.round);
+}
+
+/** Midnight June 28, 2026 Pacific — bracket deadline if fixtures are not synced. */
+export function getCanonicalRoundOf32Start(): Date {
+  return new Date(`${ROUND_OF_32_START_DATE}T00:00:00-07:00`);
+}
+
+/** User-facing label, e.g. "Sunday, June 28, 2026". */
+export function formatRoundOf32StartLabel(): string {
+  return ROUND_OF_32_LABEL_FORMATTER.format(getCanonicalRoundOf32Start());
 }
 
 /** Earliest kickoff among loaded Round of 32 fixtures. */
@@ -26,14 +44,18 @@ export function getRoundOf32Kickoff(
   return new Date(earliest);
 }
 
-/** Synced kickoff when available, otherwise the published Round of 32 opener. */
+/** When the knockout bracket locks — synced first Ro32 kickoff or June 28, 2026. */
+export function getRoundOf32LockAt(
+  matches: Pick<Match, "stage" | "round" | "kickoff_at">[]
+): Date {
+  return getRoundOf32Kickoff(matches) ?? getCanonicalRoundOf32Start();
+}
+
+/** @deprecated Use getRoundOf32LockAt for timing and formatRoundOf32StartLabel for copy. */
 export function resolveRoundOf32Kickoff(
   matches: Pick<Match, "stage" | "round" | "kickoff_at">[]
 ): Date {
-  return (
-    getRoundOf32Kickoff(matches) ??
-    new Date(ROUND_OF_32_FALLBACK_KICKOFF)
-  );
+  return getRoundOf32LockAt(matches);
 }
 
 export function formatRoundOf32Deadline(kickoff: Date): string {
@@ -51,8 +73,10 @@ export function isKnockoutBracketLocked(
   const ro32 = matches.filter(
     (m) => m.stage === "knockout" && isRoundOf32Match(m)
   );
-  if (ro32.length === 0) return false;
-  return ro32.some((m) => isMatchLocked(m, now));
+  if (ro32.length > 0) {
+    return ro32.some((m) => isMatchLocked(m, now));
+  }
+  return now.getTime() >= getCanonicalRoundOf32Start().getTime();
 }
 
 export function isPickLocked(

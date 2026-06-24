@@ -1,4 +1,5 @@
 import Link from "next/link";
+import { formatRoundOf32StartLabel } from "@/lib/knockout-bracket";
 import { SCORING } from "@/lib/scoring";
 
 const KNOCKOUT_ROUNDS = [
@@ -11,6 +12,8 @@ const KNOCKOUT_ROUNDS = [
 ];
 
 export function RulesPage() {
+  const roundOf32Start = formatRoundOf32StartLabel();
+
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="border-b border-gray-800 bg-gradient-to-b from-[#0a1628] to-black px-6 py-12 text-center md:px-8">
@@ -127,8 +130,10 @@ export function RulesPage() {
                 Madness, you must submit{" "}
                 <strong className="text-white">all knockout picks</strong>{" "}
                 before the <strong className="text-white">Round of 32</strong>{" "}
-                begins. When the first Round of 32 match kicks off, your entire
-                knockout bracket locks permanently.
+                begins on{" "}
+                <strong className="text-white">{roundOf32Start}</strong>. When
+                the first Round of 32 match kicks off, your entire knockout
+                bracket locks permanently.
               </span>
             </li>
             <li className="flex gap-3">
@@ -215,7 +220,7 @@ export function RulesPage() {
             </li>
             <li>
               • You fill out your entire bracket — Round of 32 through the Final
-              — before the first Round of 32 match kicks off.
+              — before <strong className="text-white">{roundOf32Start}</strong>.
             </li>
             <li>
               • Unlike group stage picks (which lock match-by-match),{" "}
@@ -228,8 +233,9 @@ export function RulesPage() {
               once the bracket closes.
             </li>
             <li>
-              • The exact kickoff time is shown on the Picks page once fixtures
-              are loaded.
+              • Round of 32 starts <strong className="text-white">{roundOf32Start}</strong>{" "}
+              (Pacific). The Picks page popup will remind you before the bracket
+              locks.
             </li>
           </ul>
         </section>
@@ -244,8 +250,8 @@ export function RulesPage() {
             </p>
             <p>• Group picks lock individually when each match kicks off.</p>
             <p>
-              • Knockout picks all lock when Round of 32 starts — fill the full
-              bracket before then.
+              • Knockout picks all lock when Round of 32 starts on{" "}
+              {roundOf32Start} — fill the full bracket before then.
             </p>
             <p>• Points are calculated automatically after each match ends.</p>
             <p>• Streak tracks consecutive correct picks.</p>

@@ -17,7 +17,6 @@ export async function KnockoutBracketNoticeGate() {
 
   return (
     <KnockoutBracketNotice
-      matches={matches ?? []}
       bracketLocked={isKnockoutBracketLocked(matches ?? [])}
     />
   );

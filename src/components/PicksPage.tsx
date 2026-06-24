@@ -1,13 +1,11 @@
 "use client";
 
-import { format } from "date-fns";
 import { useMemo, useState } from "react";
 import { getMatchBucket } from "@/lib/match-status";
 import {
-  formatRoundOf32Deadline,
+  formatRoundOf32StartLabel,
   isKnockoutBracketLocked,
   isPickLocked,
-  resolveRoundOf32Kickoff,
 } from "@/lib/knockout-bracket";
 import { isMatchFinished } from "@/lib/scoring";
 import type { AppSettings, Match, Pick } from "@/lib/types";
@@ -78,7 +76,7 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
       : sortUpcoming(stageMatches, matches);
 
   const bracketLocked = isKnockoutBracketLocked(matches);
-  const ro32Kickoff = resolveRoundOf32Kickoff(matches);
+  const ro32StartLabel = formatRoundOf32StartLabel();
 
   const lockedWithoutPick = visibleMatches.filter(
     (m) => isPickLocked(m, matches) && !pickMap.has(m.id)
@@ -109,17 +107,15 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
 
       <p className="border-b border-gray-200 bg-white px-4 py-3 text-center text-xs text-gray-600 sm:px-6 sm:text-left">
         Group stage: change picks until each match kicks off (+5 for exact
-        score). Knockout: fill your full bracket before Round of 32 starts
-        {` (${format(ro32Kickoff, "MMM d, h:mm a")})`} — then the entire
-        bracket locks, like March Madness.
+        score). Knockout: fill your full bracket before Round of 32 starts on{" "}
+        {ro32StartLabel} — then the entire bracket locks, like March Madness.
       </p>
 
       {tab === "knockout" &&
         settings.knockout_unlocked &&
         !bracketLocked && (
           <p className="border-b border-[#FF007A]/20 bg-[#FF007A]/5 px-4 py-2 text-center text-xs font-medium text-[#c4005f] sm:px-6 sm:text-left">
-            Bracket open — submit every knockout pick before{" "}
-            {formatRoundOf32Deadline(ro32Kickoff)}.
+            Bracket open — submit every knockout pick before {ro32StartLabel}.
           </p>
         )}
 
