@@ -1,12 +1,12 @@
 import type { Match, Pick, PickWinner } from "./types";
 import {
-  buildKnockoutScoringContext,
-  isKnockoutBracketPathAlive,
-  type BracketMatch,
-} from "./bracket-tree";
+  buildKnockoutMatchMap,
+  canScoreKnockoutPick,
+  type ChainingMatch,
+} from "./bracket-chaining";
 
 export type ScorePickContext = {
-  knockoutMatches: BracketMatch[];
+  knockoutMatches: ChainingMatch[];
   picksByMatchId: Map<number, Pick>;
 };
 
@@ -101,15 +101,13 @@ export function scorePick(
   }
 
   if (match.stage === "knockout" && context) {
-    const { parentMap, matchesById } = buildKnockoutScoringContext(
-      context.knockoutMatches
-    );
+    const matchesById = buildKnockoutMatchMap(context.knockoutMatches);
     if (
-      !isKnockoutBracketPathAlive(
+      !canScoreKnockoutPick(
         match,
+        pick,
         context.picksByMatchId,
-        matchesById,
-        parentMap
+        matchesById
       )
     ) {
       return 0;

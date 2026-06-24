@@ -1,7 +1,6 @@
 import {
-  buildKnockoutScoringContext,
-  getDescendantIds,
-} from "@/lib/bracket-tree";
+  getKnockoutMatchIdsToRescore,
+} from "@/lib/bracket-chaining";
 import { isMatchFinished, scorePick } from "@/lib/scoring";
 import type { Match, Pick } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -22,8 +21,8 @@ function groupPicksByUser(picks: Pick[]): Map<string, Pick[]> {
 }
 
 /**
- * Score (or rescore) picks on finished matches. Knockout picks use NCAA-style
- * bracket chaining — a wrong feeder match zeros out the whole path below it.
+ * Score (or rescore) picks on finished matches. Knockout picks use Sleeper-style
+ * team chaining — only teams you picked to win and lost are crossed out.
  */
 export async function scoreFinishedMatchPicks(
   supabase: SupabaseClient,
@@ -41,17 +40,11 @@ export async function scoreFinishedMatchPicks(
     .select("*")
     .eq("stage", "knockout");
 
-  const scoringContext = buildKnockoutScoringContext(knockoutMatches ?? []);
-  const { parentMap, knockoutMatches: km } = scoringContext;
-
-  const matchIdsToEvaluate = new Set(finishedMatchIds);
-  for (const id of finishedMatchIds) {
-    if (km.some((m) => m.id === id)) {
-      for (const descendantId of getDescendantIds(id, parentMap)) {
-        matchIdsToEvaluate.add(descendantId);
-      }
-    }
-  }
+  const km = knockoutMatches ?? [];
+  const matchIdsToEvaluate = getKnockoutMatchIdsToRescore(
+    finishedMatchIds,
+    km
+  );
 
   const { data: matches } = await supabase
     .from("matches")
@@ -140,9 +133,7 @@ export async function scoreUnscoredPickBackfill(
     .select("*")
     .eq("stage", "knockout");
 
-  const { knockoutMatches: km } = buildKnockoutScoringContext(
-    knockoutMatches ?? []
-  );
+  const km = knockoutMatches ?? [];
   const knockoutMatchIds = km.map((m) => m.id);
 
   const { data: rows } = await supabase

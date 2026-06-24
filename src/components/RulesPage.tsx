@@ -209,8 +209,9 @@ export function RulesPage() {
                 more for the correct winner; nail the exact score for +5 more.
                 <strong className="text-gray-300">
                   {" "}
-                  Bracket chaining applies: a wrong pick on any feeder match
-                  zeros out every later round below it on that path.
+                  Sleeper-style chaining: if a team you picked to win loses,
+                  that team is crossed out — but other teams you picked can
+                  still score in later rounds.
                 </strong>{" "}
                 Fill your full bracket before Round of 32 starts — then it locks.
               </p>
@@ -244,10 +245,11 @@ export function RulesPage() {
               once the bracket closes.
             </li>
             <li>
-              • <strong className="text-white">Bracket chaining:</strong> like
-              NCAA March Madness, if you miss a winner on any feeder match, every
-              pick further down that side of the bracket scores 0 — even if you
-              later pick the right winner for the real teams playing.
+              • <strong className="text-white">Team chaining (Sleeper-style):</strong>{" "}
+              if you pick a team to win and they lose, that team is crossed out
+              in your bracket — you earn 0 on later games where you picked them.
+              Teams you picked correctly can still score in later rounds, even
+              if you had the wrong opponent in that slot.
             </li>
             <li>
               • Round of 32 starts <strong className="text-white">{roundOf32Start}</strong>{" "}
