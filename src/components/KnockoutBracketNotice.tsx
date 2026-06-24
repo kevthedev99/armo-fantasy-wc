@@ -1,16 +1,17 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect, useSyncExternalStore } from "react";
 import {
   formatRoundOf32Deadline,
-  getRoundOf32Kickoff,
+  resolveRoundOf32Kickoff,
 } from "@/lib/knockout-bracket";
 import type { Match } from "@/lib/types";
 
+type BracketMatch = Pick<Match, "stage" | "round" | "kickoff_at" | "status">;
+
 interface KnockoutBracketNoticeProps {
-  matches: Match[];
-  knockoutUnlocked: boolean;
+  matches: BracketMatch[];
   bracketLocked: boolean;
 }
 
@@ -18,26 +19,42 @@ function storageKey(kickoffIso: string): string {
   return `knockout-bracket-notice-dismissed:${kickoffIso}`;
 }
 
-function readDismissed(kickoffIso: string | null): boolean {
-  if (!kickoffIso || typeof window === "undefined") return true;
+function readDismissed(kickoffIso: string): boolean {
+  if (typeof window === "undefined") return true;
   return !!localStorage.getItem(storageKey(kickoffIso));
+}
+
+const dismissListeners = new Set<() => void>();
+
+function subscribeDismiss(onChange: () => void) {
+  dismissListeners.add(onChange);
+  return () => {
+    dismissListeners.delete(onChange);
+  };
+}
+
+function notifyDismiss() {
+  dismissListeners.forEach((listener) => listener());
+}
+
+function useBracketNoticeDismissed(kickoffIso: string) {
+  return useSyncExternalStore(
+    subscribeDismiss,
+    () => readDismissed(kickoffIso),
+    () => true
+  );
 }
 
 export function KnockoutBracketNotice({
   matches,
-  knockoutUnlocked,
   bracketLocked,
 }: KnockoutBracketNoticeProps) {
-  const ro32Kickoff = getRoundOf32Kickoff(matches);
-  const kickoffIso = ro32Kickoff?.toISOString() ?? null;
-  const deadlineLabel = ro32Kickoff
-    ? formatRoundOf32Deadline(ro32Kickoff)
-    : null;
+  const ro32Kickoff = resolveRoundOf32Kickoff(matches);
+  const kickoffIso = ro32Kickoff.toISOString();
+  const deadlineLabel = formatRoundOf32Deadline(ro32Kickoff);
+  const dismissed = useBracketNoticeDismissed(kickoffIso);
 
-  const [dismissed, setDismissed] = useState(() => readDismissed(kickoffIso));
-
-  const open =
-    knockoutUnlocked && !bracketLocked && !!deadlineLabel && !dismissed;
+  const open = !bracketLocked && !dismissed;
 
   useEffect(() => {
     if (!open) return;
@@ -49,17 +66,15 @@ export function KnockoutBracketNotice({
   }, [open]);
 
   function dismiss() {
-    if (kickoffIso) {
-      localStorage.setItem(storageKey(kickoffIso), "1");
-    }
-    setDismissed(true);
+    localStorage.setItem(storageKey(kickoffIso), "1");
+    notifyDismiss();
   }
 
-  if (!open || !deadlineLabel) return null;
+  if (!open) return null;
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-end justify-center p-4 sm:items-center"
+      className="fixed inset-0 z-[100] flex items-end justify-center p-4 sm:items-center sm:p-6"
       role="dialog"
       aria-modal="true"
       aria-labelledby="knockout-bracket-notice-title"
@@ -70,7 +85,7 @@ export function KnockoutBracketNotice({
         aria-label="Close notice"
         onClick={dismiss}
       />
-      <div className="relative w-full max-w-md rounded-2xl border border-[#FF007A]/30 bg-white p-6 shadow-2xl">
+      <div className="relative w-full max-w-md rounded-2xl border border-[#FF007A]/30 bg-white p-5 shadow-2xl sm:p-6">
         <h2
           id="knockout-bracket-notice-title"
           className="text-center text-sm font-black uppercase tracking-wide text-[#FF007A]"
@@ -86,14 +101,14 @@ export function KnockoutBracketNotice({
           <button
             type="button"
             onClick={dismiss}
-            className="flex-1 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-bold uppercase tracking-wide text-gray-700 transition hover:bg-gray-50"
+            className="min-h-11 flex-1 rounded-full border border-gray-300 bg-white px-4 py-3 text-sm font-bold uppercase tracking-wide text-gray-700 transition hover:bg-gray-50"
           >
             Close
           </button>
           <Link
             href="/rules"
             onClick={dismiss}
-            className="flex-1 rounded-full bg-[#0056b3] px-4 py-3 text-center text-sm font-bold uppercase tracking-wide text-white transition hover:opacity-90"
+            className="min-h-11 flex-1 rounded-full bg-[#0056b3] px-4 py-3 text-center text-sm font-bold uppercase tracking-wide text-white transition hover:opacity-90"
           >
             Rules Page
           </Link>

@@ -1,6 +1,7 @@
 import type { Metadata } from "next";
 import { Analytics } from "@vercel/analytics/react";
 import { Bebas_Neue, Inter } from "next/font/google";
+import { KnockoutBracketNoticeGate } from "@/components/KnockoutBracketNoticeGate";
 import "./globals.css";
 
 const bebas = Bebas_Neue({
@@ -28,6 +29,7 @@ export default function RootLayout({
   return (
     <html lang="en" className={`${bebas.variable} ${inter.variable} h-full`}>
       <body className="min-h-full font-sans antialiased">
+        <KnockoutBracketNoticeGate />
         {children}
         <Analytics />
       </body>

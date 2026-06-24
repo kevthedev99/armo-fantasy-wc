@@ -4,6 +4,9 @@ import type { Match } from "@/lib/types";
 
 export const ROUND_OF_32_ROUNDS = new Set(["Round of 32", "8th Finals"]);
 
+/** Used when knockout fixtures are not synced yet — first Round of 32 window. */
+export const ROUND_OF_32_FALLBACK_KICKOFF = "2026-06-28T23:00:00.000Z";
+
 export function isRoundOf32Match(match: { round: string }): boolean {
   return ROUND_OF_32_ROUNDS.has(match.round);
 }
@@ -21,6 +24,16 @@ export function getRoundOf32Kickoff(
     ...ro32.map((m) => new Date(m.kickoff_at).getTime())
   );
   return new Date(earliest);
+}
+
+/** Synced kickoff when available, otherwise the published Round of 32 opener. */
+export function resolveRoundOf32Kickoff(
+  matches: Pick<Match, "stage" | "round" | "kickoff_at">[]
+): Date {
+  return (
+    getRoundOf32Kickoff(matches) ??
+    new Date(ROUND_OF_32_FALLBACK_KICKOFF)
+  );
 }
 
 export function formatRoundOf32Deadline(kickoff: Date): string {

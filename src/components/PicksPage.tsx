@@ -2,13 +2,12 @@
 
 import { format } from "date-fns";
 import { useMemo, useState } from "react";
-import { KnockoutBracketNotice } from "@/components/KnockoutBracketNotice";
 import { getMatchBucket } from "@/lib/match-status";
 import {
   formatRoundOf32Deadline,
-  getRoundOf32Kickoff,
   isKnockoutBracketLocked,
   isPickLocked,
+  resolveRoundOf32Kickoff,
 } from "@/lib/knockout-bracket";
 import { isMatchFinished } from "@/lib/scoring";
 import type { AppSettings, Match, Pick } from "@/lib/types";
@@ -79,7 +78,7 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
       : sortUpcoming(stageMatches, matches);
 
   const bracketLocked = isKnockoutBracketLocked(matches);
-  const ro32Kickoff = getRoundOf32Kickoff(matches);
+  const ro32Kickoff = resolveRoundOf32Kickoff(matches);
 
   const lockedWithoutPick = visibleMatches.filter(
     (m) => isPickLocked(m, matches) && !pickMap.has(m.id)
@@ -99,11 +98,6 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
 
   return (
     <div className="min-h-screen bg-gray-100">
-      <KnockoutBracketNotice
-        matches={matches}
-        knockoutUnlocked={settings.knockout_unlocked}
-        bracketLocked={bracketLocked}
-      />
       <header className="bg-[#0056b3] px-4 py-8 text-center text-white sm:px-6 sm:text-left">
         <h1 className="text-4xl font-black uppercase tracking-tight md:text-5xl">
           Matches
@@ -116,16 +110,13 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
       <p className="border-b border-gray-200 bg-white px-4 py-3 text-center text-xs text-gray-600 sm:px-6 sm:text-left">
         Group stage: change picks until each match kicks off (+5 for exact
         score). Knockout: fill your full bracket before Round of 32 starts
-        {ro32Kickoff
-          ? ` (${format(ro32Kickoff, "MMM d, h:mm a")})`
-          : ""}{" "}
-        — then the entire bracket locks, like March Madness.
+        {` (${format(ro32Kickoff, "MMM d, h:mm a")})`} — then the entire
+        bracket locks, like March Madness.
       </p>
 
       {tab === "knockout" &&
         settings.knockout_unlocked &&
-        !bracketLocked &&
-        ro32Kickoff && (
+        !bracketLocked && (
           <p className="border-b border-[#FF007A]/20 bg-[#FF007A]/5 px-4 py-2 text-center text-xs font-medium text-[#c4005f] sm:px-6 sm:text-left">
             Bracket open — submit every knockout pick before{" "}
             {formatRoundOf32Deadline(ro32Kickoff)}.
