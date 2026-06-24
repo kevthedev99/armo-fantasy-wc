@@ -1,7 +1,7 @@
 import { NextResponse } from "next/server";
+import { isPickLocked } from "@/lib/knockout-bracket";
 import { createClient } from "@/lib/supabase/server";
 import {
-  isMatchLocked,
   normalizeGroupScore,
   validatePickScores,
 } from "@/lib/scoring";
@@ -54,14 +54,17 @@ export async function POST(request: Request) {
     }
   }
 
-  if (isMatchLocked(match)) {
-    return NextResponse.json(
-      {
-        error:
-          "Picks are locked — this match has started. You cannot add or change a pick.",
-      },
-      { status: 403 }
-    );
+  const { data: allMatches } = await supabase
+    .from("matches")
+    .select("stage, round, kickoff_at, status");
+
+  if (isPickLocked(match, allMatches ?? [])) {
+    const knockoutMessage =
+      match.stage === "knockout"
+        ? "Knockout bracket is locked — Round of 32 has started. You cannot add or change knockout picks."
+        : "Picks are locked — this match has started. You cannot add or change a pick.";
+
+    return NextResponse.json({ error: knockoutMessage }, { status: 403 });
   }
 
   let resolvedHome = homeScorePred;

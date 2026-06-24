@@ -2,7 +2,8 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
-import { useIsMatchLocked } from "@/hooks/useIsMatchLocked";
+import { useIsPickLocked } from "@/hooks/useIsPickLocked";
+import { getPickLockMessage } from "@/lib/knockout-bracket";
 import {
   formatScore,
   getMatchBucket,
@@ -10,7 +11,6 @@ import {
 } from "@/lib/match-status";
 import {
   formatPickSummary,
-  getMatchLockMessage,
   isMatchFinished,
   normalizeGroupScore,
 } from "@/lib/scoring";
@@ -19,12 +19,13 @@ import type { Match, Pick, PickWinner } from "@/lib/types";
 interface MatchCardProps {
   match: Match;
   pick?: Pick;
+  allMatches: Match[];
   onSaved: (pick: Pick) => void;
 }
 
-export function MatchCard({ match, pick, onSaved }: MatchCardProps) {
-  const locked = useIsMatchLocked(match);
-  const lockMessage = getMatchLockMessage(match);
+export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) {
+  const locked = useIsPickLocked(match, allMatches);
+  const lockMessage = getPickLockMessage(match, allMatches);
   const [pickedWinner, setPickedWinner] = useState<PickWinner>(
     pick?.picked_winner ?? "home"
   );

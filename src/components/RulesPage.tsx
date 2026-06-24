@@ -113,25 +113,31 @@ export function RulesPage() {
             <li className="flex gap-3">
               <span className="mt-0.5 font-black text-[#FFD700]">02</span>
               <span>
-                Make picks for every match before kickoff. You can change picks
-                anytime until the match{" "}
-                <strong className="text-white">actually starts</strong> — then
-                they lock permanently (including score predictions).
+                <strong className="text-white">Group stage</strong>: pick the
+                winner (or tie) plus both scores before each match kicks off.
+                You can change picks anytime until that match{" "}
+                <strong className="text-white">actually starts</strong>.
               </span>
             </li>
             <li className="flex gap-3">
               <span className="mt-0.5 font-black text-[#FFD700]">03</span>
               <span>
-                <strong className="text-white">Group stage</strong> picks open
-                from day one. Pick the winner (or tie) plus both scores.
+                <strong className="text-white">Knockout bracket</strong> unlocks
+                once every group stage match is finished — like NCAA March
+                Madness, you must submit{" "}
+                <strong className="text-white">all knockout picks</strong>{" "}
+                before the <strong className="text-white">Round of 32</strong>{" "}
+                begins. When the first Round of 32 match kicks off, your entire
+                knockout bracket locks permanently.
               </span>
             </li>
             <li className="flex gap-3">
               <span className="mt-0.5 font-black text-[#FFD700]">04</span>
               <span>
-                <strong className="text-white">Knockout</strong> picks unlock
-                automatically once every group stage match is finished. Pick
-                the winner only — deeper rounds earn more points.
+                Knockout picks are <strong className="text-white">winner only</strong>{" "}
+                — deeper rounds earn more points (see scoring below). Group stage
+                scoring is unchanged: +1 for the correct winner or tie, +5 bonus
+                for an exact score.
               </span>
             </li>
             <li className="flex gap-3">
@@ -188,12 +194,45 @@ export function RulesPage() {
                 </div>
               ))}
               <p className="text-xs text-gray-500">
-                Deeper rounds are worth more — like March Madness. Just pick the
-                correct winner to earn points.
+                Deeper rounds are worth more — like March Madness. Pick the
+                correct winner to earn points. Fill your full bracket before
+                Round of 32 starts; after that, no knockout changes are allowed.
               </p>
             </div>
           </section>
         </div>
+
+        <section className="rounded-2xl border border-[#FF007A]/30 bg-[#111]">
+          <div className="border-b border-[#FF007A]/20 bg-[#FF007A]/10 px-6 py-4">
+            <h2 className="text-lg font-black uppercase tracking-wide text-[#FF007A]">
+              Knockout Bracket (March Madness Style)
+            </h2>
+          </div>
+          <ul className="space-y-3 px-6 py-6 text-sm leading-relaxed text-gray-300">
+            <li>
+              • After the group stage ends, the knockout tab opens for everyone
+              at the same time.
+            </li>
+            <li>
+              • You fill out your entire bracket — Round of 32 through the Final
+              — before the first Round of 32 match kicks off.
+            </li>
+            <li>
+              • Unlike group stage picks (which lock match-by-match),{" "}
+              <strong className="text-white">all knockout picks lock together</strong>{" "}
+              when Round of 32 starts. No edits after that, even for later
+              rounds.
+            </li>
+            <li>
+              • Missed knockout picks stay at 0 points. There is no late entry
+              once the bracket closes.
+            </li>
+            <li>
+              • The exact kickoff time is shown on the Picks page once fixtures
+              are loaded.
+            </li>
+          </ul>
+        </section>
 
         <section className="rounded-2xl border border-gray-800 bg-[#111] px-6 py-6">
           <h2 className="text-lg font-black uppercase tracking-wide text-white">
@@ -203,7 +242,11 @@ export function RulesPage() {
             <p>
               • Each player&apos;s picks are saved to their own account only.
             </p>
-            <p>• You can update picks anytime until the match kicks off.</p>
+            <p>• Group picks lock individually when each match kicks off.</p>
+            <p>
+              • Knockout picks all lock when Round of 32 starts — fill the full
+              bracket before then.
+            </p>
             <p>• Points are calculated automatically after each match ends.</p>
             <p>• Streak tracks consecutive correct picks.</p>
             <p>• Friends-only league — invite code required to join.</p>

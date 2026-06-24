@@ -1,8 +1,16 @@
 "use client";
 
+import { format } from "date-fns";
 import { useMemo, useState } from "react";
+import { KnockoutBracketNotice } from "@/components/KnockoutBracketNotice";
 import { getMatchBucket } from "@/lib/match-status";
-import { isMatchFinished, isMatchLocked } from "@/lib/scoring";
+import {
+  formatRoundOf32Deadline,
+  getRoundOf32Kickoff,
+  isKnockoutBracketLocked,
+  isPickLocked,
+} from "@/lib/knockout-bracket";
+import { isMatchFinished } from "@/lib/scoring";
 import type { AppSettings, Match, Pick } from "@/lib/types";
 import { MatchCard } from "./MatchCard";
 
@@ -25,7 +33,7 @@ const KNOCKOUT_ROUNDS = [
 
 type PicksView = "upcoming" | "past";
 
-function sortUpcoming(matches: Match[]): Match[] {
+function sortUpcoming(matches: Match[], allMatches: Match[]): Match[] {
   return [...matches]
     .filter((m) => !isMatchFinished(m.status))
     .sort((a, b) => {
@@ -33,8 +41,8 @@ function sortUpcoming(matches: Match[]): Match[] {
       const bLive = getMatchBucket(b) === "live";
       if (aLive !== bLive) return aLive ? -1 : 1;
 
-      const aLocked = isMatchLocked(a);
-      const bLocked = isMatchLocked(b);
+      const aLocked = isPickLocked(a, allMatches);
+      const bLocked = isPickLocked(b, allMatches);
       if (aLocked !== bLocked) return aLocked ? 1 : -1;
 
       return new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime();
@@ -66,10 +74,15 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
 
   const stageMatches = tab === "group" ? groupMatches : knockoutMatches;
   const visibleMatches =
-    view === "past" ? sortPast(stageMatches) : sortUpcoming(stageMatches);
+    view === "past"
+      ? sortPast(stageMatches)
+      : sortUpcoming(stageMatches, matches);
+
+  const bracketLocked = isKnockoutBracketLocked(matches);
+  const ro32Kickoff = getRoundOf32Kickoff(matches);
 
   const lockedWithoutPick = visibleMatches.filter(
-    (m) => isMatchLocked(m) && !pickMap.has(m.id)
+    (m) => isPickLocked(m, matches) && !pickMap.has(m.id)
   ).length;
 
   function handleSaved(pick: Pick) {
@@ -86,6 +99,11 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
 
   return (
     <div className="min-h-screen bg-gray-100">
+      <KnockoutBracketNotice
+        matches={matches}
+        knockoutUnlocked={settings.knockout_unlocked}
+        bracketLocked={bracketLocked}
+      />
       <header className="bg-[#0056b3] px-4 py-8 text-center text-white sm:px-6 sm:text-left">
         <h1 className="text-4xl font-black uppercase tracking-tight md:text-5xl">
           Matches
@@ -96,10 +114,23 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
       </header>
 
       <p className="border-b border-gray-200 bg-white px-4 py-3 text-center text-xs text-gray-600 sm:px-6 sm:text-left">
-        Change picks anytime before kickoff. Once a match starts, it locks —
-        you cannot add or change a pick, even if you forgot to pick that game.
-        Group stage: winner (or tie) + score for bonus. Knockouts: winner only.
+        Group stage: change picks until each match kicks off (+5 for exact
+        score). Knockout: fill your full bracket before Round of 32 starts
+        {ro32Kickoff
+          ? ` (${format(ro32Kickoff, "MMM d, h:mm a")})`
+          : ""}{" "}
+        — then the entire bracket locks, like March Madness.
       </p>
+
+      {tab === "knockout" &&
+        settings.knockout_unlocked &&
+        !bracketLocked &&
+        ro32Kickoff && (
+          <p className="border-b border-[#FF007A]/20 bg-[#FF007A]/5 px-4 py-2 text-center text-xs font-medium text-[#c4005f] sm:px-6 sm:text-left">
+            Bracket open — submit every knockout pick before{" "}
+            {formatRoundOf32Deadline(ro32Kickoff)}.
+          </p>
+        )}
 
       {view === "upcoming" && lockedWithoutPick > 0 && (
         <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-900 sm:px-6 sm:text-left">
@@ -176,8 +207,8 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
 
       {tab === "knockout" && !settings.knockout_unlocked ? (
         <p className="px-6 py-12 text-center text-gray-600">
-          Knockout picks unlock automatically once every group stage match is
-          finished.
+          Knockout picks unlock once every group stage match is finished — then
+          fill your full bracket before Round of 32 starts.
         </p>
       ) : visibleMatches.length === 0 ? (
         <p className="px-6 py-12 text-center text-gray-600">
@@ -192,6 +223,7 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
               key={match.id}
               match={match}
               pick={pickMap.get(match.id)}
+              allMatches={matches}
               onSaved={handleSaved}
             />
           ))}
