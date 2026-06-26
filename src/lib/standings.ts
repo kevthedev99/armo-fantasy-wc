@@ -47,3 +47,17 @@ export function topStandings<T extends Pick<Profile, "total_points" | "total_win
 ): T[] {
   return sortProfiles(profiles).slice(0, limit);
 }
+
+/** Profile ids tied for the most correct-winner picks (empty if everyone has 0). */
+export function getMostWinsLeaderIds(
+  profiles: Pick<Profile, "id" | "total_wins">[]
+): Set<string> {
+  if (profiles.length === 0) return new Set();
+
+  const maxWins = Math.max(...profiles.map((p) => p.total_wins));
+  if (maxWins <= 0) return new Set();
+
+  return new Set(
+    profiles.filter((p) => p.total_wins === maxWins).map((p) => p.id)
+  );
+}

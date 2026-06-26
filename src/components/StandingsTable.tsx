@@ -3,7 +3,7 @@ import { RankChangeBadge } from "@/components/RankChangeBadge";
 import { SponsorBanner } from "@/components/SponsorBanner";
 import { WorldCupLogo } from "@/components/WorldCupLogo";
 import { formatStreak } from "@/lib/scoring";
-import { sortProfiles } from "@/lib/standings";
+import { getMostWinsLeaderIds, sortProfiles } from "@/lib/standings";
 import type { Profile } from "@/lib/types";
 
 interface StandingsTableProps {
@@ -66,6 +66,14 @@ function LastPlaceBadge() {
   );
 }
 
+function MostWinsBadge() {
+  return (
+    <span className="inline-block rounded bg-[#0056b3]/20 px-2 py-0.5 text-[10px] font-bold uppercase text-[#4da3ff]">
+      Most Wins
+    </span>
+  );
+}
+
 function podiumRank(index: number): 1 | 2 | 3 | null {
   if (index === 0) return 1;
   if (index === 1) return 2;
@@ -76,6 +84,7 @@ function podiumRank(index: number): 1 | 2 | 3 | null {
 export function StandingsTable({ profiles, currentUserId }: StandingsTableProps) {
   const sorted = sortProfiles(profiles);
   const lastPlaceId = sorted.length > 1 ? sorted[sorted.length - 1]?.id : null;
+  const mostWinsLeaderIds = getMostWinsLeaderIds(sorted);
 
   return (
     <section id="standings" className="bg-black px-4 py-12 md:px-8">
@@ -107,6 +116,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
               const rank = podiumRank(index);
               const isLast = profile.id === lastPlaceId && sorted.length > 3;
               const isYou = profile.id === currentUserId;
+              const isMostWins = mostWinsLeaderIds.has(profile.id);
 
               return (
                 <Link
@@ -136,7 +146,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                           </span>
                         )}
                       </p>
-                      {(rank || isLast) && (
+                      {(rank || isLast || isMostWins) && (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {rank && (
                             <>
@@ -144,6 +154,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                               <PotShareBadge rank={rank} />
                             </>
                           )}
+                          {isMostWins && <MostWinsBadge />}
                           {isLast && <LastPlaceBadge />}
                         </div>
                       )}
@@ -192,6 +203,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
               const rank = podiumRank(index);
               const isLast = profile.id === lastPlaceId && sorted.length > 3;
               const isYou = profile.id === currentUserId;
+              const isMostWins = mostWinsLeaderIds.has(profile.id);
 
               return (
                 <Link
@@ -225,6 +237,11 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                           <PotShareBadge rank={rank} />
                         </span>
                       </>
+                    )}
+                    {isMostWins && (
+                      <span className="shrink-0">
+                        <MostWinsBadge />
+                      </span>
                     )}
                     {isLast && (
                       <span className="shrink-0">
