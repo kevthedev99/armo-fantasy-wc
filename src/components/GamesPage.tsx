@@ -2,6 +2,7 @@
 
 import { useRouter } from "next/navigation";
 import { useEffect, useMemo, useState } from "react";
+import { getKnockoutStageBadgeLabel } from "@/lib/knockout-bracket";
 import {
   formatPSTDateHeader,
   formatPSTTime,
@@ -251,6 +252,7 @@ function MatchGroup({
   matches,
   variant,
   badge,
+  knockoutStageBadge,
   pickByMatchId,
   pickDetailsByMatchId,
 }: {
@@ -258,6 +260,7 @@ function MatchGroup({
   matches: Match[];
   variant: "live" | "upcoming" | "finished";
   badge?: string;
+  knockoutStageBadge?: string | null;
   pickByMatchId: Record<number, PickWinner>;
   pickDetailsByMatchId: Record<number, MatchPickDetails>;
 }) {
@@ -266,9 +269,16 @@ function MatchGroup({
   return (
     <section className="overflow-hidden rounded-xl border border-gray-200 bg-white shadow-sm">
       <div className="flex items-center justify-between border-b border-gray-100 bg-gray-50 px-4 py-2.5">
-        <h2 className="text-xs font-black uppercase tracking-widest text-gray-700">
-          {title}
-        </h2>
+        <div className="flex min-w-0 flex-wrap items-center gap-2">
+          <h2 className="text-xs font-black uppercase tracking-widest text-gray-700">
+            {title}
+          </h2>
+          {knockoutStageBadge && (
+            <span className="rounded-full bg-red-100 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-700">
+              {knockoutStageBadge}
+            </span>
+          )}
+        </div>
         {badge && (
           <span
             className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase ${
@@ -474,6 +484,7 @@ export function GamesPage({
             matches={live}
             variant="live"
             badge={live.length > 0 ? `${live.length} live` : undefined}
+            knockoutStageBadge={getKnockoutStageBadgeLabel(live)}
             pickByMatchId={pickByMatchId}
             pickDetailsByMatchId={pickDetailsByMatchId}
           />
@@ -511,6 +522,7 @@ export function GamesPage({
                 matches={dayMatches}
                 variant="upcoming"
                 badge={`${dayMatches.length} match${dayMatches.length !== 1 ? "es" : ""}`}
+                knockoutStageBadge={getKnockoutStageBadgeLabel(dayMatches)}
                 pickByMatchId={pickByMatchId}
                 pickDetailsByMatchId={pickDetailsByMatchId}
               />
@@ -533,6 +545,7 @@ export function GamesPage({
                 matches={dayMatches}
                 variant="finished"
                 badge={`${dayMatches.length} match${dayMatches.length !== 1 ? "es" : ""}`}
+                knockoutStageBadge={getKnockoutStageBadgeLabel(dayMatches)}
                 pickByMatchId={pickByMatchId}
                 pickDetailsByMatchId={pickDetailsByMatchId}
               />

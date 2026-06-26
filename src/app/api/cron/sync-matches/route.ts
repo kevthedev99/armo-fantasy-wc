@@ -299,6 +299,7 @@ export async function GET(request: Request) {
   );
 
   const justFinishedMatchIds: number[] = [];
+  const justFinishedGroupMatchIds: number[] = [];
   const justStartedMatchIds: number[] = [];
   let eventsNotified = 0;
 
@@ -350,6 +351,9 @@ export async function GET(request: Request) {
 
     if (shouldNotifyFullTime(oldMatch, status)) {
       justFinishedMatchIds.push(matchId);
+      if (stage === "group") {
+        justFinishedGroupMatchIds.push(matchId);
+      }
       if (isDiscordConfigured()) {
         await notifyFullTime({
           home_team_name: f.teams.home.name,
@@ -405,18 +409,29 @@ export async function GET(request: Request) {
     }
   }
 
-  const { data: groupStageMatches } = await supabase
-    .from("matches")
-    .select("status")
-    .eq("stage", "group");
+  let groupComplete = false;
 
-  for (const match of groupStageMatches ?? []) {
-    groupTotal++;
-    if (isMatchFinished(match.status)) groupFinishedCount++;
+  if (fullSync || justFinishedGroupMatchIds.length > 0) {
+    const { data: groupStageMatches } = await supabase
+      .from("matches")
+      .select("status")
+      .eq("stage", "group");
+
+    for (const match of groupStageMatches ?? []) {
+      groupTotal++;
+      if (isMatchFinished(match.status)) groupFinishedCount++;
+    }
+
+    groupComplete = groupTotal > 0 && groupFinishedCount === groupTotal;
+  } else {
+    const { data: settingsRow } = await supabase
+      .from("app_settings")
+      .select("group_stage_complete")
+      .eq("id", 1)
+      .single();
+
+    groupComplete = settingsRow?.group_stage_complete ?? false;
   }
-
-  const groupComplete =
-    groupTotal > 0 && groupFinishedCount === groupTotal;
 
   const nowIso = new Date().toISOString();
   await supabase
@@ -453,9 +468,16 @@ export async function GET(request: Request) {
     picksScored = scored.picksScored;
     scored.affectedUserIds.forEach((id) => affectedUserIds.add(id));
   } else {
-    const scored = await scoreUnscoredPickBackfill(supabase, 50);
-    picksScored = scored.picksScored;
-    scored.affectedUserIds.forEach((id) => affectedUserIds.add(id));
+    const { count: unscoredCount } = await supabase
+      .from("picks")
+      .select("id", { count: "exact", head: true })
+      .eq("is_scored", false);
+
+    if ((unscoredCount ?? 0) > 0) {
+      const scored = await scoreUnscoredPickBackfill(supabase, 50);
+      picksScored = scored.picksScored;
+      scored.affectedUserIds.forEach((id) => affectedUserIds.add(id));
+    }
   }
 
   const shouldRebuildLeaderboard =

@@ -35,12 +35,16 @@ async function fetchFixturesFromApi(
 }
 
 /** YYYY-MM-DD in Pacific — matches how the app displays kickoffs. */
-export function getLightSyncDates(now = new Date()): string[] {
+export function getLightSyncDates(
+  now = new Date(),
+  /** When no live games, skip tomorrow to save an API call per tick. */
+  compact = false
+): string[] {
   const timeZone = "America/Los_Angeles";
   const msPerDay = 24 * 60 * 60 * 1000;
   const dates = new Set<string>();
 
-  for (const offset of [-1, 0, 1]) {
+  for (const offset of compact ? [-1, 0] : [-1, 0, 1]) {
     dates.add(
       new Intl.DateTimeFormat("en-CA", {
         timeZone,
@@ -92,11 +96,11 @@ export async function fetchFixturesForSync(
     return fetchWorldCupFixtures();
   }
 
-  const dates = getLightSyncDates();
-  const [live, ...byDate] = await Promise.all([
-    fetchLiveWorldCupFixtures(),
-    ...dates.map((date) => fetchWorldCupFixturesByDate(date)),
-  ]);
+  const live = await fetchLiveWorldCupFixtures();
+  const dates = getLightSyncDates(undefined, live.length === 0);
+  const byDate = await Promise.all(
+    dates.map((date) => fetchWorldCupFixturesByDate(date))
+  );
 
   return mergeFixturesById([...live, ...byDate.flat()]);
 }

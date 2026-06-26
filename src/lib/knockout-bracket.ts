@@ -19,6 +19,29 @@ export function isRoundOf32Match(match: { round: string }): boolean {
   return ROUND_OF_32_ROUNDS.has(match.round);
 }
 
+/** API-Football round names → user-facing knockout round label. */
+export function normalizeKnockoutRoundLabel(round: string): string {
+  if (round === "8th Finals") return "Round of 32";
+  if (round === "3rd Place Final" || round === "Third place") return "Third Place";
+  return round;
+}
+
+/** Badge copy for a day/group of matches, e.g. "Knockout Stage - Round of 32". */
+export function getKnockoutStageBadgeLabel(
+  matches: Pick<Match, "stage" | "round">[]
+): string | null {
+  const knockout = matches.filter((m) => m.stage === "knockout");
+  if (knockout.length === 0) return null;
+
+  const rounds = [
+    ...new Set(knockout.map((m) => normalizeKnockoutRoundLabel(m.round))),
+  ];
+  if (rounds.length === 1) {
+    return `Knockout Stage - ${rounds[0]}`;
+  }
+  return "Knockout Stage";
+}
+
 /** Midnight June 28, 2026 Pacific — bracket deadline if fixtures are not synced. */
 export function getCanonicalRoundOf32Start(): Date {
   return new Date(`${ROUND_OF_32_START_DATE}T00:00:00-07:00`);
