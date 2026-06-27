@@ -12,6 +12,7 @@ const MAIN_LINKS: { href: string; label: string }[] = [
   { href: "/", label: "Standings" },
   { href: "/games", label: "Games" },
   { href: "/picks", label: "Picks" },
+  { href: "/bracket", label: "Bracket" },
   { href: "/rules", label: "Rules" },
   { href: "/casino", label: "Roulette" },
   { href: "/casino/blackjack", label: "Blackjack" },

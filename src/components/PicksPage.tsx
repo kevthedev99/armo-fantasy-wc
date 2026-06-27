@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useMemo, useState } from "react";
 import { getMatchBucket } from "@/lib/match-status";
 import {
@@ -178,6 +179,14 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
           Knockout
           {!settings.knockout_unlocked && " (locked)"}
         </button>
+        {tab === "knockout" && settings.knockout_unlocked && (
+          <Link
+            href="/bracket"
+            className="rounded-full bg-[#FFD700] px-4 py-2 text-xs font-black uppercase tracking-wide text-black transition hover:opacity-90"
+          >
+            Bracket View
+          </Link>
+        )}
         {tab === "knockout" && settings.knockout_unlocked && (
           <div className="flex w-full flex-wrap justify-center gap-2 sm:w-auto sm:justify-start">
             {KNOCKOUT_ROUNDS.filter((r) =>

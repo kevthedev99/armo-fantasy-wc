@@ -42,9 +42,9 @@ export function getKnockoutStageBadgeLabel(
   return "Knockout Stage";
 }
 
-/** Midnight June 28, 2026 Pacific — bracket deadline if fixtures are not synced. */
+/** 10:00 AM Pacific June 28, 2026 — bracket deadline if fixtures are not synced. */
 export function getCanonicalRoundOf32Start(): Date {
-  return new Date(`${ROUND_OF_32_START_DATE}T00:00:00-07:00`);
+  return new Date(`${ROUND_OF_32_START_DATE}T10:00:00-07:00`);
 }
 
 /** User-facing label, e.g. "Sunday, June 28, 2026". */
