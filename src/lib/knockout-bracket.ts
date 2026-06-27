@@ -96,7 +96,23 @@ export function formatRoundOf32Deadline(kickoff: Date): string {
   return format(kickoff, "EEEE, MMMM d, yyyy 'at' h:mm a");
 }
 
-/** Group stage done (or flag set) — knockout bracket challenge is live. */
+/** Every group-stage fixture in the DB has finished. */
+export function isGroupStageComplete(
+  matches: Pick<Match, "stage" | "status">[],
+  settings?: { group_stage_complete?: boolean } | null
+): boolean {
+  if (settings?.group_stage_complete) return true;
+
+  const group = matches.filter((m) => m.stage === "group");
+  if (group.length === 0) return false;
+
+  return group.every((m) => isMatchFinished(m.status));
+}
+
+/**
+ * Knockout bracket challenge is live — players fill confirmed slots as groups finish.
+ * Does not require the entire group stage to be complete.
+ */
 export function isKnockoutChallengeActive(
   matches: Pick<Match, "stage" | "status">[],
   settings?: {
@@ -108,12 +124,13 @@ export function isKnockoutChallengeActive(
     return true;
   }
 
-  const group = matches.filter((m) => m.stage === "group");
-  if (group.length === 0) {
-    return matches.some((m) => m.stage === "knockout");
+  if (matches.some((m) => m.stage === "knockout")) {
+    return true;
   }
 
-  return group.every((m) => isMatchFinished(m.status));
+  return matches.some(
+    (m) => m.stage === "group" && isMatchFinished(m.status)
+  );
 }
 
 /**
@@ -134,21 +151,12 @@ export function isKnockoutBracketLocked(
   return ro32.some((m) => isMatchLocked(m, now));
 }
 
-/**
- * Players fill the knockout bracket after group stage through lock time.
- */
+/** Bracket picks allowed until 12 PM Pacific lock (or earlier Ro32 kickoff). */
 export function isKnockoutBracketOpen(
   matches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[],
-  now = new Date(),
-  settings?: {
-    knockout_unlocked?: boolean;
-    group_stage_complete?: boolean;
-  } | null
+  now = new Date()
 ): boolean {
-  return (
-    isKnockoutChallengeActive(matches, settings) &&
-    !isKnockoutBracketLocked(matches, now)
-  );
+  return !isKnockoutBracketLocked(matches, now);
 }
 
 export function isPickLocked(

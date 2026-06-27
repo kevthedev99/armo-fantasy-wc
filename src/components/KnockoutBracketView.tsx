@@ -7,9 +7,9 @@ import {
   formatRoundOf32Deadline,
   formatRoundOf32StartLabel,
   getRoundOf32LockAt,
+  isGroupStageComplete,
   isKnockoutBracketLocked,
   isKnockoutBracketOpen,
-  isKnockoutChallengeActive,
   isPickLocked,
 } from "@/lib/knockout-bracket";
 import {
@@ -309,13 +309,9 @@ export function KnockoutBracketView({
     return map;
   }, [picks]);
 
-  const challengeActive = isKnockoutChallengeActive(matches, challengeSettings);
+  const groupStageComplete = isGroupStageComplete(matches, challengeSettings);
   const bracketLocked = isKnockoutBracketLocked(matches);
-  const bracketOpen = isKnockoutBracketOpen(
-    matches,
-    undefined,
-    challengeSettings
-  );
+  const bracketOpen = isKnockoutBracketOpen(matches);
   const lockAt = getRoundOf32LockAt(matches);
   const columns = getBracketColumns(matches, picks, slotPicks);
   const progress = getKnockoutBracketProgress(matches, picks);
@@ -434,22 +430,6 @@ export function KnockoutBracketView({
     setActiveSlotPick(undefined);
   }
 
-  if (!challengeActive) {
-    return (
-      <div className="min-h-screen bg-[#0a1628]">
-        <header className="border-b border-white/10 bg-gradient-to-b from-[#0056b3] to-[#0a1628] px-4 py-10 text-center text-white sm:px-6 sm:text-left">
-          <h1 className="text-4xl font-black uppercase tracking-tight md:text-5xl">
-            Knockout Bracket
-          </h1>
-        </header>
-        <p className="px-6 py-16 text-center text-gray-300">
-          The bracket challenge opens once today&apos;s group stage matches are
-          complete. Use the Picks tab for remaining group games.
-        </p>
-      </div>
-    );
-  }
-
   if (slotPicksTableMissing) {
     return (
       <div className="min-h-screen bg-[#0a1628]">
@@ -501,9 +481,9 @@ export function KnockoutBracketView({
               Knockout Bracket
             </h1>
             <p className="mt-2 max-w-xl text-sm text-white/70">
-              Pick the winner and score for every knockout match. Fill your full
-              bracket before 12:00 PM Pacific tomorrow — same points as regular
-              picks, added to your standings total.
+              Pick confirmed matchups as they become official. Unconfirmed slots
+              stay locked until both teams are known. Fill your full bracket
+              before lock — same points as regular picks.
             </p>
           </div>
           <div className="shrink-0 rounded-xl border border-[#FF007A]/40 bg-[#FF007A]/10 px-4 py-3 text-center md:text-right">
@@ -518,6 +498,19 @@ export function KnockoutBracketView({
           </div>
         </div>
       </header>
+
+      {!groupStageComplete && (
+        <div className="border-b border-[#FFD700]/30 bg-[#FFD700]/10 px-4 py-3 sm:px-6">
+          <p className="mx-auto max-w-7xl text-center text-sm text-[#FFD700] sm:text-left">
+            Group stage still in progress — pick any confirmed Round of 32
+            matchups below. More slots unlock as groups finish. Use{" "}
+            <Link href="/picks" className="font-bold underline hover:text-white">
+              Picks
+            </Link>{" "}
+            for remaining group games.
+          </p>
+        </div>
+      )}
 
       <div className="border-b border-white/10 bg-black/40 px-4 py-4 sm:px-6">
         <div className="mx-auto max-w-7xl">

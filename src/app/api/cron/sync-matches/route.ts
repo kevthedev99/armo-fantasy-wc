@@ -496,8 +496,16 @@ export async function GET(request: Request) {
     .select("id", { count: "exact", head: true })
     .eq("stage", "knockout");
 
+  const { count: finishedGroupCount } = await supabase
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("stage", "group")
+    .in("status", ["FT", "AET", "PEN", "AWD", "WO"]);
+
   const knockoutUnlocked =
-    groupComplete || (knockoutCount ?? 0) > 0;
+    groupComplete ||
+    (knockoutCount ?? 0) > 0 ||
+    (finishedGroupCount ?? 0) > 0;
 
   await supabase
     .from("app_settings")
