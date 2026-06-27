@@ -119,11 +119,13 @@ function BracketSlotCard({
   slot,
   pick,
   locked,
+  slotPicksDisabled = false,
   onSelect,
 }: {
   slot: BracketMatchSlot;
   pick?: Pick;
   locked: boolean;
+  slotPicksDisabled?: boolean;
   onSelect: () => void;
 }) {
   if (slot.kind === "placeholder") {
@@ -132,7 +134,7 @@ function BracketSlotCard({
     const hasBoth = hasHome && hasAway;
     const hasAny = hasHome || hasAway;
     const hasPick = !!slot.slotPick;
-    const pickable = !!slot.pickable && !locked;
+    const pickable = !!slot.pickable && !locked && !slotPicksDisabled;
     const displayPick =
       slot.slotPick && slot.homeTeam && slot.awayTeam
         ? slotPickToDisplayPick(
@@ -220,11 +222,13 @@ function BracketSlotCard({
           <PlaceholderTeam team={slot.awayTeam} fallbackLabel={slot.awayLabel} />
         </div>
         <p className="mt-2 text-center text-[10px] text-gray-400">
-          {hasBoth
-            ? "Pick earlier Round of 32 games on this side to unlock"
-            : hasAny
-              ? "Pick earlier matches to fill this slot"
-              : "Awaiting fixture sync"}
+          {slotPicksDisabled && hasBoth
+            ? "Later-round saves need Supabase migration 013"
+            : hasBoth
+              ? "Pick earlier Round of 32 games on this side to unlock"
+              : hasAny
+                ? "Pick earlier matches to fill this slot"
+                : "Awaiting fixture sync"}
         </p>
       </div>
     );
@@ -430,24 +434,6 @@ export function KnockoutBracketView({
     setActiveSlotPick(undefined);
   }
 
-  if (slotPicksTableMissing) {
-    return (
-      <div className="min-h-screen bg-[#0a1628]">
-        <header className="border-b border-white/10 bg-gradient-to-b from-[#0056b3] to-[#0a1628] px-4 py-10 text-center text-white sm:px-6">
-          <h1 className="text-4xl font-black uppercase tracking-tight md:text-5xl">
-            Knockout Bracket
-          </h1>
-        </header>
-        <p className="mx-auto max-w-lg px-6 py-16 text-center text-gray-300">
-          Bracket picks require database migration{" "}
-          <code className="text-[#FFD700]">013_bracket_slot_picks.sql</code> in
-          Supabase. All picks are stored in your account — nothing is saved on
-          this device.
-        </p>
-      </div>
-    );
-  }
-
   if (!bracketOpen) {
     return (
       <div className="min-h-screen bg-[#0a1628]">
@@ -508,6 +494,18 @@ export function KnockoutBracketView({
               Picks
             </Link>{" "}
             for remaining group games.
+          </p>
+        </div>
+      )}
+
+      {slotPicksTableMissing && (
+        <div className="border-b border-amber-500/40 bg-amber-500/15 px-4 py-3 sm:px-6">
+          <p className="mx-auto max-w-7xl text-center text-sm text-amber-100 sm:text-left">
+            Round of 32 picks work below. To save Round of 16 through Final in
+            your account, run{" "}
+            <code className="text-[#FFD700]">013_bracket_slot_picks.sql</code> in
+            Supabase → SQL Editor (file is in{" "}
+            <code className="text-[#FFD700]">supabase/migrations/</code>).
           </p>
         </div>
       )}
@@ -586,11 +584,12 @@ export function KnockoutBracketView({
                           : undefined
                       }
                       locked={bracketLocked}
+                      slotPicksDisabled={slotPicksTableMissing}
                       onSelect={() => {
                         if (slot.kind === "match") {
                           setActiveSlotPick(undefined);
                           setActiveMatch(slot.match);
-                        } else if (slot.pickable) {
+                        } else if (slot.pickable && !slotPicksTableMissing) {
                           openSlot(slot);
                         }
                       }}
