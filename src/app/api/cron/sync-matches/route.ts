@@ -21,8 +21,7 @@ import {
   shouldNotifyKickoff,
 } from "@/lib/match-notifications";
 import {
-  scoreFinishedMatchPicks,
-  scoreUnscoredPickBackfill,
+  scoreAllPendingFinishedPicks,
 } from "@/lib/score-finished-picks";
 import {
   aggregateProfileStats,
@@ -494,29 +493,13 @@ export async function GET(request: Request) {
     }
   }
 
-  // Score picks only when needed — not every finished match on every tick.
+  // Score every pick on finished fixtures (handles missed FT transitions + backfill).
   let picksScored = 0;
   const affectedUserIds = new Set<string>();
 
-  if (justFinishedMatchIds.length > 0) {
-    const scored = await scoreFinishedMatchPicks(
-      supabase,
-      justFinishedMatchIds
-    );
-    picksScored = scored.picksScored;
-    scored.affectedUserIds.forEach((id) => affectedUserIds.add(id));
-  } else {
-    const { count: unscoredCount } = await supabase
-      .from("picks")
-      .select("id", { count: "exact", head: true })
-      .eq("is_scored", false);
-
-    if ((unscoredCount ?? 0) > 0) {
-      const scored = await scoreUnscoredPickBackfill(supabase, 50);
-      picksScored = scored.picksScored;
-      scored.affectedUserIds.forEach((id) => affectedUserIds.add(id));
-    }
-  }
+  const scored = await scoreAllPendingFinishedPicks(supabase);
+  picksScored = scored.picksScored;
+  scored.affectedUserIds.forEach((id) => affectedUserIds.add(id));
 
   const shouldRebuildLeaderboard =
     justFinishedMatchIds.length > 0 || picksScored > 0;
@@ -526,7 +509,7 @@ export async function GET(request: Request) {
     const result = await rebuildLeaderboard({
       supabase,
       affectedUserIds,
-      gameJustFinished: justFinishedMatchIds.length > 0,
+      gameJustFinished: true,
     });
     profilesUpdated = result.profilesUpdated;
   }

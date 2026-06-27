@@ -123,6 +123,39 @@ export async function scoreFinishedMatchPicks(
   return { picksScored, affectedUserIds };
 }
 
+/** Score every pick on a finished match that is still marked unscored. */
+export async function scoreAllPendingFinishedPicks(
+  supabase: SupabaseClient
+): Promise<ScoreResult> {
+  const { data: unscoredRows, error: unscoredError } = await supabase
+    .from("picks")
+    .select("match_id")
+    .eq("is_scored", false);
+
+  if (unscoredError) throw unscoredError;
+
+  const candidateMatchIds = [
+    ...new Set((unscoredRows ?? []).map((row) => row.match_id)),
+  ];
+
+  if (candidateMatchIds.length === 0) {
+    return { picksScored: 0, affectedUserIds: new Set() };
+  }
+
+  const { data: finishedMatches, error: finishedError } = await supabase
+    .from("matches")
+    .select("id")
+    .in("id", candidateMatchIds)
+    .in("status", ["FT", "AET", "PEN", "AWD", "WO"]);
+
+  if (finishedError) throw finishedError;
+
+  return scoreFinishedMatchPicks(
+    supabase,
+    (finishedMatches ?? []).map((match) => match.id)
+  );
+}
+
 /** Backfill a small batch of unscored picks (group + knockout). */
 export async function scoreUnscoredPickBackfill(
   supabase: SupabaseClient,
@@ -138,8 +171,9 @@ export async function scoreUnscoredPickBackfill(
 
   const { data: rows } = await supabase
     .from("picks")
-    .select("*, matches(*)")
+    .select("*, matches!inner(*)")
     .eq("is_scored", false)
+    .in("matches.status", ["FT", "AET", "PEN", "AWD", "WO"])
     .limit(limit);
 
   const affectedUserIds = new Set<string>();
