@@ -28,7 +28,7 @@ import {
   aggregateProfileStats,
   computeCurrentStreak,
   isMatchFinished,
-  isStaleInProgressMatch,
+  getSyncRefreshFixtureIds,
 } from "@/lib/scoring";
 import type { Match, MatchEvent, Pick } from "@/lib/types";
 import { topStandings, computeRankChanges } from "@/lib/standings";
@@ -296,16 +296,9 @@ export async function GET(request: Request) {
       "id, home_score, away_score, pen_home_score, pen_away_score, status, match_events, home_team_id, away_team_id, kickoff_at"
     );
 
-  const staleFixtureIds = (existingMatches ?? [])
-    .filter((m) =>
-      isStaleInProgressMatch({
-        status: m.status,
-        kickoff_at: m.kickoff_at,
-      })
-    )
-    .map((m) => m.id);
+  const refreshFixtureIds = getSyncRefreshFixtureIds(existingMatches ?? []);
 
-  const fixtures = await fetchFixturesForSync(syncMode, staleFixtureIds);
+  const fixtures = await fetchFixturesForSync(syncMode, refreshFixtureIds);
 
   const existingById = new Map<number, ExistingMatch>(
     (existingMatches ?? []).map((m) => [
@@ -557,7 +550,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     syncMode,
-    staleFixtureIds,
+    refreshFixtureIds,
     fixturesFetched: fixtures.length,
     matchesUpserted,
     picksScored,

@@ -116,7 +116,7 @@ export interface ApiFootballFixture {
   fixture: {
     id: number;
     date: string;
-    status: { short: string };
+    status: { short: string; elapsed?: number | null };
   };
   league: { round: string };
   teams: {

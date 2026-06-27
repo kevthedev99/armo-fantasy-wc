@@ -109,6 +109,19 @@ export function isStaleInProgressMatch(
   return isMatchInProgress(match.status) || isMatchLocked(match, now);
 }
 
+/** Re-fetch by fixture id during sync — live games plus stuck post-whistle rows. */
+export function getSyncRefreshFixtureIds(
+  matches: { id: number; status: string; kickoff_at: string }[]
+): number[] {
+  const ids = new Set<number>();
+  for (const match of matches) {
+    if (isMatchInProgress(match.status) || isStaleInProgressMatch(match)) {
+      ids.add(match.id);
+    }
+  }
+  return [...ids];
+}
+
 export function getMatchLockMessage(
   match: { status: string; kickoff_at: string }
 ): string {

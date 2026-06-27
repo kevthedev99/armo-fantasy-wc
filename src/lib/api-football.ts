@@ -12,11 +12,15 @@ const FIXTURE_HEADERS = (key: string) => ({ "x-apisports-key": key });
 
 async function fetchFixturesFromApi(
   key: string,
-  params: Record<string, string>
+  params: Record<string, string>,
+  /** Per-fixture refresh must not send league/season — API returns empty. */
+  options?: { includeLeagueFilter?: boolean }
 ): Promise<ApiFootballFixture[]> {
   const url = new URL(`${BASE_URL}/fixtures`);
-  url.searchParams.set("league", String(WORLD_CUP.leagueId));
-  url.searchParams.set("season", String(WORLD_CUP.season));
+  if (options?.includeLeagueFilter !== false) {
+    url.searchParams.set("league", String(WORLD_CUP.leagueId));
+    url.searchParams.set("season", String(WORLD_CUP.season));
+  }
   for (const [name, value] of Object.entries(params)) {
     url.searchParams.set(name, value);
   }
@@ -81,7 +85,22 @@ function fixtureFreshness(fixture: ApiFootballFixture): number {
   return 0;
 }
 
-/** Later entries win; finished status beats stale in-progress from bulk lists. */
+function fixtureElapsed(fixture: ApiFootballFixture): number {
+  const status = fixture.fixture.status as { elapsed?: number | null };
+  return status.elapsed ?? 0;
+}
+
+function shouldReplaceFixture(
+  existing: ApiFootballFixture,
+  incoming: ApiFootballFixture
+): boolean {
+  const nextScore = fixtureFreshness(incoming);
+  const prevScore = fixtureFreshness(existing);
+  if (nextScore !== prevScore) return nextScore > prevScore;
+  return fixtureElapsed(incoming) >= fixtureElapsed(existing);
+}
+
+/** Later entries win when fresher; finished status beats stale in-progress from bulk lists. */
 export function mergeFixturesById(
   fixtures: ApiFootballFixture[]
 ): ApiFootballFixture[] {
@@ -95,9 +114,7 @@ export function mergeFixturesById(
       continue;
     }
 
-    const nextScore = fixtureFreshness(fixture);
-    const prevScore = fixtureFreshness(existing);
-    if (nextScore >= prevScore) {
+    if (shouldReplaceFixture(existing, fixture)) {
       byId.set(id, fixture);
     }
   }
@@ -134,7 +151,9 @@ export async function fetchWorldCupFixturesByIds(
   if (!key) throw new Error("API_FOOTBALL_KEY is not set");
 
   const batches = await Promise.all(
-    fixtureIds.map((id) => fetchFixturesFromApi(key, { id: String(id) }))
+    fixtureIds.map((id) =>
+      fetchFixturesFromApi(key, { id: String(id) }, { includeLeagueFilter: false })
+    )
   );
 
   return mergeFixturesById(batches.flat());
@@ -143,12 +162,13 @@ export async function fetchWorldCupFixturesByIds(
 /** Full season list, or live + nearby dates for frequent cron ticks. */
 export async function fetchFixturesForSync(
   mode: "full" | "light",
-  staleFixtureIds: number[] = []
+  refreshFixtureIds: number[] = []
 ): Promise<ApiFootballFixture[]> {
+  const refreshed = await fetchWorldCupFixturesByIds(refreshFixtureIds);
+
   if (mode === "full") {
     const all = await fetchWorldCupFixtures();
-    const stale = await fetchWorldCupFixturesByIds(staleFixtureIds);
-    return mergeFixturesById([...all, ...stale]);
+    return mergeFixturesById([...all, ...refreshed]);
   }
 
   const live = await fetchLiveWorldCupFixtures();
@@ -156,9 +176,9 @@ export async function fetchFixturesForSync(
   const byDate = await Promise.all(
     dates.map((date) => fetchWorldCupFixturesByDate(date))
   );
-  const stale = await fetchWorldCupFixturesByIds(staleFixtureIds);
 
-  return mergeFixturesById([...live, ...byDate.flat(), ...stale]);
+  // Bulk date lists first, then live feed, then per-id refresh (most authoritative).
+  return mergeFixturesById([...byDate.flat(), ...live, ...refreshed]);
 }
 
 export async function fetchFixtureEvents(
