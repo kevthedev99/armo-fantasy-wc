@@ -18,6 +18,11 @@ import {
   slotPickToDisplayPick,
 } from "@/lib/bracket-slot-picks";
 import {
+  mergeBracketSlotPicks,
+  migrateLocalBracketSlotPicksToServer,
+  saveRemoteBracketSlotPick,
+} from "@/lib/bracket-slot-picks-client";
+import {
   loadBracketSlotPicks,
   saveBracketSlotPicks,
   upsertBracketSlotPick,
@@ -40,6 +45,8 @@ interface KnockoutBracketViewProps {
   userId: string | null;
   matches: Match[];
   picks: Pick[];
+  initialSlotPicks?: BracketSlotPick[];
+  slotPicksTableMissing?: boolean;
 }
 
 function TeamLine({
@@ -286,11 +293,21 @@ export function KnockoutBracketView({
   userId,
   matches,
   picks: initialPicks,
+  initialSlotPicks = [],
+  slotPicksTableMissing = false,
 }: KnockoutBracketViewProps) {
   const [picks, setPicks] = useState(initialPicks);
-  const [slotPicks, setSlotPicks] = useState<BracketSlotPick[]>(() =>
-    userId ? loadBracketSlotPicks(userId) : []
-  );
+  const [slotPicks, setSlotPicks] = useState<BracketSlotPick[]>(() => {
+    if (!userId) return [];
+    if (slotPicksTableMissing) {
+      return loadBracketSlotPicks(userId);
+    }
+    return mergeBracketSlotPicks(
+      initialSlotPicks,
+      loadBracketSlotPicks(userId)
+    );
+  });
+  const [useLocalSlotPicks, setUseLocalSlotPicks] = useState(slotPicksTableMissing);
   const [activeMatch, setActiveMatch] = useState<Match | null>(null);
   const [activeSlotPick, setActiveSlotPick] = useState<
     BracketSlotPick | undefined
@@ -313,9 +330,31 @@ export function KnockoutBracketView({
       : 0;
 
   useEffect(() => {
+    if (!userId || useLocalSlotPicks) return;
+
+    let cancelled = false;
+
+    async function syncLocalBracketToAccount() {
+      try {
+        const merged = await migrateLocalBracketSlotPicksToServer(userId!);
+        if (!cancelled) setSlotPicks(merged);
+      } catch (err) {
+        console.error("Failed to migrate local bracket picks:", err);
+      }
+    }
+
+    void syncLocalBracketToAccount();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, useLocalSlotPicks]);
+
+  useEffect(() => {
     if (!userId || bracketLocked) return;
 
-    const stored = loadBracketSlotPicks(userId);
+    const stored = useLocalSlotPicks
+      ? loadBracketSlotPicks(userId)
+      : slotPicks;
     if (!stored.length) return;
 
     let cancelled = false;
@@ -355,7 +394,15 @@ export function KnockoutBracketView({
         });
       }
 
-      saveBracketSlotPicks(userId!, remaining);
+      if (useLocalSlotPicks) {
+        saveBracketSlotPicks(userId!, remaining);
+      } else {
+        for (const slotPick of remaining) {
+          await saveRemoteBracketSlotPick(slotPick).catch((err) => {
+            console.error("Failed to sync remaining bracket slot pick:", err);
+          });
+        }
+      }
       setSlotPicks(remaining);
     }
 
@@ -363,7 +410,7 @@ export function KnockoutBracketView({
     return () => {
       cancelled = true;
     };
-  }, [userId, matches, bracketLocked]);
+  }, [userId, matches, bracketLocked, useLocalSlotPicks, slotPicks.length]);
 
   function handleSaved(pick: Pick) {
     setPicks((prev) => {
@@ -377,10 +424,42 @@ export function KnockoutBracketView({
     });
   }
 
-  function handleSlotSaved(slotPick: BracketSlotPick) {
+  async function handleSlotSaved(slotPick: BracketSlotPick) {
     if (!userId) return;
-    const next = upsertBracketSlotPick(userId, slotPick);
-    setSlotPicks(next);
+
+    if (useLocalSlotPicks) {
+      const next = upsertBracketSlotPick(userId, slotPick);
+      setSlotPicks(next);
+      return;
+    }
+
+    try {
+      const { pick, tableMissing } = await saveRemoteBracketSlotPick(slotPick);
+      if (tableMissing) {
+        setUseLocalSlotPicks(true);
+        const next = upsertBracketSlotPick(userId, slotPick);
+        setSlotPicks(next);
+        return;
+      }
+
+      setSlotPicks((prev) => {
+        const index = prev.findIndex(
+          (item) =>
+            item.round_id === pick.round_id &&
+            item.slot_index === pick.slot_index
+        );
+        if (index >= 0) {
+          const next = [...prev];
+          next[index] = pick;
+          return next;
+        }
+        return [...prev, pick];
+      });
+    } catch (err) {
+      console.error("Failed to save bracket slot pick:", err);
+      const next = upsertBracketSlotPick(userId, slotPick);
+      setSlotPicks(next);
+    }
   }
 
   function openSlot(slot: Extract<BracketMatchSlot, { kind: "placeholder" }>) {

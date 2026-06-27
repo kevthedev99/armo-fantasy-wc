@@ -1,5 +1,6 @@
 import { Nav } from "@/components/Nav";
 import { KnockoutBracketView } from "@/components/KnockoutBracketView";
+import { fetchBracketSlotPicksForUser } from "@/lib/bracket-slot-pick-db";
 import { createClient } from "@/lib/supabase/server";
 
 export default async function BracketRoute() {
@@ -8,7 +9,7 @@ export default async function BracketRoute() {
     data: { user },
   } = await supabase.auth.getUser();
 
-  const [{ data: matches }, { data: picks }, { data: profile }] =
+  const [{ data: matches }, { data: picks }, { data: profile }, slotPickResult] =
     await Promise.all([
       supabase.from("matches").select("*").order("kickoff_at", { ascending: true }),
       user
@@ -21,6 +22,9 @@ export default async function BracketRoute() {
             .eq("id", user.id)
             .single()
         : Promise.resolve({ data: null }),
+      user
+        ? fetchBracketSlotPicksForUser(supabase, user.id)
+        : Promise.resolve({ picks: [], tableMissing: false }),
     ]);
 
   return (
@@ -31,6 +35,8 @@ export default async function BracketRoute() {
         userId={user?.id ?? null}
         matches={matches ?? []}
         picks={picks ?? []}
+        initialSlotPicks={slotPickResult.picks}
+        slotPicksTableMissing={slotPickResult.tableMissing}
       />
     </>
   );
