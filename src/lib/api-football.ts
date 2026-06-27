@@ -47,22 +47,26 @@ function formatCalendarDate(iso: Date, timeZone: string): string {
   }).format(iso);
 }
 
-/** YYYY-MM-DD in Pacific and UTC — API date filter can miss fixtures near midnight. */
+/** YYYY-MM-DD in Pacific — site displays Pacific times; one timezone per day saves API calls. */
 export function getLightSyncDates(
   now = new Date(),
-  /** When no live games, skip tomorrow to save API calls per tick. */
+  /** When no live games, only yesterday + today (skip tomorrow). */
   compact = false
 ): string[] {
   const msPerDay = 24 * 60 * 60 * 1000;
-  const dates = new Set<string>();
+  const dates: string[] = [];
 
   for (const offset of compact ? [-1, 0] : [-1, 0, 1]) {
     const day = new Date(now.getTime() + offset * msPerDay);
-    dates.add(formatCalendarDate(day, "America/Los_Angeles"));
-    dates.add(formatCalendarDate(day, "UTC"));
+    dates.push(formatCalendarDate(day, "America/Los_Angeles"));
   }
 
-  return [...dates];
+  return dates;
+}
+
+/** Pacific calendar date for today — single cheap poll when nothing is live. */
+export function getTodayPacificDate(now = new Date()): string {
+  return formatCalendarDate(now, "America/Los_Angeles");
 }
 
 const FINISHED_FIXTURE_STATUSES = new Set(["FT", "AET", "PEN", "AWD", "WO"]);
@@ -142,6 +146,8 @@ export async function fetchWorldCupFixturesByDate(
   return fetchFixturesFromApi(key, { date });
 }
 
+const FIXTURE_ID_BATCH_SIZE = 20;
+
 export async function fetchWorldCupFixturesByIds(
   fixtureIds: number[]
 ): Promise<ApiFootballFixture[]> {
@@ -150,35 +156,97 @@ export async function fetchWorldCupFixturesByIds(
   const key = process.env.API_FOOTBALL_KEY;
   if (!key) throw new Error("API_FOOTBALL_KEY is not set");
 
-  const batches = await Promise.all(
-    fixtureIds.map((id) =>
-      fetchFixturesFromApi(key, { id: String(id) }, { includeLeagueFilter: false })
-    )
-  );
+  const uniqueIds = [...new Set(fixtureIds)];
+  const batches: Promise<ApiFootballFixture[]>[] = [];
 
-  return mergeFixturesById(batches.flat());
+  for (let i = 0; i < uniqueIds.length; i += FIXTURE_ID_BATCH_SIZE) {
+    const chunk = uniqueIds.slice(i, i + FIXTURE_ID_BATCH_SIZE);
+    if (chunk.length === 1) {
+      batches.push(
+        fetchFixturesFromApi(
+          key,
+          { id: String(chunk[0]) },
+          { includeLeagueFilter: false }
+        )
+      );
+    } else {
+      batches.push(
+        fetchFixturesFromApi(
+          key,
+          { ids: chunk.join("-") },
+          { includeLeagueFilter: false }
+        )
+      );
+    }
+  }
+
+  const results = await Promise.all(batches);
+  return mergeFixturesById(results.flat());
 }
+
+export type SyncFetchStats = {
+  liveCalls: number;
+  dateCalls: number;
+  idRefreshCalls: number;
+  seasonListCalls: number;
+};
 
 /** Full season list, or live + nearby dates for frequent cron ticks. */
 export async function fetchFixturesForSync(
   mode: "full" | "light",
   refreshFixtureIds: number[] = []
-): Promise<ApiFootballFixture[]> {
-  const refreshed = await fetchWorldCupFixturesByIds(refreshFixtureIds);
+): Promise<{ fixtures: ApiFootballFixture[]; stats: SyncFetchStats }> {
+  const stats: SyncFetchStats = {
+    liveCalls: 0,
+    dateCalls: 0,
+    idRefreshCalls: 0,
+    seasonListCalls: 0,
+  };
 
   if (mode === "full") {
-    const all = await fetchWorldCupFixtures();
-    return mergeFixturesById([...all, ...refreshed]);
+    const [all, refreshed] = await Promise.all([
+      fetchWorldCupFixtures(),
+      fetchWorldCupFixturesByIds(refreshFixtureIds),
+    ]);
+    stats.seasonListCalls = 1;
+    stats.idRefreshCalls = refreshFixtureIds.length
+      ? Math.ceil(new Set(refreshFixtureIds).size / FIXTURE_ID_BATCH_SIZE)
+      : 0;
+    return {
+      fixtures: mergeFixturesById([...all, ...refreshed]),
+      stats,
+    };
   }
 
   const live = await fetchLiveWorldCupFixtures();
-  const dates = getLightSyncDates(undefined, live.length === 0);
-  const byDate = await Promise.all(
-    dates.map((date) => fetchWorldCupFixturesByDate(date))
-  );
+  stats.liveCalls = 1;
 
-  // Bulk date lists first, then live feed, then per-id refresh (most authoritative).
-  return mergeFixturesById([...byDate.flat(), ...live, ...refreshed]);
+  const liveIds = new Set(live.map((fixture) => fixture.fixture.id));
+  const idsToRefresh = refreshFixtureIds.filter((id) => !liveIds.has(id));
+  const refreshed = await fetchWorldCupFixturesByIds(idsToRefresh);
+  stats.idRefreshCalls = idsToRefresh.length
+    ? Math.ceil(new Set(idsToRefresh).size / FIXTURE_ID_BATCH_SIZE)
+    : 0;
+
+  const activeDay = live.length > 0 || idsToRefresh.length > 0;
+  let byDate: ApiFootballFixture[] = [];
+
+  if (activeDay) {
+    const dates = getLightSyncDates(undefined, live.length === 0);
+    stats.dateCalls = dates.length;
+    const dateResults = await Promise.all(
+      dates.map((date) => fetchWorldCupFixturesByDate(date))
+    );
+    byDate = dateResults.flat();
+  } else {
+    stats.dateCalls = 1;
+    byDate = await fetchWorldCupFixturesByDate(getTodayPacificDate());
+  }
+
+  return {
+    fixtures: mergeFixturesById([...byDate, ...live, ...refreshed]),
+    stats,
+  };
 }
 
 export async function fetchFixtureEvents(

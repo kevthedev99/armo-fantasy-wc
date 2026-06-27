@@ -13,9 +13,18 @@ export function shouldFetchEvents(
   status: string,
   oldMatch: MatchEventFetchSnapshot | null,
   homeScore: number | null,
-  awayScore: number | null
+  awayScore: number | null,
+  options?: { pollInProgress?: boolean }
 ): boolean {
-  if (isMatchInProgress(status)) return true;
+  if (isMatchInProgress(status)) {
+    if (options?.pollInProgress) return true;
+    if (!oldMatch) return false;
+    const nextHome = homeScore ?? 0;
+    const nextAway = awayScore ?? 0;
+    const oldHome = oldMatch.home_score ?? 0;
+    const oldAway = oldMatch.away_score ?? 0;
+    return oldHome !== nextHome || oldAway !== nextAway;
+  }
 
   const nextHome = homeScore ?? 0;
   const nextAway = awayScore ?? 0;

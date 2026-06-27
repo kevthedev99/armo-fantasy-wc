@@ -42,6 +42,8 @@ function authorize(request: Request): boolean {
 }
 
 const FULL_SYNC_INTERVAL_MS = 24 * 60 * 60 * 1000;
+/** Ignore overlapping sync triggers within this window. */
+const MIN_SYNC_INTERVAL_MS = 8 * 60 * 1000;
 
 function shouldFullSync(
   request: Request,
@@ -280,12 +282,28 @@ export async function GET(request: Request) {
   }
 
   const supabase = createServiceClient();
+  const url = new URL(request.url);
+  const force = url.searchParams.get("force") === "1";
 
   const { data: settings } = await supabase
     .from("app_settings")
-    .select("last_full_sync_at")
+    .select("last_full_sync_at, last_sync_at")
     .eq("id", 1)
     .single();
+
+  if (
+    !force &&
+    settings?.last_sync_at &&
+    Date.now() - new Date(settings.last_sync_at).getTime() < MIN_SYNC_INTERVAL_MS
+  ) {
+    return NextResponse.json({
+      ok: true,
+      skipped: true,
+      reason: "cooldown",
+      last_sync_at: settings.last_sync_at,
+      min_interval_minutes: MIN_SYNC_INTERVAL_MS / 60_000,
+    });
+  }
 
   const fullSync = shouldFullSync(request, settings?.last_full_sync_at);
   const syncMode = fullSync ? "full" : "light";
@@ -298,7 +316,11 @@ export async function GET(request: Request) {
 
   const refreshFixtureIds = getSyncRefreshFixtureIds(existingMatches ?? []);
 
-  const fixtures = await fetchFixturesForSync(syncMode, refreshFixtureIds);
+  const { fixtures, stats: fetchStats } = await fetchFixturesForSync(
+    syncMode,
+    refreshFixtureIds
+  );
+  let eventApiCalls = 0;
 
   const existingById = new Map<number, ExistingMatch>(
     (existingMatches ?? []).map((m) => [
@@ -333,8 +355,13 @@ export async function GET(request: Request) {
     const groupOrRound = parseGroupName(f.league.round) ?? f.league.round;
 
     let matchEvents: MatchEvent[] = oldMatch?.match_events ?? [];
-    if (shouldFetchEvents(status, oldMatch, homeScore, awayScore)) {
+    if (
+      shouldFetchEvents(status, oldMatch, homeScore, awayScore, {
+        pollInProgress: isDiscordConfigured(),
+      })
+    ) {
       try {
+        eventApiCalls++;
         const rawEvents = await fetchFixtureEvents(matchId);
         matchEvents = parseFixtureEvents(rawEvents, f.teams.home.id);
       } catch (err) {
@@ -541,10 +568,22 @@ export async function GET(request: Request) {
     }
   }
 
+  const estimatedApiCalls =
+    fetchStats.liveCalls +
+    fetchStats.dateCalls +
+    fetchStats.idRefreshCalls +
+    fetchStats.seasonListCalls +
+    eventApiCalls;
+
   return NextResponse.json({
     ok: true,
     syncMode,
     refreshFixtureIds,
+    apiCalls: {
+      ...fetchStats,
+      events: eventApiCalls,
+      estimatedTotal: estimatedApiCalls,
+    },
     bracketSlotPicksMigrated,
     fixturesFetched: fixtures.length,
     matchesUpserted,

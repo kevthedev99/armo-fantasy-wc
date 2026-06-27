@@ -28,8 +28,9 @@ if (!secret) {
 
 const baseUrl = process.argv[2] ?? "https://armowc26.xyz";
 const full = process.argv.includes("--full") ? "?full=1" : "";
+const force = process.argv.includes("--force") ? (full ? "&force=1" : "?force=1") : "";
 
-const res = await fetch(`${baseUrl}/api/cron/sync-matches${full}`, {
+const res = await fetch(`${baseUrl}/api/cron/sync-matches${full}${force}`, {
   headers: { Authorization: `Bearer ${secret}` },
 });
 
