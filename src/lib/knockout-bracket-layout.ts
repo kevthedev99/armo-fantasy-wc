@@ -2,6 +2,12 @@ import { normalizeKnockoutRoundLabel } from "@/lib/knockout-bracket";
 import { getKnockoutBasePoints } from "@/lib/scoring";
 import type { Match, Pick as UserPick } from "@/lib/types";
 
+export type BracketTeamPreview = {
+  id: number;
+  name: string;
+  logo: string | null;
+};
+
 export type BracketRoundColumn = {
   id: string;
   label: string;
@@ -62,6 +68,8 @@ export type BracketMatchSlot =
       slotIndex: number;
       homeLabel: string;
       awayLabel: string;
+      homeTeam?: BracketTeamPreview | null;
+      awayTeam?: BracketTeamPreview | null;
     };
 
 export function matchBelongsToColumn(
@@ -148,31 +156,89 @@ export function buildBracketSlots(matches: Match[]): BracketMatchSlot[] {
   return slots;
 }
 
-export function getBracketColumns(matches: Match[]): {
+function teamPreviewFromMatchSide(
+  match: Match,
+  side: "home" | "away"
+): BracketTeamPreview {
+  if (side === "home") {
+    return {
+      id: match.home_team_id,
+      name: match.home_team_name,
+      logo: match.home_team_logo,
+    };
+  }
+  return {
+    id: match.away_team_id,
+    name: match.away_team_name,
+    logo: match.away_team_logo,
+  };
+}
+
+function winnerFromMatchPick(
+  match: Match,
+  pick: UserPick | undefined
+): BracketTeamPreview | null {
+  if (!pick) return null;
+  if (pick.picked_winner === "home") return teamPreviewFromMatchSide(match, "home");
+  if (pick.picked_winner === "away") return teamPreviewFromMatchSide(match, "away");
+  return null;
+}
+
+function buildColumnSlots(
+  column: BracketRoundColumn,
+  roundMatches: Match[],
+  feederWinners: (BracketTeamPreview | null)[] | null,
+  pickMap: Map<number, UserPick>
+): { slots: BracketMatchSlot[]; winners: (BracketTeamPreview | null)[] } {
+  const slots: BracketMatchSlot[] = [];
+  const winners: (BracketTeamPreview | null)[] = [];
+
+  for (let i = 0; i < column.expectedSlots; i++) {
+    const match = roundMatches[i];
+    if (match) {
+      const pick = pickMap.get(match.id);
+      slots.push({ kind: "match", match, slotIndex: i });
+      winners.push(winnerFromMatchPick(match, pick));
+    } else {
+      const labels = placeholderLabels(column, i);
+      const homeTeam = feederWinners?.[i * 2] ?? null;
+      const awayTeam = feederWinners?.[i * 2 + 1] ?? null;
+      slots.push({
+        kind: "placeholder",
+        roundLabel: column.label,
+        slotIndex: i,
+        ...labels,
+        homeTeam,
+        awayTeam,
+      });
+      winners.push(null);
+    }
+  }
+
+  return { slots, winners };
+}
+
+export function getBracketColumns(
+  matches: Match[],
+  picks: UserPick[] = []
+): {
   column: BracketRoundColumn;
   slots: BracketMatchSlot[];
   points: number;
 }[] {
   const grouped = groupKnockoutMatches(matches);
+  const pickMap = new Map(picks.map((pick) => [pick.match_id, pick]));
+  let feederWinners: (BracketTeamPreview | null)[] | null = null;
 
   return KNOCKOUT_ROUND_COLUMNS.map((column) => {
     const roundMatches = grouped.get(column.id) ?? [];
-    const slots: BracketMatchSlot[] = [];
-
-    for (let i = 0; i < column.expectedSlots; i++) {
-      const match = roundMatches[i];
-      if (match) {
-        slots.push({ kind: "match", match, slotIndex: i });
-      } else {
-        const labels = placeholderLabels(column, i);
-        slots.push({
-          kind: "placeholder",
-          roundLabel: column.label,
-          slotIndex: i,
-          ...labels,
-        });
-      }
-    }
+    const { slots, winners } = buildColumnSlots(
+      column,
+      roundMatches,
+      feederWinners,
+      pickMap
+    );
+    feederWinners = winners;
 
     const sampleRound = column.apiRounds[0];
     return {

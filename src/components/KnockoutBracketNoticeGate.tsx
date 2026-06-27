@@ -28,6 +28,7 @@ export async function KnockoutBracketNoticeGate() {
   return (
     <KnockoutBracketNotice
       bracketLocked={isKnockoutBracketLocked(allMatches)}
+      bracketComplete={progress.complete}
       matches={allMatches}
       picksOnSynced={progress.picksOnSynced}
       syncedFixtures={progress.syncedFixtures}

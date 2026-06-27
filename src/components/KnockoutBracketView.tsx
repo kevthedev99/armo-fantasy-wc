@@ -15,6 +15,7 @@ import {
   getBracketColumns,
   getKnockoutBracketProgress,
   type BracketMatchSlot,
+  type BracketTeamPreview,
 } from "@/lib/knockout-bracket-layout";
 import { formatKickoffPST } from "@/lib/format-pst";
 import { formatPickSummary } from "@/lib/scoring";
@@ -62,6 +63,36 @@ function TeamLine({
   );
 }
 
+function PlaceholderTeam({
+  team,
+  fallbackLabel,
+}: {
+  team?: BracketTeamPreview | null;
+  fallbackLabel: string;
+}) {
+  if (team) {
+    return (
+      <div className="flex min-w-0 items-center gap-2 rounded-lg bg-white/90 px-2 py-1.5 text-xs font-semibold text-gray-800 ring-1 ring-[#0056b3]/20">
+        {team.logo ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={team.logo} alt="" className="h-4 w-4 shrink-0 object-contain" />
+        ) : (
+          <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[8px] font-bold text-gray-500">
+            ?
+          </span>
+        )}
+        <span className="truncate">{team.name}</span>
+      </div>
+    );
+  }
+
+  return (
+    <div className="rounded-lg bg-gray-100 px-2 py-1.5 text-xs font-medium text-gray-500">
+      {fallbackLabel}
+    </div>
+  );
+}
+
 function BracketSlotCard({
   slot,
   pick,
@@ -74,21 +105,34 @@ function BracketSlotCard({
   onSelect: () => void;
 }) {
   if (slot.kind === "placeholder") {
+    const hasHome = !!slot.homeTeam;
+    const hasAway = !!slot.awayTeam;
+    const hasBoth = hasHome && hasAway;
+    const hasAny = hasHome || hasAway;
+
     return (
-      <div className="relative rounded-xl border border-dashed border-gray-300 bg-gray-50/80 p-3 opacity-70">
+      <div
+        className={`relative rounded-xl border border-dashed p-3 ${
+          hasBoth
+            ? "border-[#0056b3]/40 bg-gradient-to-br from-[#f0f7ff] to-gray-50/90 opacity-95"
+            : hasAny
+              ? "border-[#0056b3]/25 bg-gray-50/90 opacity-85"
+              : "border-gray-300 bg-gray-50/80 opacity-70"
+        }`}
+      >
         <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-400">
           {slot.roundLabel} · Slot {slot.slotIndex + 1}
         </p>
         <div className="space-y-1.5">
-          <div className="rounded-lg bg-gray-100 px-2 py-1.5 text-xs font-medium text-gray-500">
-            {slot.homeLabel}
-          </div>
-          <div className="rounded-lg bg-gray-100 px-2 py-1.5 text-xs font-medium text-gray-500">
-            {slot.awayLabel}
-          </div>
+          <PlaceholderTeam team={slot.homeTeam} fallbackLabel={slot.homeLabel} />
+          <PlaceholderTeam team={slot.awayTeam} fallbackLabel={slot.awayLabel} />
         </div>
         <p className="mt-2 text-center text-[10px] text-gray-400">
-          Awaiting fixture sync
+          {hasBoth
+            ? "Your bracket path — awaiting fixture sync"
+            : hasAny
+              ? "Pick earlier matches to fill this slot"
+              : "Awaiting fixture sync"}
         </p>
       </div>
     );
@@ -168,7 +212,7 @@ export function KnockoutBracketView({
   const bracketLocked = isKnockoutBracketLocked(matches);
   const bracketOpen = isKnockoutBracketOpen(matches);
   const lockAt = getRoundOf32LockAt(matches);
-  const columns = getBracketColumns(matches);
+  const columns = getBracketColumns(matches, picks);
   const progress = getKnockoutBracketProgress(matches, picks);
   const pct =
     progress.syncedFixtures > 0
@@ -324,8 +368,8 @@ export function KnockoutBracketView({
 
       <div className="border-t border-white/10 px-4 py-8 text-center sm:px-6">
         <p className="text-xs text-gray-500">
-          Placeholder slots show potential matchups until fixtures sync. Only
-          loaded matches can be picked.
+          Your picks advance through the bracket automatically. Placeholder slots
+          fill in as you pick earlier rounds — loaded matches can be picked now.
         </p>
         <Link
           href="/rules"

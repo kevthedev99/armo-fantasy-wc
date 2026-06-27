@@ -11,6 +11,7 @@ import type { Match } from "@/lib/types";
 
 interface KnockoutBracketNoticeProps {
   bracketLocked: boolean;
+  bracketComplete: boolean;
   matches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[];
   picksOnSynced: number;
   syncedFixtures: number;
@@ -19,6 +20,7 @@ interface KnockoutBracketNoticeProps {
 
 export function KnockoutBracketNotice({
   bracketLocked,
+  bracketComplete,
   matches,
   picksOnSynced,
   syncedFixtures,
@@ -34,7 +36,7 @@ export function KnockoutBracketNotice({
   const totalToPick = syncedFixtures > 0 ? syncedFixtures : expectedFixtures;
   const needsPicks = picksOnSynced < syncedFixtures || syncedFixtures === 0;
 
-  const open = !bracketLocked && !dismissed;
+  const open = !bracketLocked && !bracketComplete && !dismissed;
 
   useEffect(() => {
     if (!open) return;
