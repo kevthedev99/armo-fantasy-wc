@@ -296,17 +296,14 @@ export async function GET(request: Request) {
       "id, home_score, away_score, pen_home_score, pen_away_score, status, match_events, home_team_id, away_team_id, kickoff_at"
     );
 
-  const staleFixtureIds =
-    syncMode === "light"
-      ? (existingMatches ?? [])
-          .filter((m) =>
-            isStaleInProgressMatch({
-              status: m.status,
-              kickoff_at: m.kickoff_at,
-            })
-          )
-          .map((m) => m.id)
-      : [];
+  const staleFixtureIds = (existingMatches ?? [])
+    .filter((m) =>
+      isStaleInProgressMatch({
+        status: m.status,
+        kickoff_at: m.kickoff_at,
+      })
+    )
+    .map((m) => m.id);
 
   const fixtures = await fetchFixturesForSync(syncMode, staleFixtureIds);
 
@@ -416,7 +413,7 @@ export async function GET(request: Request) {
         matchEvents
       )
     ) {
-      await supabase.from("matches").upsert(
+      const { error: upsertError } = await supabase.from("matches").upsert(
         {
           id: matchId,
           round: f.league.round,
@@ -440,7 +437,11 @@ export async function GET(request: Request) {
         },
         { onConflict: "id" }
       );
-      matchesUpserted++;
+      if (upsertError) {
+        console.error(`Failed to upsert match ${matchId}:`, upsertError);
+      } else {
+        matchesUpserted++;
+      }
     }
   }
 

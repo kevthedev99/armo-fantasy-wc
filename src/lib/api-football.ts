@@ -61,13 +61,47 @@ export function getLightSyncDates(
   return [...dates];
 }
 
+const FINISHED_FIXTURE_STATUSES = new Set(["FT", "AET", "PEN", "AWD", "WO"]);
+const IN_PROGRESS_FIXTURE_STATUSES = new Set([
+  "1H",
+  "HT",
+  "2H",
+  "ET",
+  "BT",
+  "P",
+  "LIVE",
+  "INT",
+  "SUSP",
+]);
+
+function fixtureFreshness(fixture: ApiFootballFixture): number {
+  const status = fixture.fixture.status.short;
+  if (FINISHED_FIXTURE_STATUSES.has(status)) return 2;
+  if (IN_PROGRESS_FIXTURE_STATUSES.has(status)) return 1;
+  return 0;
+}
+
+/** Later entries win; finished status beats stale in-progress from bulk lists. */
 export function mergeFixturesById(
   fixtures: ApiFootballFixture[]
 ): ApiFootballFixture[] {
   const byId = new Map<number, ApiFootballFixture>();
+
   for (const fixture of fixtures) {
-    byId.set(fixture.fixture.id, fixture);
+    const id = fixture.fixture.id;
+    const existing = byId.get(id);
+    if (!existing) {
+      byId.set(id, fixture);
+      continue;
+    }
+
+    const nextScore = fixtureFreshness(fixture);
+    const prevScore = fixtureFreshness(existing);
+    if (nextScore >= prevScore) {
+      byId.set(id, fixture);
+    }
   }
+
   return [...byId.values()];
 }
 
@@ -112,7 +146,9 @@ export async function fetchFixturesForSync(
   staleFixtureIds: number[] = []
 ): Promise<ApiFootballFixture[]> {
   if (mode === "full") {
-    return fetchWorldCupFixtures();
+    const all = await fetchWorldCupFixtures();
+    const stale = await fetchWorldCupFixturesByIds(staleFixtureIds);
+    return mergeFixturesById([...all, ...stale]);
   }
 
   const live = await fetchLiveWorldCupFixtures();
