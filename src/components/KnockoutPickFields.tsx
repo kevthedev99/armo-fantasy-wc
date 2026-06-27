@@ -1,6 +1,7 @@
 "use client";
 
 import type { Match, PickWinner } from "@/lib/types";
+import { PENALTIES_PICK_SENTINEL } from "@/lib/pick-storage";
 
 export type KnockoutOutcomeMode = "regulation" | "penalties";
 
@@ -148,7 +149,16 @@ export function KnockoutPickFields({
 }
 
 export function outcomeModeFromPick(
-  pick?: { predicts_penalties?: boolean }
+  pick?: {
+    predicts_penalties?: boolean;
+    winning_goal_minute_pred?: number | null;
+  }
 ): KnockoutOutcomeMode {
-  return pick?.predicts_penalties ? "penalties" : "regulation";
+  if (
+    pick?.predicts_penalties ||
+    pick?.winning_goal_minute_pred === PENALTIES_PICK_SENTINEL
+  ) {
+    return "penalties";
+  }
+  return "regulation";
 }

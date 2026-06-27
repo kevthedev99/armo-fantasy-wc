@@ -8,7 +8,11 @@ import {
   normalizeGroupScore,
   validateKnockoutPick,
 } from "@/lib/scoring";
-import type { Match, Pick, PickWinner } from "@/lib/types";
+import type { BracketSlotPick, Match, Pick, PickWinner } from "@/lib/types";
+import {
+  isVirtualMatchId,
+  parseVirtualMatchSlot,
+} from "@/lib/bracket-slot-picks";
 import {
   KnockoutPickFields,
   outcomeModeFromPick,
@@ -18,29 +22,34 @@ import {
 interface BracketPickPanelProps {
   match: Match;
   pick?: Pick;
+  slotPick?: BracketSlotPick;
   locked: boolean;
   onClose: () => void;
   onSaved: (pick: Pick) => void;
+  onSlotSaved: (slotPick: BracketSlotPick) => void;
 }
 
 function BracketPickForm({
   match,
   pick,
+  slotPick,
   locked,
   onClose,
   onSaved,
+  onSlotSaved,
 }: BracketPickPanelProps) {
+  const existing = pick ?? slotPick;
   const [pickedWinner, setPickedWinner] = useState<PickWinner>(
-    pick?.picked_winner ?? "home"
+    existing?.picked_winner ?? "home"
   );
   const [homeScore, setHomeScore] = useState(
-    pick?.home_score_pred != null ? String(pick.home_score_pred) : "0"
+    existing?.home_score_pred != null ? String(existing.home_score_pred) : "0"
   );
   const [awayScore, setAwayScore] = useState(
-    pick?.away_score_pred != null ? String(pick.away_score_pred) : "0"
+    existing?.away_score_pred != null ? String(existing.away_score_pred) : "0"
   );
   const [outcomeMode, setOutcomeMode] = useState<KnockoutOutcomeMode>(
-    outcomeModeFromPick(pick)
+    outcomeModeFromPick(existing)
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -72,16 +81,31 @@ function BracketPickForm({
     setSaving(true);
     setError(null);
 
-    const res = await fetch("/api/picks", {
+    const virtualSlot = parseVirtualMatchSlot(match.id);
+    const endpoint = virtualSlot ? "/api/bracket-picks" : "/api/picks";
+    const payload = virtualSlot
+      ? {
+          roundId: virtualSlot.roundId,
+          slotIndex: virtualSlot.slotIndex,
+          homeTeamId: match.home_team_id,
+          awayTeamId: match.away_team_id,
+          pickedWinner,
+          homeScorePred,
+          awayScorePred,
+          predictsPenalties,
+        }
+      : {
+          matchId: match.id,
+          pickedWinner,
+          homeScorePred,
+          awayScorePred,
+          predictsPenalties,
+        };
+
+    const res = await fetch(endpoint, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({
-        matchId: match.id,
-        pickedWinner,
-        homeScorePred,
-        awayScorePred,
-        predictsPenalties,
-      }),
+      body: JSON.stringify(payload),
     });
 
     const data = await res.json();
@@ -92,12 +116,17 @@ function BracketPickForm({
       return;
     }
 
-    onSaved(data.pick);
+    if (data.kind === "slot") {
+      onSlotSaved(data.slotPick);
+    } else {
+      onSaved(data.pick);
+    }
     onClose();
   }
 
   const previewPick = {
     ...pick,
+    ...slotPick,
     picked_winner: pickedWinner,
     home_score_pred: predictsPenalties ? null : normalizeGroupScore(homeScore),
     away_score_pred: predictsPenalties ? null : normalizeGroupScore(awayScore),
@@ -114,7 +143,9 @@ function BracketPickForm({
           {match.home_team_name} vs {match.away_team_name}
         </h2>
         <p className="mt-1 text-xs text-white/70">
-          {formatKickoffPST(match.kickoff_at)} ·{" "}
+          {isVirtualMatchId(match.id)
+            ? "Bracket path · "
+            : `${formatKickoffPST(match.kickoff_at)} · `}
           {predictsPenalties
             ? "Round pts if pens · +5 winner"
             : `+${points} winner · +5 exact`}
@@ -124,9 +155,9 @@ function BracketPickForm({
       <div className="p-5">
         {locked ? (
           <div className="text-center">
-            {pick ? (
+            {pick || slotPick ? (
               <p className="rounded-xl bg-gray-100 px-4 py-3 text-sm font-bold text-gray-800">
-                {formatPickSummary(match, pick)}
+                {formatPickSummary(match, previewPick)}
               </p>
             ) : (
               <p className="text-sm text-amber-800">
@@ -161,10 +192,10 @@ function BracketPickForm({
               disabled={saving}
               className="w-full rounded-xl bg-[#FF007A] py-3 text-sm font-black uppercase tracking-wide text-white transition hover:opacity-90 disabled:opacity-50"
             >
-              {saving ? "Saving…" : pick ? "Update Pick" : "Save Pick"}
+              {saving ? "Saving…" : pick || slotPick ? "Update Pick" : "Save Pick"}
             </button>
 
-            {pick && (
+            {(pick || slotPick) && (
               <p className="mt-3 text-center text-xs text-gray-500">
                 Current: {formatPickSummary(match, previewPick)}
               </p>

@@ -1,6 +1,7 @@
+import { areRo32FeedersSynced, bracketSlotPickKey } from "@/lib/bracket-slot-picks";
 import { normalizeKnockoutRoundLabel } from "@/lib/knockout-bracket";
 import { getKnockoutBasePoints } from "@/lib/scoring";
-import type { Match, Pick as UserPick } from "@/lib/types";
+import type { BracketSlotPick, Match, Pick as UserPick } from "@/lib/types";
 
 export type BracketTeamPreview = {
   id: number;
@@ -61,15 +62,18 @@ export const EXPECTED_KNOCKOUT_FIXTURES = KNOCKOUT_ROUND_COLUMNS.reduce(
 );
 
 export type BracketMatchSlot =
-  | { kind: "match"; match: Match; slotIndex: number }
+  | { kind: "match"; match: Match; slotIndex: number; columnId: string }
   | {
       kind: "placeholder";
+      columnId: string;
       roundLabel: string;
       slotIndex: number;
       homeLabel: string;
       awayLabel: string;
       homeTeam?: BracketTeamPreview | null;
       awayTeam?: BracketTeamPreview | null;
+      pickable?: boolean;
+      slotPick?: BracketSlotPick;
     };
 
 export function matchBelongsToColumn(
@@ -140,11 +144,12 @@ export function buildBracketSlots(matches: Match[]): BracketMatchSlot[] {
     for (let i = 0; i < column.expectedSlots; i++) {
       const match = roundMatches[i];
       if (match) {
-        slots.push({ kind: "match", match, slotIndex: i });
+        slots.push({ kind: "match", match, slotIndex: i, columnId: column.id });
       } else {
         const labels = placeholderLabels(column, i);
         slots.push({
           kind: "placeholder",
+          columnId: column.id,
           roundLabel: column.label,
           slotIndex: i,
           ...labels,
@@ -184,11 +189,24 @@ function winnerFromMatchPick(
   return null;
 }
 
+function winnerFromSlotPick(
+  slotPick: BracketSlotPick | undefined,
+  homeTeam: BracketTeamPreview | null,
+  awayTeam: BracketTeamPreview | null
+): BracketTeamPreview | null {
+  if (!slotPick || !homeTeam || !awayTeam) return null;
+  if (slotPick.picked_winner === "home") return homeTeam;
+  if (slotPick.picked_winner === "away") return awayTeam;
+  return null;
+}
+
 function buildColumnSlots(
   column: BracketRoundColumn,
   roundMatches: Match[],
   feederWinners: (BracketTeamPreview | null)[] | null,
-  pickMap: Map<number, UserPick>
+  pickMap: Map<number, UserPick>,
+  slotPickMap: Map<string, BracketSlotPick>,
+  ro32MatchesBySlot: (Match | undefined)[]
 ): { slots: BracketMatchSlot[]; winners: (BracketTeamPreview | null)[] } {
   const slots: BracketMatchSlot[] = [];
   const winners: (BracketTeamPreview | null)[] = [];
@@ -197,21 +215,33 @@ function buildColumnSlots(
     const match = roundMatches[i];
     if (match) {
       const pick = pickMap.get(match.id);
-      slots.push({ kind: "match", match, slotIndex: i });
+      slots.push({ kind: "match", match, slotIndex: i, columnId: column.id });
       winners.push(winnerFromMatchPick(match, pick));
     } else {
       const labels = placeholderLabels(column, i);
       const homeTeam = feederWinners?.[i * 2] ?? null;
       const awayTeam = feederWinners?.[i * 2 + 1] ?? null;
+      const slotPick = slotPickMap.get(bracketSlotPickKey(column.id, i));
+      const pickable =
+        column.id !== "ro32" &&
+        !!homeTeam &&
+        !!awayTeam &&
+        areRo32FeedersSynced(column.id, i, ro32MatchesBySlot);
+
       slots.push({
         kind: "placeholder",
+        columnId: column.id,
         roundLabel: column.label,
         slotIndex: i,
         ...labels,
         homeTeam,
         awayTeam,
+        pickable,
+        slotPick,
       });
-      winners.push(null);
+      winners.push(
+        winnerFromSlotPick(slotPick, homeTeam, awayTeam)
+      );
     }
   }
 
@@ -220,7 +250,8 @@ function buildColumnSlots(
 
 export function getBracketColumns(
   matches: Match[],
-  picks: UserPick[] = []
+  picks: UserPick[] = [],
+  slotPicks: BracketSlotPick[] = []
 ): {
   column: BracketRoundColumn;
   slots: BracketMatchSlot[];
@@ -228,6 +259,17 @@ export function getBracketColumns(
 }[] {
   const grouped = groupKnockoutMatches(matches);
   const pickMap = new Map(picks.map((pick) => [pick.match_id, pick]));
+  const slotPickMap = new Map(
+    slotPicks.map((pick) => [
+      bracketSlotPickKey(pick.round_id, pick.slot_index),
+      pick,
+    ])
+  );
+  const ro32Matches = grouped.get("ro32") ?? [];
+  const ro32SlotCount = KNOCKOUT_ROUND_COLUMNS[0].expectedSlots;
+  const ro32MatchesBySlot = Array.from({ length: ro32SlotCount }, (_, index) =>
+    ro32Matches[index]
+  );
   let feederWinners: (BracketTeamPreview | null)[] | null = null;
 
   return KNOCKOUT_ROUND_COLUMNS.map((column) => {
@@ -236,7 +278,9 @@ export function getBracketColumns(
       column,
       roundMatches,
       feederWinners,
-      pickMap
+      pickMap,
+      slotPickMap,
+      ro32MatchesBySlot
     );
     feederWinners = winners;
 

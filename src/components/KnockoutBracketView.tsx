@@ -12,6 +12,11 @@ import {
   isPickLocked,
 } from "@/lib/knockout-bracket";
 import {
+  buildVirtualMatch,
+  getColumnById,
+  slotPickToDisplayPick,
+} from "@/lib/bracket-slot-picks";
+import {
   getBracketColumns,
   getKnockoutBracketProgress,
   type BracketMatchSlot,
@@ -19,11 +24,12 @@ import {
 } from "@/lib/knockout-bracket-layout";
 import { formatKickoffPST } from "@/lib/format-pst";
 import { formatPickSummary } from "@/lib/scoring";
-import type { Match, Pick } from "@/lib/types";
+import type { BracketSlotPick, Match, Pick } from "@/lib/types";
 
 interface KnockoutBracketViewProps {
   matches: Match[];
   picks: Pick[];
+  slotPicks: BracketSlotPick[];
 }
 
 function TeamLine({
@@ -109,6 +115,76 @@ function BracketSlotCard({
     const hasAway = !!slot.awayTeam;
     const hasBoth = hasHome && hasAway;
     const hasAny = hasHome || hasAway;
+    const hasPick = !!slot.slotPick;
+    const pickable = !!slot.pickable && !locked;
+    const displayPick =
+      slot.slotPick && slot.homeTeam && slot.awayTeam
+        ? slotPickToDisplayPick(
+            slot.slotPick,
+            buildVirtualMatch(
+              getColumnById(slot.columnId)!,
+              slot.slotIndex,
+              slot.homeTeam,
+              slot.awayTeam
+            )
+          )
+        : undefined;
+    const homePicked = slot.slotPick?.picked_winner === "home";
+    const awayPicked = slot.slotPick?.picked_winner === "away";
+
+    if (pickable) {
+      return (
+        <button
+          type="button"
+          onClick={onSelect}
+          className={`group relative w-full rounded-xl border p-3 text-left transition hover:scale-[1.02] hover:shadow-lg ${
+            hasPick
+              ? "border-[#32CD32]/50 bg-gradient-to-br from-[#f0fff4] to-white shadow-sm"
+              : "border-[#0056b3]/40 bg-gradient-to-br from-[#f0f7ff] to-white shadow-sm hover:border-[#FF007A]/50"
+          }`}
+        >
+          <div className="mb-2 flex items-center justify-between gap-2">
+            <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+              {slot.roundLabel} · Slot {slot.slotIndex + 1}
+            </span>
+            {hasPick ? (
+              <span className="rounded-full bg-[#32CD32] px-2 py-0.5 text-[9px] font-bold uppercase text-white">
+                Picked
+              </span>
+            ) : (
+              <span className="rounded-full bg-[#FF007A]/10 px-2 py-0.5 text-[9px] font-bold uppercase text-[#FF007A]">
+                Tap to pick
+              </span>
+            )}
+          </div>
+          <div className="space-y-1.5">
+            <TeamLine
+              name={slot.homeTeam!.name}
+              logo={slot.homeTeam!.logo}
+              picked={homePicked}
+            />
+            <TeamLine
+              name={slot.awayTeam!.name}
+              logo={slot.awayTeam!.logo}
+              picked={awayPicked}
+            />
+          </div>
+          {hasPick && displayPick && slot.homeTeam && slot.awayTeam && (
+            <p className="mt-2 text-center text-[10px] font-bold uppercase text-[#1a7a1a]">
+              {formatPickSummary(
+                buildVirtualMatch(
+                  getColumnById(slot.columnId)!,
+                  slot.slotIndex,
+                  slot.homeTeam,
+                  slot.awayTeam
+                ),
+                displayPick
+              )}
+            </p>
+          )}
+        </button>
+      );
+    }
 
     return (
       <div
@@ -129,7 +205,7 @@ function BracketSlotCard({
         </div>
         <p className="mt-2 text-center text-[10px] text-gray-400">
           {hasBoth
-            ? "Your bracket path — awaiting fixture sync"
+            ? "Pick earlier Round of 32 games on this side to unlock"
             : hasAny
               ? "Pick earlier matches to fill this slot"
               : "Awaiting fixture sync"}
@@ -199,9 +275,14 @@ function BracketSlotCard({
 export function KnockoutBracketView({
   matches,
   picks: initialPicks,
+  slotPicks: initialSlotPicks,
 }: KnockoutBracketViewProps) {
   const [picks, setPicks] = useState(initialPicks);
+  const [slotPicks, setSlotPicks] = useState(initialSlotPicks);
   const [activeMatch, setActiveMatch] = useState<Match | null>(null);
+  const [activeSlotPick, setActiveSlotPick] = useState<
+    BracketSlotPick | undefined
+  >(undefined);
 
   const pickMap = useMemo(() => {
     const map = new Map<number, Pick>();
@@ -212,7 +293,7 @@ export function KnockoutBracketView({
   const bracketLocked = isKnockoutBracketLocked(matches);
   const bracketOpen = isKnockoutBracketOpen(matches);
   const lockAt = getRoundOf32LockAt(matches);
-  const columns = getBracketColumns(matches, picks);
+  const columns = getBracketColumns(matches, picks, slotPicks);
   const progress = getKnockoutBracketProgress(matches, picks);
   const pct =
     progress.syncedFixtures > 0
@@ -229,6 +310,37 @@ export function KnockoutBracketView({
       }
       return [...prev, pick];
     });
+  }
+
+  function handleSlotSaved(slotPick: BracketSlotPick) {
+    setSlotPicks((prev) => {
+      const idx = prev.findIndex(
+        (p) =>
+          p.round_id === slotPick.round_id &&
+          p.slot_index === slotPick.slot_index
+      );
+      if (idx >= 0) {
+        const next = [...prev];
+        next[idx] = slotPick;
+        return next;
+      }
+      return [...prev, slotPick];
+    });
+  }
+
+  function openSlot(slot: Extract<BracketMatchSlot, { kind: "placeholder" }>) {
+    if (!slot.pickable || !slot.homeTeam || !slot.awayTeam) return;
+    const column = getColumnById(slot.columnId);
+    if (!column) return;
+    setActiveSlotPick(slot.slotPick);
+    setActiveMatch(
+      buildVirtualMatch(column, slot.slotIndex, slot.homeTeam, slot.awayTeam)
+    );
+  }
+
+  function closePickPanel() {
+    setActiveMatch(null);
+    setActiveSlotPick(undefined);
   }
 
   if (!bracketOpen) {
@@ -355,7 +467,12 @@ export function KnockoutBracketView({
                       }
                       locked={bracketLocked}
                       onSelect={() => {
-                        if (slot.kind === "match") setActiveMatch(slot.match);
+                        if (slot.kind === "match") {
+                          setActiveSlotPick(undefined);
+                          setActiveMatch(slot.match);
+                        } else if (slot.pickable) {
+                          openSlot(slot);
+                        }
                       }}
                     />
                   </div>
@@ -368,8 +485,9 @@ export function KnockoutBracketView({
 
       <div className="border-t border-white/10 px-4 py-8 text-center sm:px-6">
         <p className="text-xs text-gray-500">
-          Your picks advance through the bracket automatically. Placeholder slots
-          fill in as you pick earlier rounds — loaded matches can be picked now.
+          Your picks advance through the bracket automatically. When every Round
+          of 32 match on a side is synced, you can keep picking that half all
+          the way through — the other half unlocks as fixtures load.
         </p>
         <Link
           href="/rules"
@@ -383,9 +501,11 @@ export function KnockoutBracketView({
         <BracketPickPanel
           match={activeMatch}
           pick={pickMap.get(activeMatch.id)}
+          slotPick={activeSlotPick}
           locked={isPickLocked(activeMatch, matches)}
-          onClose={() => setActiveMatch(null)}
+          onClose={closePickPanel}
           onSaved={handleSaved}
+          onSlotSaved={handleSlotSaved}
         />
       )}
     </div>

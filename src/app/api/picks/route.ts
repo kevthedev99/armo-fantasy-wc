@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { isPickLocked } from "@/lib/knockout-bracket";
 import { createClient } from "@/lib/supabase/server";
+import { upsertPickRow } from "@/lib/pick-storage";
 import {
   normalizeGroupScore,
   validateKnockoutPick,
@@ -87,16 +88,28 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: scoreError }, { status: 400 });
   }
 
-  const pickRow = {
+  const pickRow: {
+    user_id: string;
+    match_id: number;
+    picked_winner: PickWinner;
+    home_score_pred: number | null;
+    away_score_pred: number | null;
+    winning_goal_minute_pred: null;
+    updated_at: string;
+    predicts_penalties?: boolean;
+  } = {
     user_id: user.id,
     match_id: matchId,
     picked_winner: pickedWinner,
     home_score_pred: resolvedHome,
     away_score_pred: resolvedAway,
-    predicts_penalties,
     winning_goal_minute_pred: null,
     updated_at: new Date().toISOString(),
   };
+
+  if (predicts_penalties) {
+    pickRow.predicts_penalties = true;
+  }
 
   const { data: existing } = await supabase
     .from("picks")
@@ -107,14 +120,9 @@ export async function POST(request: Request) {
 
   let result;
   if (existing) {
-    result = await supabase
-      .from("picks")
-      .update(pickRow)
-      .eq("id", existing.id)
-      .select()
-      .single();
+    result = await upsertPickRow(supabase, existing.id, pickRow);
   } else {
-    result = await supabase.from("picks").insert(pickRow).select().single();
+    result = await upsertPickRow(supabase, undefined, pickRow);
   }
 
   if (result.error) {

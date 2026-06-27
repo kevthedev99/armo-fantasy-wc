@@ -4,6 +4,7 @@ import {
   canScoreKnockoutPick,
   type ChainingMatch,
 } from "./bracket-chaining";
+import { pickPredictsPenalties } from "./pick-storage";
 
 export type ScorePickContext = {
   knockoutMatches: ChainingMatch[];
@@ -49,6 +50,8 @@ export function isMatchFinished(status: string): boolean {
 export function isMatchDecidedByPenalties(status: string): boolean {
   return status === "PEN";
 }
+
+export { pickPredictsPenalties, PENALTIES_PICK_SENTINEL } from "./pick-storage";
 
 export function getActualWinnerSide(match: {
   home_score: number | null;
@@ -150,7 +153,7 @@ export function scorePick(
   const winner = getActualWinnerSide(match);
   if (!winner) return 0;
 
-  if (match.stage === "knockout" && !!pick.predicts_penalties) {
+  if (match.stage === "knockout" && pickPredictsPenalties(pick)) {
     if (!isMatchDecidedByPenalties(match.status)) return 0;
 
     let points = getKnockoutBasePoints(match.round);
@@ -191,7 +194,7 @@ export function formatPickSummary(
 ): string | null {
   if (!pick) return null;
 
-  if (pick?.predicts_penalties) {
+  if (pickPredictsPenalties(pick)) {
     const team =
       pick.picked_winner === "home"
         ? match.home_team_name

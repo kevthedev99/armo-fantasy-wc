@@ -44,7 +44,7 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
     pick?.away_score_pred != null ? String(pick.away_score_pred) : "0"
   );
   const [outcomeMode, setOutcomeMode] = useState<KnockoutOutcomeMode>(
-    outcomeModeFromPick(pick)
+    isKnockout ? outcomeModeFromPick(pick) : "regulation"
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -106,7 +106,7 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
         pickedWinner,
         homeScorePred,
         awayScorePred,
-        predictsPenalties,
+        ...(isKnockout ? { predictsPenalties } : {}),
       }),
     });
 
@@ -124,8 +124,10 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
   const previewPick = {
     ...pick,
     picked_winner: pickedWinner,
-    home_score_pred: outcomeMode === "penalties" ? null : resolvedHome,
-    away_score_pred: outcomeMode === "penalties" ? null : resolvedAway,
+    home_score_pred:
+      isKnockout && outcomeMode === "penalties" ? null : resolvedHome,
+    away_score_pred:
+      isKnockout && outcomeMode === "penalties" ? null : resolvedAway,
     predicts_penalties: isKnockout && outcomeMode === "penalties",
   } as Pick;
 

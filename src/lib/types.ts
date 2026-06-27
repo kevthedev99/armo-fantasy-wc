@@ -61,6 +61,23 @@ export interface Pick {
   is_scored: boolean;
 }
 
+export type BracketSlotRoundId = "r16" | "qf" | "sf" | "final" | "third";
+
+export interface BracketSlotPick {
+  id: string;
+  user_id: string;
+  round_id: BracketSlotRoundId;
+  slot_index: number;
+  home_team_id: number;
+  away_team_id: number;
+  picked_winner: PickWinner;
+  home_score_pred: number | null;
+  away_score_pred: number | null;
+  predicts_penalties: boolean;
+  created_at?: string;
+  updated_at?: string;
+}
+
 export interface AppSettings {
   knockout_unlocked: boolean;
   group_stage_complete: boolean;
