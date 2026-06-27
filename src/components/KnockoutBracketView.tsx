@@ -1,6 +1,6 @@
 "use client";
 
-import { useMemo, useState } from "react";
+import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BracketPickPanel } from "@/components/BracketPickPanel";
 import {
@@ -14,8 +14,18 @@ import {
 import {
   buildVirtualMatch,
   getColumnById,
+  isVirtualMatchId,
   slotPickToDisplayPick,
 } from "@/lib/bracket-slot-picks";
+import {
+  loadBracketSlotPicks,
+  saveBracketSlotPicks,
+  upsertBracketSlotPick,
+} from "@/lib/bracket-slot-picks-storage";
+import {
+  getSyncedMatchForSlotPick,
+  slotPickToPickPayload,
+} from "@/lib/migrate-bracket-slot-picks";
 import {
   getBracketColumns,
   getKnockoutBracketProgress,
@@ -27,9 +37,9 @@ import { formatPickSummary } from "@/lib/scoring";
 import type { BracketSlotPick, Match, Pick } from "@/lib/types";
 
 interface KnockoutBracketViewProps {
+  userId: string | null;
   matches: Match[];
   picks: Pick[];
-  slotPicks: BracketSlotPick[];
 }
 
 function TeamLine({
@@ -273,12 +283,14 @@ function BracketSlotCard({
 }
 
 export function KnockoutBracketView({
+  userId,
   matches,
   picks: initialPicks,
-  slotPicks: initialSlotPicks,
 }: KnockoutBracketViewProps) {
   const [picks, setPicks] = useState(initialPicks);
-  const [slotPicks, setSlotPicks] = useState(initialSlotPicks);
+  const [slotPicks, setSlotPicks] = useState<BracketSlotPick[]>(() =>
+    userId ? loadBracketSlotPicks(userId) : []
+  );
   const [activeMatch, setActiveMatch] = useState<Match | null>(null);
   const [activeSlotPick, setActiveSlotPick] = useState<
     BracketSlotPick | undefined
@@ -300,6 +312,59 @@ export function KnockoutBracketView({
       ? Math.round((progress.picksOnSynced / progress.syncedFixtures) * 100)
       : 0;
 
+  useEffect(() => {
+    if (!userId || bracketLocked) return;
+
+    const stored = loadBracketSlotPicks(userId);
+    if (!stored.length) return;
+
+    let cancelled = false;
+
+    async function migrateSyncedSlotPicks() {
+      const remaining: BracketSlotPick[] = [];
+
+      for (const slotPick of stored) {
+        const syncedMatch = getSyncedMatchForSlotPick(matches, slotPick);
+        if (!syncedMatch) {
+          remaining.push(slotPick);
+          continue;
+        }
+
+        const res = await fetch("/api/picks", {
+          method: "POST",
+          headers: { "Content-Type": "application/json" },
+          body: JSON.stringify(slotPickToPickPayload(slotPick, syncedMatch)),
+        });
+
+        if (cancelled) return;
+
+        if (!res.ok) {
+          remaining.push(slotPick);
+          continue;
+        }
+
+        const data = await res.json();
+        setPicks((prev) => {
+          const idx = prev.findIndex((p) => p.match_id === syncedMatch.id);
+          if (idx >= 0) {
+            const next = [...prev];
+            next[idx] = data.pick;
+            return next;
+          }
+          return [...prev, data.pick];
+        });
+      }
+
+      saveBracketSlotPicks(userId!, remaining);
+      setSlotPicks(remaining);
+    }
+
+    void migrateSyncedSlotPicks();
+    return () => {
+      cancelled = true;
+    };
+  }, [userId, matches, bracketLocked]);
+
   function handleSaved(pick: Pick) {
     setPicks((prev) => {
       const idx = prev.findIndex((p) => p.match_id === pick.match_id);
@@ -313,19 +378,9 @@ export function KnockoutBracketView({
   }
 
   function handleSlotSaved(slotPick: BracketSlotPick) {
-    setSlotPicks((prev) => {
-      const idx = prev.findIndex(
-        (p) =>
-          p.round_id === slotPick.round_id &&
-          p.slot_index === slotPick.slot_index
-      );
-      if (idx >= 0) {
-        const next = [...prev];
-        next[idx] = slotPick;
-        return next;
-      }
-      return [...prev, slotPick];
-    });
+    if (!userId) return;
+    const next = upsertBracketSlotPick(userId, slotPick);
+    setSlotPicks(next);
   }
 
   function openSlot(slot: Extract<BracketMatchSlot, { kind: "placeholder" }>) {
@@ -502,7 +557,12 @@ export function KnockoutBracketView({
           match={activeMatch}
           pick={pickMap.get(activeMatch.id)}
           slotPick={activeSlotPick}
-          locked={isPickLocked(activeMatch, matches)}
+          userId={userId ?? undefined}
+          locked={
+            isVirtualMatchId(activeMatch.id)
+              ? bracketLocked
+              : isPickLocked(activeMatch, matches)
+          }
           onClose={closePickPanel}
           onSaved={handleSaved}
           onSlotSaved={handleSlotSaved}

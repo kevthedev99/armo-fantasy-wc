@@ -8,11 +8,12 @@ import {
   normalizeGroupScore,
   validateKnockoutPick,
 } from "@/lib/scoring";
-import type { BracketSlotPick, Match, Pick, PickWinner } from "@/lib/types";
 import {
   isVirtualMatchId,
   parseVirtualMatchSlot,
 } from "@/lib/bracket-slot-picks";
+import { buildBracketSlotPick } from "@/lib/bracket-slot-picks-storage";
+import type { BracketSlotPick, BracketSlotRoundId, Match, Pick, PickWinner } from "@/lib/types";
 import {
   KnockoutPickFields,
   outcomeModeFromPick,
@@ -23,6 +24,7 @@ interface BracketPickPanelProps {
   match: Match;
   pick?: Pick;
   slotPick?: BracketSlotPick;
+  userId?: string;
   locked: boolean;
   onClose: () => void;
   onSaved: (pick: Pick) => void;
@@ -33,6 +35,7 @@ function BracketPickForm({
   match,
   pick,
   slotPick,
+  userId,
   locked,
   onClose,
   onSaved,
@@ -82,30 +85,41 @@ function BracketPickForm({
     setError(null);
 
     const virtualSlot = parseVirtualMatchSlot(match.id);
-    const endpoint = virtualSlot ? "/api/bracket-picks" : "/api/picks";
-    const payload = virtualSlot
-      ? {
-          roundId: virtualSlot.roundId,
-          slotIndex: virtualSlot.slotIndex,
-          homeTeamId: match.home_team_id,
-          awayTeamId: match.away_team_id,
-          pickedWinner,
-          homeScorePred,
-          awayScorePred,
-          predictsPenalties,
-        }
-      : {
-          matchId: match.id,
-          pickedWinner,
-          homeScorePred,
-          awayScorePred,
-          predictsPenalties,
-        };
 
-    const res = await fetch(endpoint, {
+    if (virtualSlot) {
+      if (!userId) {
+        setSaving(false);
+        setError("Sign in to save bracket picks.");
+        return;
+      }
+
+      onSlotSaved(
+        buildBracketSlotPick(
+          userId,
+          virtualSlot.roundId as BracketSlotRoundId,
+          virtualSlot.slotIndex,
+          match,
+          pickedWinner,
+          homeScorePred,
+          awayScorePred,
+          predictsPenalties
+        )
+      );
+      setSaving(false);
+      onClose();
+      return;
+    }
+
+    const res = await fetch("/api/picks", {
       method: "POST",
       headers: { "Content-Type": "application/json" },
-      body: JSON.stringify(payload),
+      body: JSON.stringify({
+        matchId: match.id,
+        pickedWinner,
+        homeScorePred,
+        awayScorePred,
+        predictsPenalties,
+      }),
     });
 
     const data = await res.json();
@@ -116,11 +130,7 @@ function BracketPickForm({
       return;
     }
 
-    if (data.kind === "slot") {
-      onSlotSaved(data.slotPick);
-    } else {
-      onSaved(data.pick);
-    }
+    onSaved(data.pick);
     onClose();
   }
 
