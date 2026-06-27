@@ -29,6 +29,8 @@ export interface Match {
   status: string;
   home_score: number | null;
   away_score: number | null;
+  pen_home_score: number | null;
+  pen_away_score: number | null;
   winning_goal_minute: number | null;
   match_events: MatchEvent[];
 }
@@ -53,6 +55,7 @@ export interface Pick {
   picked_winner: PickWinner;
   home_score_pred: number | null;
   away_score_pred: number | null;
+  predicts_penalties: boolean;
   winning_goal_minute_pred: number | null;
   points_earned: number;
   is_scored: boolean;
@@ -107,5 +110,7 @@ export interface ApiFootballFixture {
   score: {
     halftime: { home: number | null; away: number | null };
     fulltime: { home: number | null; away: number | null };
+    extratime?: { home: number | null; away: number | null };
+    penalty?: { home: number | null; away: number | null };
   };
 }

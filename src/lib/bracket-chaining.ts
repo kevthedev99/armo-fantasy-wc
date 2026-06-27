@@ -1,4 +1,4 @@
-import { isMatchFinished } from "@/lib/scoring";
+import { getActualWinnerSide, isMatchFinished } from "@/lib/scoring";
 import type { Match, Pick as UserPick } from "@/lib/types";
 
 export type ChainingMatch = {
@@ -10,6 +10,8 @@ export type ChainingMatch = {
   away_team_id: number;
   home_score: number | null;
   away_score: number | null;
+  pen_home_score: number | null;
+  pen_away_score: number | null;
 };
 
 /** Team the user picked to win this match. */
@@ -22,22 +24,22 @@ export function getPickedTeamId(
   return null;
 }
 
-/** Winning team from the final recorded score. */
+/** Winning team from the final recorded score (including penalty shootouts). */
 export function getActualWinnerTeamId(
   match: Pick<
     Match,
-    "home_team_id" | "away_team_id" | "home_score" | "away_score" | "status"
+    | "home_team_id"
+    | "away_team_id"
+    | "home_score"
+    | "away_score"
+    | "pen_home_score"
+    | "pen_away_score"
+    | "status"
   >
 ): number | null {
-  if (
-    match.home_score === null ||
-    match.away_score === null ||
-    !isMatchFinished(match.status)
-  ) {
-    return null;
-  }
-  if (match.home_score > match.away_score) return match.home_team_id;
-  if (match.away_score > match.home_score) return match.away_team_id;
+  const side = getActualWinnerSide(match);
+  if (side === "home") return match.home_team_id;
+  if (side === "away") return match.away_team_id;
   return null;
 }
 

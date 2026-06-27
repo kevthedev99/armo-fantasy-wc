@@ -6,9 +6,14 @@ import {
   formatPickSummary,
   getKnockoutBasePoints,
   normalizeGroupScore,
-  validateKnockoutPickScores,
+  validateKnockoutPick,
 } from "@/lib/scoring";
 import type { Match, Pick, PickWinner } from "@/lib/types";
+import {
+  KnockoutPickFields,
+  outcomeModeFromPick,
+  type KnockoutOutcomeMode,
+} from "@/components/KnockoutPickFields";
 
 interface BracketPickPanelProps {
   match: Match;
@@ -34,20 +39,30 @@ function BracketPickForm({
   const [awayScore, setAwayScore] = useState(
     pick?.away_score_pred != null ? String(pick.away_score_pred) : "0"
   );
+  const [outcomeMode, setOutcomeMode] = useState<KnockoutOutcomeMode>(
+    outcomeModeFromPick(pick)
+  );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
 
   const points = getKnockoutBasePoints(match.round);
+  const predictsPenalties = outcomeMode === "penalties";
 
   async function savePick() {
     if (locked) return;
 
-    const resolvedHome = normalizeGroupScore(homeScore);
-    const resolvedAway = normalizeGroupScore(awayScore);
-    const scoreError = validateKnockoutPickScores(
+    const homeScorePred = predictsPenalties
+      ? null
+      : normalizeGroupScore(homeScore);
+    const awayScorePred = predictsPenalties
+      ? null
+      : normalizeGroupScore(awayScore);
+
+    const scoreError = validateKnockoutPick(
       pickedWinner,
-      resolvedHome,
-      resolvedAway
+      homeScorePred ?? 0,
+      awayScorePred ?? 0,
+      predictsPenalties
     );
     if (scoreError) {
       setError(scoreError);
@@ -63,8 +78,9 @@ function BracketPickForm({
       body: JSON.stringify({
         matchId: match.id,
         pickedWinner,
-        homeScorePred: resolvedHome,
-        awayScorePred: resolvedAway,
+        homeScorePred,
+        awayScorePred,
+        predictsPenalties,
       }),
     });
 
@@ -83,8 +99,9 @@ function BracketPickForm({
   const previewPick = {
     ...pick,
     picked_winner: pickedWinner,
-    home_score_pred: normalizeGroupScore(homeScore),
-    away_score_pred: normalizeGroupScore(awayScore),
+    home_score_pred: predictsPenalties ? null : normalizeGroupScore(homeScore),
+    away_score_pred: predictsPenalties ? null : normalizeGroupScore(awayScore),
+    predicts_penalties: predictsPenalties,
   } as Pick;
 
   return (
@@ -97,7 +114,10 @@ function BracketPickForm({
           {match.home_team_name} vs {match.away_team_name}
         </h2>
         <p className="mt-1 text-xs text-white/70">
-          {formatKickoffPST(match.kickoff_at)} · +{points} winner · +5 exact
+          {formatKickoffPST(match.kickoff_at)} ·{" "}
+          {predictsPenalties
+            ? "Round pts if pens · +5 winner"
+            : `+${points} winner · +5 exact`}
         </p>
       </div>
 
@@ -119,47 +139,17 @@ function BracketPickForm({
           </div>
         ) : (
           <>
-            <div className="mb-4 grid grid-cols-2 gap-2">
-              {(
-                [
-                  ["home", match.home_team_name],
-                  ["away", match.away_team_name],
-                ] as const
-              ).map(([value, label]) => (
-                <button
-                  key={value}
-                  type="button"
-                  onClick={() => setPickedWinner(value)}
-                  className={`rounded-xl border px-2 py-3 text-xs font-bold uppercase transition ${
-                    pickedWinner === value
-                      ? "border-[#0056b3] bg-[#0056b3] text-white"
-                      : "border-gray-200 bg-gray-50 text-gray-800 hover:border-[#0056b3]"
-                  }`}
-                >
-                  {label}
-                </button>
-              ))}
-            </div>
-
-            <div className="mb-4 flex items-center justify-center gap-3">
-              <input
-                type="number"
-                min={0}
-                max={20}
-                value={homeScore}
-                onChange={(e) => setHomeScore(e.target.value)}
-                className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-lg font-bold"
-              />
-              <span className="text-xl font-black text-gray-300">—</span>
-              <input
-                type="number"
-                min={0}
-                max={20}
-                value={awayScore}
-                onChange={(e) => setAwayScore(e.target.value)}
-                className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-lg font-bold"
-              />
-            </div>
+            <KnockoutPickFields
+              match={match}
+              outcomeMode={outcomeMode}
+              onOutcomeModeChange={setOutcomeMode}
+              pickedWinner={pickedWinner}
+              onPickedWinnerChange={setPickedWinner}
+              homeScore={homeScore}
+              awayScore={awayScore}
+              onHomeScoreChange={setHomeScore}
+              onAwayScoreChange={setAwayScore}
+            />
 
             {error && (
               <p className="mb-3 text-center text-xs text-red-600">{error}</p>

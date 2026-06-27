@@ -3,7 +3,7 @@ import { isPickLocked } from "@/lib/knockout-bracket";
 import { createClient } from "@/lib/supabase/server";
 import {
   normalizeGroupScore,
-  validateKnockoutPickScores,
+  validateKnockoutPick,
   validatePickScores,
 } from "@/lib/scoring";
 import type { PickWinner } from "@/lib/types";
@@ -19,11 +19,18 @@ export async function POST(request: Request) {
   }
 
   const body = await request.json();
-  const { matchId, pickedWinner, homeScorePred, awayScorePred } = body as {
+  const {
+    matchId,
+    pickedWinner,
+    homeScorePred,
+    awayScorePred,
+    predictsPenalties,
+  } = body as {
     matchId?: number;
     pickedWinner?: PickWinner;
     homeScorePred?: number | null;
     awayScorePred?: number | null;
+    predictsPenalties?: boolean;
   };
 
   if (!matchId || !pickedWinner) {
@@ -53,13 +60,29 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: knockoutMessage }, { status: 403 });
   }
 
-  const resolvedHome = normalizeGroupScore(homeScorePred);
-  const resolvedAway = normalizeGroupScore(awayScorePred);
+  const predicts_penalties =
+    match.stage === "knockout" && !!predictsPenalties;
+
+  const resolvedHome = predicts_penalties
+    ? null
+    : normalizeGroupScore(homeScorePred);
+  const resolvedAway = predicts_penalties
+    ? null
+    : normalizeGroupScore(awayScorePred);
 
   const scoreError =
     match.stage === "knockout"
-      ? validateKnockoutPickScores(pickedWinner, resolvedHome, resolvedAway)
-      : validatePickScores(pickedWinner, resolvedHome, resolvedAway);
+      ? validateKnockoutPick(
+          pickedWinner,
+          resolvedHome ?? 0,
+          resolvedAway ?? 0,
+          predicts_penalties
+        )
+      : validatePickScores(
+          pickedWinner,
+          resolvedHome ?? 0,
+          resolvedAway ?? 0
+        );
   if (scoreError) {
     return NextResponse.json({ error: scoreError }, { status: 400 });
   }
@@ -70,6 +93,7 @@ export async function POST(request: Request) {
     picked_winner: pickedWinner,
     home_score_pred: resolvedHome,
     away_score_pred: resolvedAway,
+    predicts_penalties,
     winning_goal_minute_pred: null,
     updated_at: new Date().toISOString(),
   };

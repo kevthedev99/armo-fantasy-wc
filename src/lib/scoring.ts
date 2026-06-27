@@ -29,6 +29,8 @@ export const SCORING = {
     "Third place": 8,
     Final: 24,
     correctWinnerDefault: 4,
+    /** Add-on when a penalties pick names the shootout winner. */
+    penaltiesWinnerBonus: 5,
   },
 } as const;
 
@@ -42,6 +44,37 @@ export function getKnockoutBasePoints(round: string): number {
 
 export function isMatchFinished(status: string): boolean {
   return ["FT", "AET", "PEN", "AWD", "WO"].includes(status);
+}
+
+export function isMatchDecidedByPenalties(status: string): boolean {
+  return status === "PEN";
+}
+
+export function getActualWinnerSide(match: {
+  home_score: number | null;
+  away_score: number | null;
+  pen_home_score: number | null;
+  pen_away_score: number | null;
+  status: string;
+}): PickWinner | null {
+  if (
+    match.home_score === null ||
+    match.away_score === null ||
+    !isMatchFinished(match.status)
+  ) {
+    return null;
+  }
+
+  if (match.status === "PEN") {
+    const penHome = match.pen_home_score;
+    const penAway = match.pen_away_score;
+    if (penHome !== null && penAway !== null) {
+      if (penHome > penAway) return "home";
+      if (penAway > penHome) return "away";
+    }
+  }
+
+  return actualWinner(match.home_score, match.away_score);
 }
 
 export function isMatchInProgress(status: string): boolean {
@@ -114,25 +147,35 @@ export function scorePick(
     }
   }
 
-  const home = match.home_score;
-  const away = match.away_score;
-  const winner = actualWinner(home, away);
+  const winner = getActualWinnerSide(match);
+  if (!winner) return 0;
+
+  if (match.stage === "knockout" && !!pick.predicts_penalties) {
+    if (!isMatchDecidedByPenalties(match.status)) return 0;
+
+    let points = getKnockoutBasePoints(match.round);
+    if (pick.picked_winner === winner) {
+      points += SCORING.knockout.penaltiesWinnerBonus;
+    }
+    return points;
+  }
+
   let points = 0;
 
   if (pick.picked_winner === winner) {
     if (match.stage === "group") {
       points += SCORING.group.correctWinner;
       if (
-        pick.home_score_pred === home &&
-        pick.away_score_pred === away
+        pick.home_score_pred === match.home_score &&
+        pick.away_score_pred === match.away_score
       ) {
         points += SCORING.group.exactScoreBonus;
       }
     } else {
       points += getKnockoutBasePoints(match.round);
       if (
-        pick.home_score_pred === home &&
-        pick.away_score_pred === away
+        pick.home_score_pred === match.home_score &&
+        pick.away_score_pred === match.away_score
       ) {
         points += SCORING.group.exactScoreBonus;
       }
@@ -147,6 +190,16 @@ export function formatPickSummary(
   pick: Pick | undefined
 ): string | null {
   if (!pick) return null;
+
+  if (pick?.predicts_penalties) {
+    const team =
+      pick.picked_winner === "home"
+        ? match.home_team_name
+        : pick.picked_winner === "away"
+          ? match.away_team_name
+          : null;
+    if (team) return `${team.toUpperCase()} ON PENS`;
+  }
 
   const winnerLabel =
     pick.picked_winner === "home"
@@ -193,6 +246,21 @@ export function validatePickScores(
   }
 
   return null;
+}
+
+export function validateKnockoutPick(
+  pickedWinner: PickWinner,
+  homeScore: number,
+  awayScore: number,
+  predictsPenalties: boolean
+): string | null {
+  if (predictsPenalties) {
+    if (pickedWinner === "draw") {
+      return "Choose who wins on penalties.";
+    }
+    return null;
+  }
+  return validateKnockoutPickScores(pickedWinner, homeScore, awayScore);
 }
 
 export function validateKnockoutPickScores(

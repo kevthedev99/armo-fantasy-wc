@@ -3,6 +3,7 @@ import {
   fetchFixturesForSync,
   fetchFixtureEvents,
   parseGroupName,
+  parseMatchScoresFromFixture,
   parseStage,
 } from "@/lib/api-football";
 import { isDiscordConfigured, postDiscordLeaderboard } from "@/lib/discord";
@@ -57,12 +58,16 @@ function matchRowChanged(
   status: string,
   homeScore: number | null,
   awayScore: number | null,
+  penHomeScore: number | null,
+  penAwayScore: number | null,
   matchEvents: MatchEvent[]
 ): boolean {
   if (!oldMatch) return true;
   if (oldMatch.status !== status) return true;
   if (oldMatch.home_score !== homeScore) return true;
   if (oldMatch.away_score !== awayScore) return true;
+  if (oldMatch.pen_home_score !== penHomeScore) return true;
+  if (oldMatch.pen_away_score !== penAwayScore) return true;
   const prevEvents = oldMatch.match_events ?? [];
   if (prevEvents.length !== matchEvents.length) return true;
   return prevEvents.some((event, index) => event.id !== matchEvents[index]?.id);
@@ -261,6 +266,8 @@ type ExistingMatch = {
   id: number;
   home_score: number | null;
   away_score: number | null;
+  pen_home_score: number | null;
+  pen_away_score: number | null;
   status: string;
   match_events: MatchEvent[] | null;
   home_team_id: number;
@@ -286,7 +293,9 @@ export async function GET(request: Request) {
 
   const { data: existingMatches } = await supabase
     .from("matches")
-    .select("id, home_score, away_score, status, match_events, home_team_id, away_team_id");
+    .select(
+      "id, home_score, away_score, pen_home_score, pen_away_score, status, match_events, home_team_id, away_team_id"
+    );
 
   const existingById = new Map<number, ExistingMatch>(
     (existingMatches ?? []).map((m) => [
@@ -309,8 +318,11 @@ export async function GET(request: Request) {
 
   for (const f of fixtures) {
     const stage = parseStage(f.league.round);
-    const homeScore = f.goals.home ?? f.score.fulltime.home;
-    const awayScore = f.goals.away ?? f.score.fulltime.away;
+    const parsedScores = parseMatchScoresFromFixture(f);
+    const homeScore = parsedScores.homeScore;
+    const awayScore = parsedScores.awayScore;
+    const penHomeScore = parsedScores.penHomeScore;
+    const penAwayScore = parsedScores.penAwayScore;
     const status = f.fixture.status.short;
     const matchId = f.fixture.id;
 
@@ -381,7 +393,15 @@ export async function GET(request: Request) {
     }
 
     if (
-      matchRowChanged(oldMatch, status, homeScore, awayScore, matchEvents)
+      matchRowChanged(
+        oldMatch,
+        status,
+        homeScore,
+        awayScore,
+        penHomeScore,
+        penAwayScore,
+        matchEvents
+      )
     ) {
       await supabase.from("matches").upsert(
         {
@@ -399,6 +419,8 @@ export async function GET(request: Request) {
           status,
           home_score: homeScore,
           away_score: awayScore,
+          pen_home_score: penHomeScore,
+          pen_away_score: penAwayScore,
           winning_goal_minute: null,
           match_events: matchEvents,
           updated_at: new Date().toISOString(),

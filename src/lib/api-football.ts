@@ -136,6 +136,44 @@ export function parseStage(round: string): "group" | "knockout" {
   return round.toLowerCase().includes("group") ? "group" : "knockout";
 }
 
+export type ParsedMatchScores = {
+  homeScore: number | null;
+  awayScore: number | null;
+  penHomeScore: number | null;
+  penAwayScore: number | null;
+};
+
+/** Regulation/extra-time score plus optional penalty shootout counts. */
+export function parseMatchScoresFromFixture(
+  f: ApiFootballFixture
+): ParsedMatchScores {
+  const status = f.fixture.status.short;
+  const penHome = f.score.penalty?.home ?? null;
+  const penAway = f.score.penalty?.away ?? null;
+
+  if (status === "PEN" && penHome !== null && penAway !== null) {
+    return {
+      homeScore:
+        f.score.extratime?.home ??
+        f.score.fulltime?.home ??
+        f.goals.home,
+      awayScore:
+        f.score.extratime?.away ??
+        f.score.fulltime?.away ??
+        f.goals.away,
+      penHomeScore: penHome,
+      penAwayScore: penAway,
+    };
+  }
+
+  return {
+    homeScore: f.goals.home ?? f.score.fulltime.home,
+    awayScore: f.goals.away ?? f.score.fulltime.away,
+    penHomeScore: null,
+    penAwayScore: null,
+  };
+}
+
 type ApiStandingRow = {
   rank: number;
   team: { id: number; name: string; logo: string };

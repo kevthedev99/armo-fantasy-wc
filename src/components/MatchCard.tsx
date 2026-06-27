@@ -2,6 +2,11 @@
 
 import { useState } from "react";
 import { format } from "date-fns";
+import {
+  KnockoutPickFields,
+  outcomeModeFromPick,
+  type KnockoutOutcomeMode,
+} from "@/components/KnockoutPickFields";
 import { useIsPickLocked } from "@/hooks/useIsPickLocked";
 import { getPickLockMessage } from "@/lib/knockout-bracket";
 import {
@@ -13,6 +18,8 @@ import {
   formatPickSummary,
   isMatchFinished,
   normalizeGroupScore,
+  validateKnockoutPick,
+  validatePickScores,
 } from "@/lib/scoring";
 import type { Match, Pick, PickWinner } from "@/lib/types";
 
@@ -35,6 +42,9 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
   );
   const [awayScore, setAwayScore] = useState(
     pick?.away_score_pred != null ? String(pick.away_score_pred) : "0"
+  );
+  const [outcomeMode, setOutcomeMode] = useState<KnockoutOutcomeMode>(
+    outcomeModeFromPick(pick)
   );
   const [saving, setSaving] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -62,8 +72,31 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
     setSaving(true);
     setError(null);
 
-    const homeScorePred = normalizeGroupScore(homeScore);
-    const awayScorePred = normalizeGroupScore(awayScore);
+    const predictsPenalties = isKnockout && outcomeMode === "penalties";
+    const homeScorePred = predictsPenalties
+      ? null
+      : normalizeGroupScore(homeScore);
+    const awayScorePred = predictsPenalties
+      ? null
+      : normalizeGroupScore(awayScore);
+
+    const scoreError = isKnockout
+      ? validateKnockoutPick(
+          pickedWinner,
+          homeScorePred ?? 0,
+          awayScorePred ?? 0,
+          predictsPenalties
+        )
+      : validatePickScores(
+          pickedWinner,
+          homeScorePred ?? 0,
+          awayScorePred ?? 0
+        );
+    if (scoreError) {
+      setSaving(false);
+      setError(scoreError);
+      return;
+    }
 
     const res = await fetch("/api/picks", {
       method: "POST",
@@ -73,6 +106,7 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
         pickedWinner,
         homeScorePred,
         awayScorePred,
+        predictsPenalties,
       }),
     });
 
@@ -90,8 +124,9 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
   const previewPick = {
     ...pick,
     picked_winner: pickedWinner,
-    home_score_pred: resolvedHome,
-    away_score_pred: resolvedAway,
+    home_score_pred: outcomeMode === "penalties" ? null : resolvedHome,
+    away_score_pred: outcomeMode === "penalties" ? null : resolvedAway,
+    predicts_penalties: isKnockout && outcomeMode === "penalties",
   } as Pick;
 
   const cardClass = isLive
@@ -214,51 +249,64 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
             </div>
           )}
 
-          <div
-            className={`mb-3 grid gap-2 ${isKnockout ? "grid-cols-2" : "grid-cols-3"}`}
-          >
-            {winnerOptions.map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                onClick={() => setPickedWinner(value)}
-                className={`rounded-lg border px-2 py-2 text-[10px] font-bold uppercase transition md:text-xs ${
-                  pickedWinner === value
-                    ? "border-[#0056b3] bg-[#0056b3] text-white"
-                    : "border-gray-300 bg-white text-gray-800 hover:border-[#0056b3]"
-                }`}
-              >
-                {label.length > 12 ? `${label.slice(0, 10)}…` : label}
-              </button>
-            ))}
-          </div>
+          {isKnockout ? (
+            <KnockoutPickFields
+              match={match}
+              outcomeMode={outcomeMode}
+              onOutcomeModeChange={setOutcomeMode}
+              pickedWinner={pickedWinner}
+              onPickedWinnerChange={setPickedWinner}
+              homeScore={homeScore}
+              awayScore={awayScore}
+              onHomeScoreChange={setHomeScore}
+              onAwayScoreChange={setAwayScore}
+            />
+          ) : (
+            <>
+              <div className="mb-3 grid grid-cols-3 gap-2">
+                {winnerOptions.map(([value, label]) => (
+                  <button
+                    key={value}
+                    type="button"
+                    onClick={() => setPickedWinner(value)}
+                    className={`rounded-lg border px-2 py-2 text-[10px] font-bold uppercase transition md:text-xs ${
+                      pickedWinner === value
+                        ? "border-[#0056b3] bg-[#0056b3] text-white"
+                        : "border-gray-300 bg-white text-gray-800 hover:border-[#0056b3]"
+                    }`}
+                  >
+                    {label.length > 12 ? `${label.slice(0, 10)}…` : label}
+                  </button>
+                ))}
+              </div>
 
-          <div className="mb-2 flex items-center justify-center gap-2">
-            <input
-              type="number"
-              min={0}
-              max={20}
-              value={homeScore}
-              onChange={(e) => setHomeScore(e.target.value)}
-              className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
-              placeholder="0"
-            />
-            <span className="text-gray-400">—</span>
-            <input
-              type="number"
-              min={0}
-              max={20}
-              value={awayScore}
-              onChange={(e) => setAwayScore(e.target.value)}
-              className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
-              placeholder="0"
-            />
-          </div>
-          <p className="mb-3 text-center text-[10px] text-gray-500">
-            {isKnockout
-              ? "Pick the winner and score — correct winner earns round points, exact score adds +5."
-              : "Scores default to 0-0. Scores must match your chosen winner for the +5 bonus."}
-          </p>
+              <div className="mb-2 flex items-center justify-center gap-2">
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={homeScore}
+                  onChange={(e) => setHomeScore(e.target.value)}
+                  className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
+                  placeholder="0"
+                />
+                <span className="text-gray-400">—</span>
+                <input
+                  type="number"
+                  min={0}
+                  max={20}
+                  value={awayScore}
+                  onChange={(e) => setAwayScore(e.target.value)}
+                  className="w-16 rounded-lg border border-gray-300 px-2 py-2 text-center text-sm"
+                  placeholder="0"
+                />
+              </div>
+              <p className="mb-3 text-center text-[10px] text-gray-500">
+                Scores default to 0-0. Scores must match your chosen winner for
+                the +5 bonus.
+              </p>
+            </>
+          )}
 
           {error && (
             <p className="mb-2 text-center text-xs text-red-600">{error}</p>
