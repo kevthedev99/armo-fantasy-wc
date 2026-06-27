@@ -12,7 +12,7 @@ import {
   isVirtualMatchId,
   parseVirtualMatchSlot,
 } from "@/lib/bracket-slot-picks";
-import { buildBracketSlotPick } from "@/lib/bracket-slot-picks-storage";
+import { buildBracketSlotPick } from "@/lib/bracket-slot-picks";
 import type { BracketSlotPick, BracketSlotRoundId, Match, Pick, PickWinner } from "@/lib/types";
 import {
   KnockoutPickFields,

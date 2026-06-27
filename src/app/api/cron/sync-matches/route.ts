@@ -23,6 +23,7 @@ import {
 import {
   scoreAllPendingFinishedPicks,
 } from "@/lib/score-finished-picks";
+import { migrateSyncedBracketSlotPicks } from "@/lib/migrate-bracket-slot-picks";
 import {
   aggregateProfileStats,
   computeCurrentStreak,
@@ -493,6 +494,16 @@ export async function GET(request: Request) {
     }
   }
 
+  const { data: allMatchesForMigration } = await supabase
+    .from("matches")
+    .select("*");
+
+  const { migrated: bracketSlotPicksMigrated } =
+    await migrateSyncedBracketSlotPicks(
+      supabase,
+      (allMatchesForMigration ?? []) as Match[]
+    );
+
   // Score every pick on finished fixtures (handles missed FT transitions + backfill).
   let picksScored = 0;
   const affectedUserIds = new Set<string>();
@@ -534,6 +545,7 @@ export async function GET(request: Request) {
     ok: true,
     syncMode,
     refreshFixtureIds,
+    bracketSlotPicksMigrated,
     fixturesFetched: fixtures.length,
     matchesUpserted,
     picksScored,

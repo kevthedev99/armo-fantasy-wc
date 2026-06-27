@@ -9,6 +9,7 @@ import {
   getRoundOf32LockAt,
   isKnockoutBracketLocked,
   isKnockoutBracketOpen,
+  isKnockoutChallengeActive,
   isPickLocked,
 } from "@/lib/knockout-bracket";
 import {
@@ -18,15 +19,9 @@ import {
   slotPickToDisplayPick,
 } from "@/lib/bracket-slot-picks";
 import {
-  mergeBracketSlotPicks,
-  migrateLocalBracketSlotPicksToServer,
+  deleteRemoteBracketSlotPick,
   saveRemoteBracketSlotPick,
 } from "@/lib/bracket-slot-picks-client";
-import {
-  loadBracketSlotPicks,
-  saveBracketSlotPicks,
-  upsertBracketSlotPick,
-} from "@/lib/bracket-slot-picks-storage";
 import {
   getSyncedMatchForSlotPick,
   slotPickToPickPayload,
@@ -47,6 +42,10 @@ interface KnockoutBracketViewProps {
   picks: Pick[];
   initialSlotPicks?: BracketSlotPick[];
   slotPicksTableMissing?: boolean;
+  challengeSettings?: {
+    knockout_unlocked?: boolean;
+    group_stage_complete?: boolean;
+  } | null;
 }
 
 function TeamLine({
@@ -295,19 +294,10 @@ export function KnockoutBracketView({
   picks: initialPicks,
   initialSlotPicks = [],
   slotPicksTableMissing = false,
+  challengeSettings = null,
 }: KnockoutBracketViewProps) {
   const [picks, setPicks] = useState(initialPicks);
-  const [slotPicks, setSlotPicks] = useState<BracketSlotPick[]>(() => {
-    if (!userId) return [];
-    if (slotPicksTableMissing) {
-      return loadBracketSlotPicks(userId);
-    }
-    return mergeBracketSlotPicks(
-      initialSlotPicks,
-      loadBracketSlotPicks(userId)
-    );
-  });
-  const [useLocalSlotPicks, setUseLocalSlotPicks] = useState(slotPicksTableMissing);
+  const [slotPicks, setSlotPicks] = useState<BracketSlotPick[]>(initialSlotPicks);
   const [activeMatch, setActiveMatch] = useState<Match | null>(null);
   const [activeSlotPick, setActiveSlotPick] = useState<
     BracketSlotPick | undefined
@@ -319,8 +309,13 @@ export function KnockoutBracketView({
     return map;
   }, [picks]);
 
+  const challengeActive = isKnockoutChallengeActive(matches, challengeSettings);
   const bracketLocked = isKnockoutBracketLocked(matches);
-  const bracketOpen = isKnockoutBracketOpen(matches);
+  const bracketOpen = isKnockoutBracketOpen(
+    matches,
+    undefined,
+    challengeSettings
+  );
   const lockAt = getRoundOf32LockAt(matches);
   const columns = getBracketColumns(matches, picks, slotPicks);
   const progress = getKnockoutBracketProgress(matches, picks);
@@ -330,39 +325,15 @@ export function KnockoutBracketView({
       : 0;
 
   useEffect(() => {
-    if (!userId || useLocalSlotPicks) return;
-
-    let cancelled = false;
-
-    async function syncLocalBracketToAccount() {
-      try {
-        const merged = await migrateLocalBracketSlotPicksToServer(userId!);
-        if (!cancelled) setSlotPicks(merged);
-      } catch (err) {
-        console.error("Failed to migrate local bracket picks:", err);
-      }
-    }
-
-    void syncLocalBracketToAccount();
-    return () => {
-      cancelled = true;
-    };
-  }, [userId, useLocalSlotPicks]);
-
-  useEffect(() => {
-    if (!userId || bracketLocked) return;
-
-    const stored = useLocalSlotPicks
-      ? loadBracketSlotPicks(userId)
-      : slotPicks;
-    if (!stored.length) return;
+    if (!userId || bracketLocked || slotPicksTableMissing) return;
+    if (!slotPicks.length) return;
 
     let cancelled = false;
 
     async function migrateSyncedSlotPicks() {
       const remaining: BracketSlotPick[] = [];
 
-      for (const slotPick of stored) {
+      for (const slotPick of slotPicks) {
         const syncedMatch = getSyncedMatchForSlotPick(matches, slotPick);
         if (!syncedMatch) {
           remaining.push(slotPick);
@@ -392,25 +363,26 @@ export function KnockoutBracketView({
           }
           return [...prev, data.pick];
         });
+
+        await deleteRemoteBracketSlotPick(
+          slotPick.round_id,
+          slotPick.slot_index
+        ).catch((err) => {
+          console.error("Failed to delete migrated bracket slot pick:", err);
+          remaining.push(slotPick);
+        });
       }
 
-      if (useLocalSlotPicks) {
-        saveBracketSlotPicks(userId!, remaining);
-      } else {
-        for (const slotPick of remaining) {
-          await saveRemoteBracketSlotPick(slotPick).catch((err) => {
-            console.error("Failed to sync remaining bracket slot pick:", err);
-          });
-        }
+      if (!cancelled) {
+        setSlotPicks(remaining);
       }
-      setSlotPicks(remaining);
     }
 
     void migrateSyncedSlotPicks();
     return () => {
       cancelled = true;
     };
-  }, [userId, matches, bracketLocked, useLocalSlotPicks, slotPicks.length]);
+  }, [userId, matches, bracketLocked, slotPicksTableMissing, slotPicks.length]);
 
   function handleSaved(pick: Pick) {
     setPicks((prev) => {
@@ -427,38 +399,23 @@ export function KnockoutBracketView({
   async function handleSlotSaved(slotPick: BracketSlotPick) {
     if (!userId) return;
 
-    if (useLocalSlotPicks) {
-      const next = upsertBracketSlotPick(userId, slotPick);
-      setSlotPicks(next);
-      return;
-    }
-
     try {
-      const { pick, tableMissing } = await saveRemoteBracketSlotPick(slotPick);
-      if (tableMissing) {
-        setUseLocalSlotPicks(true);
-        const next = upsertBracketSlotPick(userId, slotPick);
-        setSlotPicks(next);
-        return;
-      }
-
+      const saved = await saveRemoteBracketSlotPick(slotPick);
       setSlotPicks((prev) => {
         const index = prev.findIndex(
           (item) =>
-            item.round_id === pick.round_id &&
-            item.slot_index === pick.slot_index
+            item.round_id === saved.round_id &&
+            item.slot_index === saved.slot_index
         );
         if (index >= 0) {
           const next = [...prev];
-          next[index] = pick;
+          next[index] = saved;
           return next;
         }
-        return [...prev, pick];
+        return [...prev, saved];
       });
     } catch (err) {
       console.error("Failed to save bracket slot pick:", err);
-      const next = upsertBracketSlotPick(userId, slotPick);
-      setSlotPicks(next);
     }
   }
 
@@ -477,6 +434,40 @@ export function KnockoutBracketView({
     setActiveSlotPick(undefined);
   }
 
+  if (!challengeActive) {
+    return (
+      <div className="min-h-screen bg-[#0a1628]">
+        <header className="border-b border-white/10 bg-gradient-to-b from-[#0056b3] to-[#0a1628] px-4 py-10 text-center text-white sm:px-6 sm:text-left">
+          <h1 className="text-4xl font-black uppercase tracking-tight md:text-5xl">
+            Knockout Bracket
+          </h1>
+        </header>
+        <p className="px-6 py-16 text-center text-gray-300">
+          The bracket challenge opens once today&apos;s group stage matches are
+          complete. Use the Picks tab for remaining group games.
+        </p>
+      </div>
+    );
+  }
+
+  if (slotPicksTableMissing) {
+    return (
+      <div className="min-h-screen bg-[#0a1628]">
+        <header className="border-b border-white/10 bg-gradient-to-b from-[#0056b3] to-[#0a1628] px-4 py-10 text-center text-white sm:px-6">
+          <h1 className="text-4xl font-black uppercase tracking-tight md:text-5xl">
+            Knockout Bracket
+          </h1>
+        </header>
+        <p className="mx-auto max-w-lg px-6 py-16 text-center text-gray-300">
+          Bracket picks require database migration{" "}
+          <code className="text-[#FFD700]">013_bracket_slot_picks.sql</code> in
+          Supabase. All picks are stored in your account — nothing is saved on
+          this device.
+        </p>
+      </div>
+    );
+  }
+
   if (!bracketOpen) {
     return (
       <div className="min-h-screen bg-[#0a1628]">
@@ -490,8 +481,9 @@ export function KnockoutBracketView({
           </p>
         </header>
         <p className="px-6 py-16 text-center text-gray-300">
-          Bracket locked — Round of 32 has started. Picks can no longer be
-          changed.
+          Bracket locked — the deadline was{" "}
+          {formatRoundOf32Deadline(getRoundOf32LockAt(matches))}. Picks can no
+          longer be changed.
         </p>
       </div>
     );
@@ -510,7 +502,8 @@ export function KnockoutBracketView({
             </h1>
             <p className="mt-2 max-w-xl text-sm text-white/70">
               Pick the winner and score for every knockout match. Fill your full
-              bracket before lock — Sleeper-style team chaining applies.
+              bracket before 12:00 PM Pacific tomorrow — same points as regular
+              picks, added to your standings total.
             </p>
           </div>
           <div className="shrink-0 rounded-xl border border-[#FF007A]/40 bg-[#FF007A]/10 px-4 py-3 text-center md:text-right">
@@ -562,8 +555,8 @@ export function KnockoutBracketView({
       {!bracketLocked && progress.picksOnSynced < progress.syncedFixtures && (
         <div className="border-b border-[#FF007A]/20 bg-[#FF007A]/10 px-4 py-2 text-center text-xs font-medium text-[#ffb3d9] sm:px-6">
           Submit picks for all loaded matches before{" "}
-          {formatRoundOf32Deadline(lockAt)} — entire bracket locks at first
-          Round of 32 kickoff.
+          {formatRoundOf32Deadline(lockAt)} — entire bracket locks at 12:00 PM
+          Pacific (or first Round of 32 kickoff if earlier).
         </div>
       )}
 

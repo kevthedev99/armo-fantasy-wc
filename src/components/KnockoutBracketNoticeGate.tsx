@@ -1,5 +1,8 @@
 import { KnockoutBracketNotice } from "@/components/KnockoutBracketNotice";
-import { isKnockoutBracketLocked } from "@/lib/knockout-bracket";
+import {
+  isKnockoutBracketLocked,
+  isKnockoutChallengeActive,
+} from "@/lib/knockout-bracket";
 import {
   EXPECTED_KNOCKOUT_FIXTURES,
   getKnockoutBracketProgress,
@@ -15,14 +18,25 @@ export async function KnockoutBracketNoticeGate() {
 
   if (!user) return null;
 
-  const [{ data: matches }, { data: picks }] = await Promise.all([
-    supabase
-      .from("matches")
-      .select("id, stage, round, kickoff_at, status"),
-    supabase.from("picks").select("match_id").eq("user_id", user.id),
-  ]);
+  const [{ data: matches }, { data: picks }, { data: settings }] =
+    await Promise.all([
+      supabase
+        .from("matches")
+        .select("id, stage, round, kickoff_at, status"),
+      supabase.from("picks").select("match_id").eq("user_id", user.id),
+      supabase
+        .from("app_settings")
+        .select("knockout_unlocked, group_stage_complete")
+        .eq("id", 1)
+        .single(),
+    ]);
 
   const allMatches = matches ?? [];
+
+  if (!isKnockoutChallengeActive(allMatches, settings)) {
+    return null;
+  }
+
   const progress = getKnockoutBracketProgress(allMatches, picks ?? []);
 
   return (

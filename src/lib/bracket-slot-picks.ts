@@ -1,6 +1,6 @@
 import type { BracketRoundColumn } from "@/lib/knockout-bracket-layout";
 import { KNOCKOUT_ROUND_COLUMNS } from "@/lib/knockout-bracket-layout";
-import type { BracketSlotPick, Match, Pick as UserPick, PickWinner } from "@/lib/types";
+import type { BracketSlotPick, BracketSlotRoundId, Match, Pick as UserPick, PickWinner } from "@/lib/types";
 
 const VIRTUAL_MATCH_ID_BASE: Record<string, number> = {
   r16: 1000,
@@ -101,6 +101,31 @@ export function buildVirtualMatch(
 
 export function bracketSlotPickKey(roundId: string, slotIndex: number): string {
   return `${roundId}:${slotIndex}`;
+}
+
+export function buildBracketSlotPick(
+  userId: string,
+  roundId: BracketSlotRoundId,
+  slotIndex: number,
+  match: Match,
+  pickedWinner: PickWinner,
+  homeScorePred: number | null,
+  awayScorePred: number | null,
+  predictsPenalties: boolean
+): BracketSlotPick {
+  return {
+    id: `${roundId}:${slotIndex}`,
+    user_id: userId,
+    round_id: roundId,
+    slot_index: slotIndex,
+    home_team_id: match.home_team_id,
+    away_team_id: match.away_team_id,
+    picked_winner: pickedWinner,
+    home_score_pred: homeScorePred,
+    away_score_pred: awayScorePred,
+    predicts_penalties: predictsPenalties,
+    updated_at: new Date().toISOString(),
+  };
 }
 
 export function slotPickToDisplayPick(
