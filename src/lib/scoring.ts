@@ -95,6 +95,20 @@ export function isMatchLocked(
   return now.getTime() >= new Date(match.kickoff_at).getTime();
 }
 
+/** Kickoff + buffer — regular time and stoppage should be done; still not FT in DB. */
+const STALE_IN_PROGRESS_MS = 110 * 60 * 1000;
+
+/** DB still shows in-progress (or locked-not-finished) long after kickoff — re-fetch by id. */
+export function isStaleInProgressMatch(
+  match: { status: string; kickoff_at: string },
+  now = new Date()
+): boolean {
+  if (isMatchFinished(match.status)) return false;
+  const elapsed = now.getTime() - new Date(match.kickoff_at).getTime();
+  if (elapsed < STALE_IN_PROGRESS_MS) return false;
+  return isMatchInProgress(match.status) || isMatchLocked(match, now);
+}
+
 export function getMatchLockMessage(
   match: { status: string; kickoff_at: string }
 ): string {

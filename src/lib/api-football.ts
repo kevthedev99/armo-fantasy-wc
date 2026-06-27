@@ -34,25 +34,28 @@ async function fetchFixturesFromApi(
   return json.response ?? [];
 }
 
-/** YYYY-MM-DD in Pacific — matches how the app displays kickoffs. */
+function formatCalendarDate(iso: Date, timeZone: string): string {
+  return new Intl.DateTimeFormat("en-CA", {
+    timeZone,
+    year: "numeric",
+    month: "2-digit",
+    day: "2-digit",
+  }).format(iso);
+}
+
+/** YYYY-MM-DD in Pacific and UTC — API date filter can miss fixtures near midnight. */
 export function getLightSyncDates(
   now = new Date(),
-  /** When no live games, skip tomorrow to save an API call per tick. */
+  /** When no live games, skip tomorrow to save API calls per tick. */
   compact = false
 ): string[] {
-  const timeZone = "America/Los_Angeles";
   const msPerDay = 24 * 60 * 60 * 1000;
   const dates = new Set<string>();
 
   for (const offset of compact ? [-1, 0] : [-1, 0, 1]) {
-    dates.add(
-      new Intl.DateTimeFormat("en-CA", {
-        timeZone,
-        year: "numeric",
-        month: "2-digit",
-        day: "2-digit",
-      }).format(new Date(now.getTime() + offset * msPerDay))
-    );
+    const day = new Date(now.getTime() + offset * msPerDay);
+    dates.add(formatCalendarDate(day, "America/Los_Angeles"));
+    dates.add(formatCalendarDate(day, "UTC"));
   }
 
   return [...dates];
@@ -88,9 +91,25 @@ export async function fetchWorldCupFixturesByDate(
   return fetchFixturesFromApi(key, { date });
 }
 
+export async function fetchWorldCupFixturesByIds(
+  fixtureIds: number[]
+): Promise<ApiFootballFixture[]> {
+  if (fixtureIds.length === 0) return [];
+
+  const key = process.env.API_FOOTBALL_KEY;
+  if (!key) throw new Error("API_FOOTBALL_KEY is not set");
+
+  const batches = await Promise.all(
+    fixtureIds.map((id) => fetchFixturesFromApi(key, { id: String(id) }))
+  );
+
+  return mergeFixturesById(batches.flat());
+}
+
 /** Full season list, or live + nearby dates for frequent cron ticks. */
 export async function fetchFixturesForSync(
-  mode: "full" | "light"
+  mode: "full" | "light",
+  staleFixtureIds: number[] = []
 ): Promise<ApiFootballFixture[]> {
   if (mode === "full") {
     return fetchWorldCupFixtures();
@@ -101,8 +120,9 @@ export async function fetchFixturesForSync(
   const byDate = await Promise.all(
     dates.map((date) => fetchWorldCupFixturesByDate(date))
   );
+  const stale = await fetchWorldCupFixturesByIds(staleFixtureIds);
 
-  return mergeFixturesById([...live, ...byDate.flat()]);
+  return mergeFixturesById([...live, ...byDate.flat(), ...stale]);
 }
 
 export async function fetchFixtureEvents(

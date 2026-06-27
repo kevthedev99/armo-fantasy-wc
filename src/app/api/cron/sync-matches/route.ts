@@ -28,6 +28,7 @@ import {
   aggregateProfileStats,
   computeCurrentStreak,
   isMatchFinished,
+  isStaleInProgressMatch,
 } from "@/lib/scoring";
 import type { Match, MatchEvent, Pick } from "@/lib/types";
 import { topStandings, computeRankChanges } from "@/lib/standings";
@@ -48,7 +49,6 @@ function shouldFullSync(
 ): boolean {
   const url = new URL(request.url);
   if (url.searchParams.get("full") === "1") return true;
-  if (request.headers.get("x-vercel-cron") === "1") return true;
   if (!lastFullSyncAt) return true;
   return Date.now() - new Date(lastFullSyncAt).getTime() > FULL_SYNC_INTERVAL_MS;
 }
@@ -289,13 +289,26 @@ export async function GET(request: Request) {
 
   const fullSync = shouldFullSync(request, settings?.last_full_sync_at);
   const syncMode = fullSync ? "full" : "light";
-  const fixtures = await fetchFixturesForSync(syncMode);
 
   const { data: existingMatches } = await supabase
     .from("matches")
     .select(
-      "id, home_score, away_score, pen_home_score, pen_away_score, status, match_events, home_team_id, away_team_id"
+      "id, home_score, away_score, pen_home_score, pen_away_score, status, match_events, home_team_id, away_team_id, kickoff_at"
     );
+
+  const staleFixtureIds =
+    syncMode === "light"
+      ? (existingMatches ?? [])
+          .filter((m) =>
+            isStaleInProgressMatch({
+              status: m.status,
+              kickoff_at: m.kickoff_at,
+            })
+          )
+          .map((m) => m.id)
+      : [];
+
+  const fixtures = await fetchFixturesForSync(syncMode, staleFixtureIds);
 
   const existingById = new Map<number, ExistingMatch>(
     (existingMatches ?? []).map((m) => [
@@ -543,6 +556,7 @@ export async function GET(request: Request) {
   return NextResponse.json({
     ok: true,
     syncMode,
+    staleFixtureIds,
     fixturesFetched: fixtures.length,
     matchesUpserted,
     picksScored,
