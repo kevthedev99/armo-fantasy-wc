@@ -1,7 +1,8 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useSyncExternalStore } from "react";
+import { usePathname } from "next/navigation";
+import { useEffect, useState } from "react";
 import {
   formatRoundOf32Deadline,
   getRoundOf32LockAt,
@@ -10,55 +11,30 @@ import type { Match } from "@/lib/types";
 
 interface KnockoutBracketNoticeProps {
   bracketLocked: boolean;
-  knockoutUnlocked: boolean;
   matches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[];
   picksOnSynced: number;
   syncedFixtures: number;
-}
-
-const SESSION_KEY = "knockout-bracket-fill-dismissed";
-
-function readDismissed(): boolean {
-  if (typeof window === "undefined") return true;
-  return sessionStorage.getItem(SESSION_KEY) === "1";
-}
-
-const dismissListeners = new Set<() => void>();
-
-function subscribeDismiss(onChange: () => void) {
-  dismissListeners.add(onChange);
-  return () => {
-    dismissListeners.delete(onChange);
-  };
-}
-
-function notifyDismiss() {
-  dismissListeners.forEach((listener) => listener());
-}
-
-function useSessionDismissed() {
-  return useSyncExternalStore(
-    subscribeDismiss,
-    () => readDismissed(),
-    () => true
-  );
+  expectedFixtures: number;
 }
 
 export function KnockoutBracketNotice({
   bracketLocked,
-  knockoutUnlocked,
   matches,
   picksOnSynced,
   syncedFixtures,
+  expectedFixtures,
 }: KnockoutBracketNoticeProps) {
-  const dismissed = useSessionDismissed();
+  const pathname = usePathname();
+  const [dismissedPaths, setDismissedPaths] = useState<Record<string, true>>({});
+
+  const dismissed = dismissedPaths[pathname] === true;
 
   const lockAt = getRoundOf32LockAt(matches);
   const deadlineLabel = formatRoundOf32Deadline(lockAt);
-  const needsPicks = picksOnSynced < syncedFixtures;
+  const totalToPick = syncedFixtures > 0 ? syncedFixtures : expectedFixtures;
+  const needsPicks = picksOnSynced < syncedFixtures || syncedFixtures === 0;
 
-  const open =
-    knockoutUnlocked && !bracketLocked && !dismissed && syncedFixtures > 0;
+  const open = !bracketLocked && !dismissed;
 
   useEffect(() => {
     if (!open) return;
@@ -70,8 +46,7 @@ export function KnockoutBracketNotice({
   }, [open]);
 
   function dismiss() {
-    sessionStorage.setItem(SESSION_KEY, "1");
-    notifyDismiss();
+    setDismissedPaths((prev) => ({ ...prev, [pathname]: true }));
   }
 
   if (!open) return null;
@@ -104,24 +79,25 @@ export function KnockoutBracketNotice({
 
         <div className="p-5 sm:p-6">
           <p className="text-center text-sm leading-relaxed text-gray-700">
-            The knockout stage starts soon. Submit your{" "}
+            Submit your{" "}
             <strong className="text-gray-900">full NCAA-style bracket</strong> —
             winner and score for every knockout match — before lock at{" "}
-            <strong className="text-gray-900">{deadlineLabel}</strong>.
+            <strong className="text-gray-900">{deadlineLabel}</strong>. Group
+            stage games can still be in progress.
           </p>
 
           <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center">
             <p className="text-2xl font-black text-[#0056b3]">
-              {picksOnSynced}/{syncedFixtures}
+              {picksOnSynced}/{totalToPick}
             </p>
             <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
-              Matches picked
+              Knockout matches picked
             </p>
           </div>
 
           {needsPicks && (
             <p className="mt-3 text-center text-xs font-medium text-[#FF007A]">
-              You still have unpicked knockout matches — fill your bracket now!
+              Fill your bracket now — it locks when Round of 32 kicks off!
             </p>
           )}
 

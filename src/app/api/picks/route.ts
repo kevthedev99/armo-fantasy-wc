@@ -40,21 +40,6 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Match not found." }, { status: 404 });
   }
 
-  if (match.stage === "knockout") {
-    const { data: settings } = await supabase
-      .from("app_settings")
-      .select("knockout_unlocked")
-      .eq("id", 1)
-      .single();
-
-    if (!settings?.knockout_unlocked) {
-      return NextResponse.json(
-        { error: "Knockout picks unlock after the group stage ends." },
-        { status: 403 }
-      );
-    }
-  }
-
   const { data: allMatches } = await supabase
     .from("matches")
     .select("stage, round, kickoff_at, status");

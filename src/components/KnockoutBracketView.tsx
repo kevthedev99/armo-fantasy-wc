@@ -8,6 +8,7 @@ import {
   formatRoundOf32StartLabel,
   getRoundOf32LockAt,
   isKnockoutBracketLocked,
+  isKnockoutBracketOpen,
   isPickLocked,
 } from "@/lib/knockout-bracket";
 import {
@@ -17,12 +18,11 @@ import {
 } from "@/lib/knockout-bracket-layout";
 import { formatKickoffPST } from "@/lib/format-pst";
 import { formatPickSummary } from "@/lib/scoring";
-import type { AppSettings, Match, Pick } from "@/lib/types";
+import type { Match, Pick } from "@/lib/types";
 
 interface KnockoutBracketViewProps {
   matches: Match[];
   picks: Pick[];
-  settings: AppSettings;
 }
 
 function TeamLine({
@@ -155,7 +155,6 @@ function BracketSlotCard({
 export function KnockoutBracketView({
   matches,
   picks: initialPicks,
-  settings,
 }: KnockoutBracketViewProps) {
   const [picks, setPicks] = useState(initialPicks);
   const [activeMatch, setActiveMatch] = useState<Match | null>(null);
@@ -167,6 +166,7 @@ export function KnockoutBracketView({
   }, [picks]);
 
   const bracketLocked = isKnockoutBracketLocked(matches);
+  const bracketOpen = isKnockoutBracketOpen(matches);
   const lockAt = getRoundOf32LockAt(matches);
   const columns = getBracketColumns(matches);
   const progress = getKnockoutBracketProgress(matches, picks);
@@ -187,7 +187,7 @@ export function KnockoutBracketView({
     });
   }
 
-  if (!settings.knockout_unlocked) {
+  if (!bracketOpen) {
     return (
       <div className="min-h-screen bg-[#0a1628]">
         <header className="border-b border-white/10 bg-gradient-to-b from-[#0056b3] to-[#0a1628] px-4 py-10 text-center text-white sm:px-6 sm:text-left">
@@ -200,8 +200,8 @@ export function KnockoutBracketView({
           </p>
         </header>
         <p className="px-6 py-16 text-center text-gray-300">
-          Bracket opens once every group stage match is finished. Check back
-          soon!
+          Bracket locked — Round of 32 has started. Picks can no longer be
+          changed.
         </p>
       </div>
     );

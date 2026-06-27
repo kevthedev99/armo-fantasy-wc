@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Nav } from "@/components/Nav";
 import { UserPicksView } from "@/components/UserPicksView";
+import { isKnockoutBracketOpen } from "@/lib/knockout-bracket";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import { normalizeUsername } from "@/lib/username";
@@ -41,13 +42,11 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     { data: allProfiles },
     { data: picks },
     { data: matches },
-    { data: settings },
     { data: currentProfile },
   ] = await Promise.all([
     supabase.from("profiles").select("*"),
     supabase.from("picks").select("*").eq("user_id", playerProfile.id),
     supabase.from("matches").select("*").order("kickoff_at", { ascending: true }),
-    supabase.from("app_settings").select("*").eq("id", 1).single(),
     user
       ? supabase
           .from("profiles")
@@ -75,7 +74,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         rank={rank}
         picks={picks ?? []}
         matches={matches ?? []}
-        knockoutUnlocked={settings?.knockout_unlocked ?? false}
+        knockoutUnlocked={isKnockoutBracketOpen(matches ?? [])}
         isCurrentUser={user?.id === playerProfile.id}
       />
     </>

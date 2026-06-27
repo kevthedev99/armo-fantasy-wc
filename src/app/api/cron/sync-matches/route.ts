@@ -434,10 +434,19 @@ export async function GET(request: Request) {
   }
 
   const nowIso = new Date().toISOString();
+
+  const { count: knockoutCount } = await supabase
+    .from("matches")
+    .select("id", { count: "exact", head: true })
+    .eq("stage", "knockout");
+
+  const knockoutUnlocked =
+    groupComplete || (knockoutCount ?? 0) > 0;
+
   await supabase
     .from("app_settings")
     .update({
-      knockout_unlocked: groupComplete,
+      knockout_unlocked: knockoutUnlocked,
       group_stage_complete: groupComplete,
       last_sync_at: nowIso,
       last_full_sync_at: fullSync ? nowIso : settings?.last_full_sync_at ?? null,

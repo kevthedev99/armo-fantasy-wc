@@ -102,6 +102,17 @@ export function isKnockoutBracketLocked(
   return now.getTime() >= getCanonicalRoundOf32Start().getTime();
 }
 
+/**
+ * NCAA-style: players fill the knockout bracket any time before Round of 32
+ * locks — they do not need to wait for every group stage match to finish.
+ */
+export function isKnockoutBracketOpen(
+  matches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[],
+  now = new Date()
+): boolean {
+  return !isKnockoutBracketLocked(matches, now);
+}
+
 export function isPickLocked(
   match: Pick<Match, "stage" | "round" | "kickoff_at" | "status">,
   allMatches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[],

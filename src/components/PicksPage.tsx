@@ -6,16 +6,16 @@ import { getMatchBucket } from "@/lib/match-status";
 import {
   formatRoundOf32StartLabel,
   isKnockoutBracketLocked,
+  isKnockoutBracketOpen,
   isPickLocked,
 } from "@/lib/knockout-bracket";
 import { isMatchFinished } from "@/lib/scoring";
-import type { AppSettings, Match, Pick } from "@/lib/types";
+import type { Match, Pick } from "@/lib/types";
 import { MatchCard } from "./MatchCard";
 
 interface PicksPageProps {
   matches: Match[];
   picks: Pick[];
-  settings: AppSettings;
 }
 
 const KNOCKOUT_ROUNDS = [
@@ -56,7 +56,7 @@ function sortPast(matches: Match[]): Match[] {
     );
 }
 
-export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageProps) {
+export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
   const [picks, setPicks] = useState(initialPicks);
   const [tab, setTab] = useState<"group" | "knockout">("group");
   const [view, setView] = useState<PicksView>("upcoming");
@@ -77,6 +77,7 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
       : sortUpcoming(stageMatches, matches);
 
   const bracketLocked = isKnockoutBracketLocked(matches);
+  const bracketOpen = isKnockoutBracketOpen(matches);
   const ro32StartLabel = formatRoundOf32StartLabel();
 
   const lockedWithoutPick = visibleMatches.filter(
@@ -114,9 +115,7 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
         Round of 32 starts on {ro32StartLabel}.
       </p>
 
-      {tab === "knockout" &&
-        settings.knockout_unlocked &&
-        !bracketLocked && (
+      {tab === "knockout" && bracketOpen && !bracketLocked && (
           <p className="border-b border-[#FF007A]/20 bg-[#FF007A]/5 px-4 py-2 text-center text-xs font-medium text-[#c4005f] sm:px-6 sm:text-left">
             Bracket open — submit every knockout pick before {ro32StartLabel}.
           </p>
@@ -169,17 +168,17 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
         <button
           type="button"
           onClick={() => setTab("knockout")}
-          disabled={!settings.knockout_unlocked}
+          disabled={!bracketOpen}
           className={`rounded-full px-5 py-2 text-xs font-bold uppercase ${
             tab === "knockout"
               ? "bg-[#FF007A] text-white"
               : "bg-white text-gray-700 ring-1 ring-gray-300"
-          } ${!settings.knockout_unlocked ? "cursor-not-allowed opacity-50" : ""}`}
+          } ${!bracketOpen ? "cursor-not-allowed opacity-50" : ""}`}
         >
           Knockout
-          {!settings.knockout_unlocked && " (locked)"}
+          {!bracketOpen && " (locked)"}
         </button>
-        {tab === "knockout" && settings.knockout_unlocked && (
+        {tab === "knockout" && bracketOpen && (
           <Link
             href="/bracket"
             className="rounded-full bg-[#FFD700] px-4 py-2 text-xs font-black uppercase tracking-wide text-black transition hover:opacity-90"
@@ -187,7 +186,7 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
             Bracket View
           </Link>
         )}
-        {tab === "knockout" && settings.knockout_unlocked && (
+        {tab === "knockout" && bracketOpen && (
           <div className="flex w-full flex-wrap justify-center gap-2 sm:w-auto sm:justify-start">
             {KNOCKOUT_ROUNDS.filter((r) =>
               knockoutMatches.some((m) => m.round === r)
@@ -203,10 +202,9 @@ export function PicksPage({ matches, picks: initialPicks, settings }: PicksPageP
         )}
       </div>
 
-      {tab === "knockout" && !settings.knockout_unlocked ? (
+      {tab === "knockout" && !bracketOpen ? (
         <p className="px-6 py-12 text-center text-gray-600">
-          Knockout picks unlock once every group stage match is finished — then
-          fill your full bracket before Round of 32 starts.
+          Knockout bracket locked — Round of 32 has started.
         </p>
       ) : visibleMatches.length === 0 ? (
         <p className="px-6 py-12 text-center text-gray-600">
