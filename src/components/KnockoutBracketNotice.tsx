@@ -78,17 +78,19 @@ export function KnockoutBracketNotice({
             id="knockout-bracket-notice-title"
             className="mt-1 text-2xl font-black uppercase tracking-tight text-white"
           >
-            Fill In Your Bracket
+            Knockout Brackets Are Out
           </h2>
         </div>
 
         <div className="p-5 sm:p-6">
           <p className="text-center text-sm leading-relaxed text-gray-700">
-            Submit your{" "}
-            <strong className="text-gray-900">full NCAA-style bracket</strong> —
-            winner and score for every knockout match — before lock at{" "}
-            <strong className="text-gray-900">{deadlineLabel}</strong>. Group
-            stage games can still be in progress.
+            The knockout bracket is open. You must submit{" "}
+            <strong className="text-gray-900">
+              all your picks for the entire tournament
+            </strong>{" "}
+            — Round of 32 through the Final — before{" "}
+            <strong className="text-gray-900">{deadlineLabel}</strong>. The
+            bracket locks at that time and no picks can be edited after.
           </p>
 
           <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center">
@@ -102,8 +104,7 @@ export function KnockoutBracketNotice({
 
           {needsPicks && (
             <p className="mt-3 text-center text-xs font-medium text-[#FF007A]">
-              Pick South Africa vs Canada and fill the rest of your bracket before
-              the deadline tonight!
+              Pick every match — winner and score — before the deadline.
             </p>
           )}
 
@@ -120,7 +121,7 @@ export function KnockoutBracketNotice({
               onClick={dismiss}
               className="min-h-11 flex-1 rounded-full bg-[#FF007A] px-4 py-3 text-center text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:opacity-90"
             >
-              Fill In Bracket
+              Submit Picks
             </Link>
           </div>
 
