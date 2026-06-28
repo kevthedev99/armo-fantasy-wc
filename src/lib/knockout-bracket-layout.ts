@@ -1,4 +1,9 @@
 import { bracketSlotPickKey } from "@/lib/bracket-slot-picks";
+import {
+  feederMatchLabel,
+  getFeederPair,
+  getFeederRoundId,
+} from "@/lib/knockout-bracket-feeders";
 import { normalizeKnockoutRoundLabel } from "@/lib/knockout-bracket";
 import { getKnockoutBasePoints } from "@/lib/scoring";
 import type { BracketSlotPick, Match, Pick as UserPick } from "@/lib/types";
@@ -111,6 +116,23 @@ function placeholderLabels(
     };
   }
 
+  const feederRoundId = getFeederRoundId(column.id);
+  const pair = getFeederPair(column.id, slotIndex);
+
+  if (feederRoundId && pair) {
+    const labelFor = (feederSlot: number) => {
+      const label = feederMatchLabel(feederRoundId, feederSlot);
+      return column.id === "third"
+        ? label.replace("Winner", "Runner-up")
+        : label;
+    };
+
+    return {
+      homeLabel: labelFor(pair[0]),
+      awayLabel: labelFor(pair[1]),
+    };
+  }
+
   const feederRound =
     column.id === "r16"
       ? "Ro32"
@@ -197,28 +219,59 @@ function winnerFromSlotPick(
   return null;
 }
 
+function loserFromMatchPick(
+  match: Match,
+  pick: UserPick | undefined
+): BracketTeamPreview | null {
+  if (!pick) return null;
+  if (pick.picked_winner === "home") return teamPreviewFromMatchSide(match, "away");
+  if (pick.picked_winner === "away") return teamPreviewFromMatchSide(match, "home");
+  return null;
+}
+
+function loserFromSlotPick(
+  slotPick: BracketSlotPick | undefined,
+  homeTeam: BracketTeamPreview | null,
+  awayTeam: BracketTeamPreview | null
+): BracketTeamPreview | null {
+  if (!slotPick || !homeTeam || !awayTeam) return null;
+  if (slotPick.picked_winner === "home") return awayTeam;
+  if (slotPick.picked_winner === "away") return homeTeam;
+  return null;
+}
+
 function buildColumnSlots(
   column: BracketRoundColumn,
   roundMatches: Match[],
   feederWinners: (BracketTeamPreview | null)[] | null,
+  feederLosers: (BracketTeamPreview | null)[] | null,
   pickMap: Map<number, UserPick>,
   slotPickMap: Map<string, BracketSlotPick>
-): { slots: BracketMatchSlot[]; winners: (BracketTeamPreview | null)[] } {
+): {
+  slots: BracketMatchSlot[];
+  winners: (BracketTeamPreview | null)[];
+  losers: (BracketTeamPreview | null)[];
+} {
   const slots: BracketMatchSlot[] = [];
   const winners: (BracketTeamPreview | null)[] = [];
+  const losers: (BracketTeamPreview | null)[] = [];
+  const useLosers = column.id === "third";
+  const feeders = useLosers ? feederLosers : feederWinners;
 
   for (let i = 0; i < column.expectedSlots; i++) {
     const match = roundMatches[i];
+    const pair = getFeederPair(column.id, i);
+
     if (match) {
       const pick = pickMap.get(match.id);
       slots.push({ kind: "match", match, slotIndex: i, columnId: column.id });
       winners.push(winnerFromMatchPick(match, pick));
+      losers.push(loserFromMatchPick(match, pick));
     } else {
       const labels = placeholderLabels(column, i);
-      const homeTeam = feederWinners?.[i * 2] ?? null;
-      const awayTeam = feederWinners?.[i * 2 + 1] ?? null;
+      const homeTeam = pair ? feeders?.[pair[0]] ?? null : null;
+      const awayTeam = pair ? feeders?.[pair[1]] ?? null : null;
       const slotPick = slotPickMap.get(bracketSlotPickKey(column.id, i));
-      // Pick when both teams are known from your bracket path (half-bracket fill).
       const pickable =
         column.id !== "ro32" && !!homeTeam && !!awayTeam;
 
@@ -236,10 +289,13 @@ function buildColumnSlots(
       winners.push(
         winnerFromSlotPick(slotPick, homeTeam, awayTeam)
       );
+      losers.push(
+        loserFromSlotPick(slotPick, homeTeam, awayTeam)
+      );
     }
   }
 
-  return { slots, winners };
+  return { slots, winners, losers };
 }
 
 export function getBracketColumns(
@@ -260,17 +316,20 @@ export function getBracketColumns(
     ])
   );
   let feederWinners: (BracketTeamPreview | null)[] | null = null;
+  let feederLosers: (BracketTeamPreview | null)[] | null = null;
 
   return KNOCKOUT_ROUND_COLUMNS.map((column) => {
     const roundMatches = grouped.get(column.id) ?? [];
-    const { slots, winners } = buildColumnSlots(
+    const { slots, winners, losers } = buildColumnSlots(
       column,
       roundMatches,
       feederWinners,
+      feederLosers,
       pickMap,
       slotPickMap
     );
     feederWinners = winners;
+    feederLosers = losers;
 
     const sampleRound = column.apiRounds[0];
     return {
