@@ -1,5 +1,6 @@
 import type { BracketRoundColumn } from "@/lib/knockout-bracket-layout";
 import { KNOCKOUT_ROUND_COLUMNS } from "@/lib/knockout-bracket-layout";
+import { collectRo32FeederSlotIndices } from "@/lib/knockout-bracket-feeders";
 import type { BracketSlotPick, BracketSlotRoundId, Match, Pick as UserPick, PickWinner } from "@/lib/types";
 
 const VIRTUAL_MATCH_ID_BASE: Record<string, number> = {
@@ -39,21 +40,7 @@ export function getRo32FeederSlotIndices(
   roundId: string,
   slotIndex: number
 ): number[] {
-  if (roundId === "ro32") return [slotIndex];
-
-  const slotsPerRo32Block =
-    roundId === "r16"
-      ? 2
-      : roundId === "qf"
-        ? 4
-        : roundId === "sf"
-          ? 8
-          : roundId === "final" || roundId === "third"
-            ? 16
-            : 0;
-
-  const start = slotIndex * slotsPerRo32Block;
-  return Array.from({ length: slotsPerRo32Block }, (_, i) => start + i);
+  return collectRo32FeederSlotIndices(roundId, slotIndex);
 }
 
 export function areRo32FeedersSynced(
