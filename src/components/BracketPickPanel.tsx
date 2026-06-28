@@ -28,7 +28,7 @@ interface BracketPickPanelProps {
   locked: boolean;
   onClose: () => void;
   onSaved: (pick: Pick) => void;
-  onSlotSaved: (slotPick: BracketSlotPick) => void;
+  onSlotSaved: (slotPick: BracketSlotPick) => void | Promise<void>;
 }
 
 function BracketPickForm({
@@ -93,20 +93,27 @@ function BracketPickForm({
         return;
       }
 
-      onSlotSaved(
-        buildBracketSlotPick(
-          userId,
-          virtualSlot.roundId as BracketSlotRoundId,
-          virtualSlot.slotIndex,
-          match,
-          pickedWinner,
-          homeScorePred,
-          awayScorePred,
-          predictsPenalties
-        )
-      );
-      setSaving(false);
-      onClose();
+      try {
+        await onSlotSaved(
+          buildBracketSlotPick(
+            userId,
+            virtualSlot.roundId as BracketSlotRoundId,
+            virtualSlot.slotIndex,
+            match,
+            pickedWinner,
+            homeScorePred,
+            awayScorePred,
+            predictsPenalties
+          )
+        );
+        onClose();
+      } catch (err) {
+        setError(
+          err instanceof Error ? err.message : "Failed to save bracket pick."
+        );
+      } finally {
+        setSaving(false);
+      }
       return;
     }
 

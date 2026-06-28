@@ -1,4 +1,4 @@
-import { areRo32FeedersSynced, bracketSlotPickKey } from "@/lib/bracket-slot-picks";
+import { bracketSlotPickKey } from "@/lib/bracket-slot-picks";
 import { normalizeKnockoutRoundLabel } from "@/lib/knockout-bracket";
 import { getKnockoutBasePoints } from "@/lib/scoring";
 import type { BracketSlotPick, Match, Pick as UserPick } from "@/lib/types";
@@ -205,8 +205,7 @@ function buildColumnSlots(
   roundMatches: Match[],
   feederWinners: (BracketTeamPreview | null)[] | null,
   pickMap: Map<number, UserPick>,
-  slotPickMap: Map<string, BracketSlotPick>,
-  ro32MatchesBySlot: (Match | undefined)[]
+  slotPickMap: Map<string, BracketSlotPick>
 ): { slots: BracketMatchSlot[]; winners: (BracketTeamPreview | null)[] } {
   const slots: BracketMatchSlot[] = [];
   const winners: (BracketTeamPreview | null)[] = [];
@@ -222,11 +221,9 @@ function buildColumnSlots(
       const homeTeam = feederWinners?.[i * 2] ?? null;
       const awayTeam = feederWinners?.[i * 2 + 1] ?? null;
       const slotPick = slotPickMap.get(bracketSlotPickKey(column.id, i));
+      // Pick when both teams are known from your bracket path (half-bracket fill).
       const pickable =
-        column.id !== "ro32" &&
-        !!homeTeam &&
-        !!awayTeam &&
-        areRo32FeedersSynced(column.id, i, ro32MatchesBySlot);
+        column.id !== "ro32" && !!homeTeam && !!awayTeam;
 
       slots.push({
         kind: "placeholder",
@@ -265,11 +262,6 @@ export function getBracketColumns(
       pick,
     ])
   );
-  const ro32Matches = grouped.get("ro32") ?? [];
-  const ro32SlotCount = KNOCKOUT_ROUND_COLUMNS[0].expectedSlots;
-  const ro32MatchesBySlot = Array.from({ length: ro32SlotCount }, (_, index) =>
-    ro32Matches[index]
-  );
   let feederWinners: (BracketTeamPreview | null)[] | null = null;
 
   return KNOCKOUT_ROUND_COLUMNS.map((column) => {
@@ -279,8 +271,7 @@ export function getBracketColumns(
       roundMatches,
       feederWinners,
       pickMap,
-      slotPickMap,
-      ro32MatchesBySlot
+      slotPickMap
     );
     feederWinners = winners;
 

@@ -53,8 +53,7 @@ export async function POST(request: Request) {
     if (isBracketSlotPicksTableError(error.message)) {
       return NextResponse.json(
         {
-          error:
-            "Bracket sync is not enabled yet — run Supabase migration 013_bracket_slot_picks.sql.",
+          error: "Could not save bracket pick right now. Please try again.",
           tableMissing: true,
         },
         { status: 503 }

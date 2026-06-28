@@ -219,11 +219,7 @@ function BracketSlotCard({
           <PlaceholderTeam team={slot.awayTeam} fallbackLabel={slot.awayLabel} />
         </div>
         <p className="mt-2 text-center text-[10px] text-gray-400">
-          {hasBoth
-            ? "Pick earlier Round of 32 games on this side to unlock"
-            : hasAny
-              ? "Pick earlier matches to fill this slot"
-              : "Matches must finish for this to be determined"}
+          Matches must finish for this to be determined
         </p>
       </div>
     );
@@ -390,26 +386,24 @@ export function KnockoutBracketView({
   }
 
   async function handleSlotSaved(slotPick: BracketSlotPick) {
-    if (!userId) return;
-
-    try {
-      const saved = await saveRemoteBracketSlotPick(slotPick);
-      setSlotPicks((prev) => {
-        const index = prev.findIndex(
-          (item) =>
-            item.round_id === saved.round_id &&
-            item.slot_index === saved.slot_index
-        );
-        if (index >= 0) {
-          const next = [...prev];
-          next[index] = saved;
-          return next;
-        }
-        return [...prev, saved];
-      });
-    } catch (err) {
-      console.error("Failed to save bracket slot pick:", err);
+    if (!userId) {
+      throw new Error("Sign in to save bracket picks.");
     }
+
+    const saved = await saveRemoteBracketSlotPick(slotPick);
+    setSlotPicks((prev) => {
+      const index = prev.findIndex(
+        (item) =>
+          item.round_id === saved.round_id &&
+          item.slot_index === saved.slot_index
+      );
+      if (index >= 0) {
+        const next = [...prev];
+        next[index] = saved;
+        return next;
+      }
+      return [...prev, saved];
+    });
   }
 
   function openSlot(slot: Extract<BracketMatchSlot, { kind: "placeholder" }>) {
