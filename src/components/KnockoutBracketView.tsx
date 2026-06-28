@@ -429,8 +429,8 @@ export function KnockoutBracketView({
             Knockout Bracket
           </h1>
           <p className="mt-2 text-sm text-white/70">
-            NCAA March Madness style — fill every knockout match before Round of
-            32 kicks off.
+            NCAA March Madness style — fill every knockout match before the
+            bracket deadline.
           </p>
         </header>
         <p className="px-6 py-16 text-center text-gray-300">
@@ -455,8 +455,8 @@ export function KnockoutBracketView({
             </h1>
             <p className="mt-2 max-w-xl text-sm text-white/70">
               Pick the winner and score for every knockout match. Fill your full
-              bracket before 12:00 PM Pacific tomorrow — same points as regular
-              picks, added to your standings total.
+              bracket before {formatRoundOf32Deadline(lockAt)} — same points as
+              regular picks, added to your standings total.
             </p>
           </div>
           <div className="shrink-0 rounded-xl border border-[#FF007A]/40 bg-[#FF007A]/10 px-4 py-3 text-center md:text-right">
@@ -465,7 +465,7 @@ export function KnockoutBracketView({
             </p>
             <p className="mt-0.5 text-sm font-bold text-white">
               {bracketLocked
-                ? "Round of 32 has started"
+                ? "Deadline passed"
                 : formatRoundOf32Deadline(lockAt)}
             </p>
           </div>
@@ -508,8 +508,8 @@ export function KnockoutBracketView({
       {!bracketLocked && progress.picksOnSynced < progress.syncedFixtures && (
         <div className="border-b border-[#FF007A]/20 bg-[#FF007A]/10 px-4 py-2 text-center text-xs font-medium text-[#ffb3d9] sm:px-6">
           Submit picks for all loaded matches before{" "}
-          {formatRoundOf32Deadline(lockAt)} — entire bracket locks at 12:00 PM
-          Pacific (or first Round of 32 kickoff if earlier).
+          {formatRoundOf32Deadline(lockAt)} — the entire bracket locks at the
+          deadline.
         </div>
       )}
 

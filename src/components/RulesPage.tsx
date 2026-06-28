@@ -1,5 +1,8 @@
 import Link from "next/link";
-import { formatRoundOf32StartLabel } from "@/lib/knockout-bracket";
+import {
+  formatRoundOf32Deadline,
+  getCanonicalRoundOf32LockAt,
+} from "@/lib/knockout-bracket";
 import { SCORING } from "@/lib/scoring";
 
 const KNOCKOUT_ROUNDS = [
@@ -12,7 +15,7 @@ const KNOCKOUT_ROUNDS = [
 ];
 
 export function RulesPage() {
-  const roundOf32Start = formatRoundOf32StartLabel();
+  const bracketDeadline = formatRoundOf32Deadline(getCanonicalRoundOf32LockAt());
 
   return (
     <div className="min-h-screen bg-black text-white">
@@ -129,11 +132,10 @@ export function RulesPage() {
                 once every group stage match is finished — like NCAA March
                 Madness, you must submit{" "}
                 <strong className="text-white">all knockout picks</strong>{" "}
-                before the <strong className="text-white">Round of 32</strong>{" "}
-                begins on{" "}
-                <strong className="text-white">{roundOf32Start}</strong>. When
-                the first Round of 32 match kicks off, your entire knockout
-                bracket locks permanently.
+                before the bracket deadline on{" "}
+                <strong className="text-white">{bracketDeadline}</strong>. The
+                entire knockout bracket locks at that time — even if Round of 32
+                matches are already in progress.
               </span>
             </li>
             <li className="flex gap-3">
@@ -235,7 +237,7 @@ export function RulesPage() {
                   that team is crossed out — but other teams you picked can
                   still score in later rounds.
                 </strong>{" "}
-                Fill your full bracket before Round of 32 starts — then it locks.
+                Fill your full bracket before the deadline — then it locks.
               </p>
             </div>
           </section>
@@ -254,12 +256,12 @@ export function RulesPage() {
             </li>
             <li>
               • You fill out your entire bracket — Round of 32 through the Final
-              — before <strong className="text-white">{roundOf32Start}</strong>.
+              — before <strong className="text-white">{bracketDeadline}</strong>.
             </li>
             <li>
               • Unlike group stage picks (which lock match-by-match),{" "}
               <strong className="text-white">all knockout picks lock together</strong>{" "}
-              when Round of 32 starts. No edits after that, even for later
+              at the bracket deadline. No edits after that, even for later
               rounds.
             </li>
             <li>
@@ -274,9 +276,8 @@ export function RulesPage() {
               if you had the wrong opponent in that slot.
             </li>
             <li>
-              • Round of 32 starts <strong className="text-white">{roundOf32Start}</strong>{" "}
-              (Pacific). The Picks page popup will remind you before the bracket
-              locks.
+              • Bracket deadline: <strong className="text-white">{bracketDeadline}</strong>.
+              The Picks page popup will remind you before the bracket locks.
             </li>
           </ul>
         </section>
@@ -291,8 +292,8 @@ export function RulesPage() {
             </p>
             <p>• Group picks lock individually when each match kicks off.</p>
             <p>
-              • Knockout picks all lock when Round of 32 starts on{" "}
-              {roundOf32Start} — fill the full bracket before then.
+              • Knockout picks all lock at {bracketDeadline} — fill the full
+              bracket before then.
             </p>
             <p>• Points are calculated automatically after each match ends.</p>
             <p>• Streak tracks consecutive correct picks.</p>

@@ -1,11 +1,10 @@
-import { format } from "date-fns";
 import { isMatchFinished, isMatchLocked } from "@/lib/scoring";
 import type { Match } from "@/lib/types";
 
 export const ROUND_OF_32_ROUNDS = new Set(["Round of 32", "8th Finals"]);
 
-/** Official Round of 32 bracket lock — 12:00 PM Pacific, June 28, 2026. */
-export const ROUND_OF_32_LOCK_DATE = "2026-06-28";
+/** Official knockout bracket lock — 11:59 PM Pacific, June 29, 2026. */
+export const ROUND_OF_32_LOCK_DATE = "2026-06-29";
 
 const ROUND_OF_32_LABEL_FORMATTER = new Intl.DateTimeFormat("en-US", {
   timeZone: "America/Los_Angeles",
@@ -45,9 +44,9 @@ export function getKnockoutStageBadgeLabel(
 /** @deprecated Use ROUND_OF_32_LOCK_DATE */
 export const ROUND_OF_32_START_DATE = ROUND_OF_32_LOCK_DATE;
 
-/** 12:00 PM Pacific June 28, 2026 — entire knockout bracket locks. */
+/** 11:59 PM Pacific on lock date — entire knockout bracket locks. */
 export function getCanonicalRoundOf32LockAt(): Date {
-  return new Date(`${ROUND_OF_32_LOCK_DATE}T12:00:00-07:00`);
+  return new Date(`${ROUND_OF_32_LOCK_DATE}T23:59:59.999-07:00`);
 }
 
 /** @deprecated Use getCanonicalRoundOf32LockAt */
@@ -75,14 +74,12 @@ export function getRoundOf32Kickoff(
   return new Date(earliest);
 }
 
-/** Bracket deadline — official lock time or earlier synced Ro32 kickoff. */
+/** Bracket deadline — official lock time (extended; not tied to first Ro32 kickoff). */
 export function getRoundOf32LockAt(
-  matches: Pick<Match, "stage" | "round" | "kickoff_at">[]
+  matches?: Pick<Match, "stage" | "round" | "kickoff_at">[]
 ): Date {
-  const canonical = getCanonicalRoundOf32LockAt();
-  const kickoff = getRoundOf32Kickoff(matches);
-  if (!kickoff) return canonical;
-  return kickoff.getTime() < canonical.getTime() ? kickoff : canonical;
+  void matches;
+  return getCanonicalRoundOf32LockAt();
 }
 
 /** @deprecated Use getRoundOf32LockAt for timing and formatRoundOf32StartLabel for copy. */
@@ -92,8 +89,18 @@ export function resolveRoundOf32Kickoff(
   return getRoundOf32LockAt(matches);
 }
 
-export function formatRoundOf32Deadline(kickoff: Date): string {
-  return format(kickoff, "EEEE, MMMM d, yyyy 'at' h:mm a");
+export function formatRoundOf32Deadline(deadline: Date): string {
+  const formatted = new Intl.DateTimeFormat("en-US", {
+    timeZone: "America/Los_Angeles",
+    weekday: "long",
+    month: "long",
+    day: "numeric",
+    year: "numeric",
+    hour: "numeric",
+    minute: "2-digit",
+    hour12: true,
+  }).format(deadline);
+  return `${formatted} Pacific`;
 }
 
 /** Every group-stage fixture in the DB has finished. */
@@ -134,24 +141,17 @@ export function isKnockoutChallengeActive(
 }
 
 /**
- * NCAA-style bracket lock: entire bracket closes at 12 PM Pacific June 28
- * (or earlier if Round of 32 kicks off before then).
+ * NCAA-style bracket lock: entire bracket closes at 11:59 PM Pacific on lock date.
+ * Individual Ro32 kickoffs do not close the bracket early.
  */
 export function isKnockoutBracketLocked(
   matches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[],
   now = new Date()
 ): boolean {
-  if (now.getTime() >= getRoundOf32LockAt(matches).getTime()) {
-    return true;
-  }
-
-  const ro32 = matches.filter(
-    (m) => m.stage === "knockout" && isRoundOf32Match(m)
-  );
-  return ro32.some((m) => isMatchLocked(m, now));
+  return now.getTime() >= getRoundOf32LockAt(matches).getTime();
 }
 
-/** Bracket picks allowed until 12 PM Pacific lock (or earlier Ro32 kickoff). */
+/** Bracket picks allowed until the official Pacific deadline. */
 export function isKnockoutBracketOpen(
   matches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[],
   now = new Date()
@@ -178,7 +178,7 @@ export function getPickLockMessage(
     match.stage === "knockout" &&
     isKnockoutBracketLocked(allMatches)
   ) {
-    return "Locked — knockout bracket closed. Round of 32 has started.";
+    return "Locked — knockout bracket closed. The deadline has passed.";
   }
 
   if (isMatchFinished(match.status)) {

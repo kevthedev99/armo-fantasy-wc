@@ -4,7 +4,8 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { getMatchBucket } from "@/lib/match-status";
 import {
-  formatRoundOf32StartLabel,
+  formatRoundOf32Deadline,
+  getRoundOf32LockAt,
   isKnockoutBracketLocked,
   isKnockoutBracketOpen,
   isPickLocked,
@@ -78,7 +79,7 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
 
   const bracketLocked = isKnockoutBracketLocked(matches);
   const bracketOpen = isKnockoutBracketOpen(matches);
-  const ro32StartLabel = formatRoundOf32StartLabel();
+  const bracketDeadlineLabel = formatRoundOf32Deadline(getRoundOf32LockAt(matches));
 
   const lockedWithoutPick = visibleMatches.filter(
     (m) => isPickLocked(m, matches) && !pickMap.has(m.id)
@@ -112,12 +113,12 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
         exact score). Knockout: winner + score for every match — round points
         plus +5 for exact score — with Sleeper-style team chaining (a team you
         picked to win and lost is crossed out). Fill your full bracket before
-        Round of 32 starts on {ro32StartLabel}.
+        the deadline on {bracketDeadlineLabel}.
       </p>
 
       {tab === "knockout" && bracketOpen && !bracketLocked && (
           <p className="border-b border-[#FF007A]/20 bg-[#FF007A]/5 px-4 py-2 text-center text-xs font-medium text-[#c4005f] sm:px-6 sm:text-left">
-            Bracket open — submit every knockout pick before {ro32StartLabel}.
+            Bracket open — submit every knockout pick before {bracketDeadlineLabel}.
           </p>
         )}
 
@@ -204,7 +205,7 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
 
       {tab === "knockout" && !bracketOpen ? (
         <p className="px-6 py-12 text-center text-gray-600">
-          Knockout bracket locked — Round of 32 has started.
+          Knockout bracket locked — the deadline has passed.
         </p>
       ) : visibleMatches.length === 0 ? (
         <p className="px-6 py-12 text-center text-gray-600">

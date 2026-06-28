@@ -55,7 +55,7 @@ export async function POST(request: Request) {
   if (isPickLocked(match, allMatches ?? [])) {
     const knockoutMessage =
       match.stage === "knockout"
-        ? "Knockout bracket is locked — Round of 32 has started. You cannot add or change knockout picks."
+        ? "Knockout bracket is locked — the deadline has passed. You cannot add or change knockout picks."
         : "Picks are locked — this match has started. You cannot add or change a pick.";
 
     return NextResponse.json({ error: knockoutMessage }, { status: 403 });
