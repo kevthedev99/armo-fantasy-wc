@@ -208,7 +208,7 @@ export function RulesPage() {
               </div>
               <div className="flex items-center justify-between rounded-lg border border-[#0056b3]/30 bg-[#0056b3]/10 px-4 py-3">
                 <span className="text-sm text-gray-300">
-                  Penalties pick — round points if match goes to pens
+                  Penalties pick — round points if winner is right
                 </span>
                 <span className="text-right text-xs font-black text-[#4da3ff]">
                   Ro32 +4 · R16 +6 · QF +8 · SF +16 · Final +24
@@ -225,12 +225,15 @@ export function RulesPage() {
               <p className="text-xs text-gray-500">
                 Pick winner and score for every knockout match, or choose{" "}
                 <strong className="text-gray-300">Penalties</strong> and only
-                name the shootout winner — no pen score needed. If the match
-                goes to penalties, you earn that round&apos;s points (e.g. QF
-                +8); correct shootout winner adds +
-                {SCORING.knockout.penaltiesWinnerBonus} more. On regular score
-                picks, deeper rounds pay more for the correct winner; nail the
-                exact score for +5 more.
+                name the shootout winner — no pen score needed. If your team
+                wins the match (whether in regulation, extra time, or pens) you
+                earn that round&apos;s base points (e.g. QF +8); if it actually
+                goes to penalties and you nailed the shootout winner, add +
+                {SCORING.knockout.penaltiesWinnerBonus} more. Penalties picks
+                are not eligible for the +5 exact-score bonus — you didn&apos;t
+                predict a regulation score. On regular score picks, deeper
+                rounds pay more for the correct winner; nail the exact score
+                for +5 more.
                 <strong className="text-gray-300">
                   {" "}
                   Sleeper-style chaining: if a team you picked to win loses,
