@@ -6,6 +6,7 @@ import {
   formatPickSummary,
   getKnockoutBasePoints,
   normalizeGroupScore,
+  SCORING,
   validateKnockoutPick,
 } from "@/lib/scoring";
 import {
@@ -176,7 +177,7 @@ function BracketPickForm({
             ? "Bracket path · "
             : `${formatKickoffPST(match.kickoff_at)} · `}
           {predictsPenalties
-            ? "Round pts if pens · +5 winner"
+            ? `+${points} winner · +${SCORING.knockout.penaltiesWinnerBonus} if pens`
             : `+${points} winner · +5 exact`}
         </p>
       </div>

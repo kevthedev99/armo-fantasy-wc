@@ -181,10 +181,14 @@ export function scorePick(
   if (!winner) return 0;
 
   if (match.stage === "knockout" && pickPredictsPenalties(pick)) {
-    if (!isMatchDecidedByPenalties(match.status)) return 0;
+    // Wrong winner = 0 points either way.
+    if (pick.picked_winner !== winner) return 0;
 
+    // Right winner — always award the round's base points. The +5 exact-score
+    // bonus is unavailable on penalties picks (no score predicted), and the
+    // penalties-winner bonus only applies when the match actually went to pens.
     let points = getKnockoutBasePoints(match.round);
-    if (pick.picked_winner === winner) {
+    if (isMatchDecidedByPenalties(match.status)) {
       points += SCORING.knockout.penaltiesWinnerBonus;
     }
     return points;
