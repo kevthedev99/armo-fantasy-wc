@@ -8,11 +8,15 @@ interface NavProps {
   username?: string;
 }
 
+/**
+ * Knockout bracket has replaced the standalone Picks tab — the bracket view
+ * covers all knockout picks and the popup nudges users straight to it. The
+ * /picks route is still reachable by direct URL for group-stage picks.
+ */
 const MAIN_LINKS: { href: string; label: string }[] = [
   { href: "/", label: "Standings" },
   { href: "/games", label: "Games" },
-  { href: "/picks", label: "Picks" },
-  { href: "/bracket", label: "Bracket" },
+  { href: "/bracket", label: "Picks" },
   { href: "/rules", label: "Rules" },
   { href: "/casino", label: "Roulette" },
   { href: "/casino/blackjack", label: "Blackjack" },
