@@ -337,6 +337,26 @@ export function KnockoutBracketView({
   const activeColumn =
     columns.find(({ column }) => column.id === activeColumnId) ?? columns[0];
 
+  const activeColumnSummary = columnSummaries.find(
+    (s) => s.columnId === activeColumn?.column.id
+  );
+  const activeColumnIdx = columns.findIndex(
+    ({ column }) => column.id === activeColumn?.column.id
+  );
+  const nextColumnSummary =
+    activeColumnIdx >= 0 ? columnSummaries[activeColumnIdx + 1] : undefined;
+  const activeColumnComplete =
+    !!activeColumnSummary &&
+    activeColumnSummary.pickable > 0 &&
+    activeColumnSummary.picked >= activeColumnSummary.pickable;
+
+  function goToColumn(columnId: string) {
+    setActiveColumnId(columnId);
+    if (typeof window !== "undefined") {
+      window.scrollTo({ top: 0, behavior: "smooth" });
+    }
+  }
+
   function findNextPickableSlot(
     fromColumnId: string,
     fromSlotIndex: number | null
@@ -643,7 +663,7 @@ export function KnockoutBracketView({
                     slotIndex: -1,
                   })
                 }
-                disabled={bracketLocked}
+                disabled={bracketLocked || activeColumnComplete}
                 className="shrink-0 rounded-full bg-[#FF007A] px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white shadow disabled:opacity-50"
               >
                 Next pick →
@@ -675,6 +695,32 @@ export function KnockoutBracketView({
                 />
               ))}
             </div>
+
+            {activeColumnComplete && (
+              <div className="mt-6 rounded-2xl border border-[#32CD32]/40 bg-gradient-to-br from-[#0a4f1a]/40 to-[#0a1628] p-4 text-center">
+                <p className="text-[10px] font-black uppercase tracking-widest text-[#32CD32]">
+                  {activeColumn.column.label} complete
+                </p>
+                <p className="mt-1 text-sm font-bold text-white">
+                  {nextColumnSummary
+                    ? `Nice — every pick made. Continue to ${nextColumnSummary.label}.`
+                    : "You're all set — your bracket is complete!"}
+                </p>
+                {nextColumnSummary ? (
+                  <button
+                    type="button"
+                    onClick={() => goToColumn(nextColumnSummary.columnId)}
+                    className="mt-3 w-full rounded-full bg-gradient-to-r from-[#FF007A] to-[#FFD700] py-3 text-sm font-black uppercase tracking-widest text-white shadow-lg transition hover:opacity-95"
+                  >
+                    Next: {nextColumnSummary.label} →
+                  </button>
+                ) : (
+                  <p className="mt-3 text-xs font-bold uppercase tracking-widest text-[#FFD700]">
+                    🏆 Bracket complete
+                  </p>
+                )}
+              </div>
+            )}
           </section>
         )}
       </div>
@@ -682,16 +728,30 @@ export function KnockoutBracketView({
       {/* Desktop: full bracket tree */}
       <div className="hidden overflow-x-auto px-4 py-8 sm:px-6 md:block">
         <div className="mx-auto flex min-w-max max-w-none gap-4 md:gap-6">
-          {columns.map(({ column, slots, points }) => (
+          {columns.map(({ column, slots, points }) => {
+            const summary = columnSummaries.find((s) => s.columnId === column.id);
+            const isColumnComplete =
+              !!summary && summary.pickable > 0 && summary.picked >= summary.pickable;
+            return (
             <section
               key={column.id}
               className="flex w-[220px] shrink-0 flex-col sm:w-[240px]"
             >
-              <div className="mb-4 rounded-xl border border-white/10 bg-white/5 px-3 py-2 text-center backdrop-blur-sm">
+              <div
+                className={`mb-4 rounded-xl border px-3 py-2 text-center backdrop-blur-sm ${
+                  isColumnComplete
+                    ? "border-[#32CD32]/50 bg-[#32CD32]/10"
+                    : "border-white/10 bg-white/5"
+                }`}
+              >
                 <h2 className="text-xs font-black uppercase tracking-widest text-[#FFD700]">
+                  {isColumnComplete && "✓ "}
                   {column.label}
                 </h2>
                 <p className="mt-0.5 text-[10px] text-gray-400">
+                  {summary
+                    ? `${summary.picked}/${summary.pickable} picked · `
+                    : ""}
                   +{points} winner · +5 exact
                 </p>
               </div>
@@ -730,7 +790,8 @@ export function KnockoutBracketView({
                 ))}
               </div>
             </section>
-          ))}
+            );
+          })}
         </div>
       </div>
 
@@ -748,41 +809,53 @@ export function KnockoutBracketView({
         </Link>
       </div>
 
-      {activeMatch && (
-        <BracketPickPanel
-          match={activeMatch}
-          pick={pickMap.get(activeMatch.id)}
-          slotPick={activeSlotPick}
-          userId={userId ?? undefined}
-          locked={
-            isVirtualMatchId(activeMatch.id)
-              ? bracketLocked
-              : isPickLocked(activeMatch, matches)
-          }
-          onClose={closePickPanel}
-          onSaved={handleSaved}
-          onSlotSaved={handleSlotSaved}
-          onAdvanceToNext={() => {
-            const virtual = parseVirtualMatchSlot(activeMatch.id);
-            const from = virtual
-              ? { columnId: virtual.roundId, slotIndex: virtual.slotIndex }
-              : (() => {
-                  for (const { column, slots } of columns) {
-                    for (const slot of slots) {
-                      if (
-                        slot.kind === "match" &&
-                        slot.match.id === activeMatch.id
-                      ) {
-                        return { columnId: column.id, slotIndex: slot.slotIndex };
-                      }
+      {activeMatch &&
+        (() => {
+          const virtual = parseVirtualMatchSlot(activeMatch.id);
+          const from = virtual
+            ? { columnId: virtual.roundId, slotIndex: virtual.slotIndex }
+            : (() => {
+                for (const { column, slots } of columns) {
+                  for (const slot of slots) {
+                    if (
+                      slot.kind === "match" &&
+                      slot.match.id === activeMatch.id
+                    ) {
+                      return { columnId: column.id, slotIndex: slot.slotIndex };
                     }
                   }
-                  return null;
-                })();
-            return openNextPick(from);
-          }}
-        />
-      )}
+                }
+                return null;
+              })();
+
+          const next = from
+            ? findNextPickableSlot(from.columnId, from.slotIndex)
+            : null;
+          const nextRoundLabel =
+            next && from && next.columnId !== from.columnId
+              ? columnSummaries.find((s) => s.columnId === next.columnId)?.label ??
+                null
+              : null;
+
+          return (
+            <BracketPickPanel
+              match={activeMatch}
+              pick={pickMap.get(activeMatch.id)}
+              slotPick={activeSlotPick}
+              userId={userId ?? undefined}
+              locked={
+                isVirtualMatchId(activeMatch.id)
+                  ? bracketLocked
+                  : isPickLocked(activeMatch, matches)
+              }
+              onClose={closePickPanel}
+              onSaved={handleSaved}
+              onSlotSaved={handleSlotSaved}
+              onAdvanceToNext={next ? () => openNextPick(from) : undefined}
+              nextRoundLabel={nextRoundLabel}
+            />
+          );
+        })()}
     </div>
   );
 }

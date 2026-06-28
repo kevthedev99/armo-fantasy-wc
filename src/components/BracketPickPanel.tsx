@@ -31,6 +31,8 @@ interface BracketPickPanelProps {
   onSlotSaved: (slotPick: BracketSlotPick) => void | Promise<void>;
   /** When provided, shows a "Save & Next" button that advances after saving. */
   onAdvanceToNext?: () => boolean;
+  /** Label of the next round, when "Save & Next" would cross into a new round. */
+  nextRoundLabel?: string | null;
 }
 
 function BracketPickForm({
@@ -43,6 +45,7 @@ function BracketPickForm({
   onSaved,
   onSlotSaved,
   onAdvanceToNext,
+  nextRoundLabel,
 }: BracketPickPanelProps) {
   const existing = pick ?? slotPick;
   const [pickedWinner, setPickedWinner] = useState<PickWinner>(
@@ -228,9 +231,13 @@ function BracketPickForm({
                   type="button"
                   onClick={() => savePick(true)}
                   disabled={saving}
-                  className="flex-1 rounded-xl bg-[#0056b3] py-3 text-sm font-black uppercase tracking-wide text-white transition hover:opacity-90 disabled:opacity-50"
+                  className={`flex-1 rounded-xl py-3 text-sm font-black uppercase tracking-wide text-white transition hover:opacity-90 disabled:opacity-50 ${
+                    nextRoundLabel
+                      ? "bg-gradient-to-r from-[#0056b3] to-[#FF007A] shadow"
+                      : "bg-[#0056b3]"
+                  }`}
                 >
-                  Save &amp; Next →
+                  {nextRoundLabel ? `Next: ${nextRoundLabel} →` : "Save & Next →"}
                 </button>
               )}
             </div>
