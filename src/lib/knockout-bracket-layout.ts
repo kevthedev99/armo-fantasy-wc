@@ -245,8 +245,8 @@ function loserFromSlotPick(
 function buildColumnSlots(
   column: BracketRoundColumn,
   roundMatches: Match[],
-  feederWinners: (BracketTeamPreview | null)[] | null,
-  feederLosers: (BracketTeamPreview | null)[] | null,
+  feederWinnersByRound: Map<string, (BracketTeamPreview | null)[]>,
+  feederLosersByRound: Map<string, (BracketTeamPreview | null)[]>,
   pickMap: Map<number, UserPick>,
   slotPickMap: Map<string, BracketSlotPick>
 ): {
@@ -257,8 +257,13 @@ function buildColumnSlots(
   const slotsByCanonical: BracketMatchSlot[] = new Array(column.expectedSlots);
   const winners: (BracketTeamPreview | null)[] = new Array(column.expectedSlots).fill(null);
   const losers: (BracketTeamPreview | null)[] = new Array(column.expectedSlots).fill(null);
+  const feederRoundId = getFeederRoundId(column.id);
+  // Third Place pulls from the Semi-final losers, every other round from the
+  // feeder round's winners.
   const useLosers = column.id === "third";
-  const feeders = useLosers ? feederLosers : feederWinners;
+  const feeders = feederRoundId
+    ? (useLosers ? feederLosersByRound : feederWinnersByRound).get(feederRoundId) ?? null
+    : null;
 
   for (let i = 0; i < column.expectedSlots; i++) {
     const match = roundMatches[i];
@@ -318,21 +323,21 @@ export function getBracketColumns(
       pick,
     ])
   );
-  let feederWinners: (BracketTeamPreview | null)[] | null = null;
-  let feederLosers: (BracketTeamPreview | null)[] | null = null;
+  const feederWinnersByRound = new Map<string, (BracketTeamPreview | null)[]>();
+  const feederLosersByRound = new Map<string, (BracketTeamPreview | null)[]>();
 
   return KNOCKOUT_ROUND_COLUMNS.map((column) => {
     const roundMatches = grouped.get(column.id) ?? [];
     const { slots, winners, losers } = buildColumnSlots(
       column,
       roundMatches,
-      feederWinners,
-      feederLosers,
+      feederWinnersByRound,
+      feederLosersByRound,
       pickMap,
       slotPickMap
     );
-    feederWinners = winners;
-    feederLosers = losers;
+    feederWinnersByRound.set(column.id, winners);
+    feederLosersByRound.set(column.id, losers);
 
     const sampleRound = column.apiRounds[0];
     return {
