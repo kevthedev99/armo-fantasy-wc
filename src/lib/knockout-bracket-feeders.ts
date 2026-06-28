@@ -85,6 +85,31 @@ export function feederMatchLabel(
   return `Winner ${roundLabel} M${matchNumberForSlot(feederColumnId, feederSlotIndex)}`;
 }
 
+/**
+ * Top-to-bottom display order for each round so adjacent slots feed the same
+ * next-round match (mirrors the official FIFA 2026 bracket graphic).
+ * Values are canonical slot indices (= match number − first match number).
+ *
+ * Top half (M89/M90 → M97; M93/M94 → M98 → M101), bottom half (M91/M92 → M99;
+ * M95/M96 → M100 → M102). M104 is the Final; M103 is the third-place playoff.
+ */
+export const BRACKET_DISPLAY_ORDER: Record<string, number[]> = {
+  ro32: [1, 4, 0, 2, 10, 11, 8, 9, 3, 5, 6, 7, 13, 15, 12, 14],
+  r16: [0, 1, 4, 5, 2, 3, 6, 7],
+  qf: [0, 1, 2, 3],
+  sf: [0, 1],
+  final: [0],
+  third: [0],
+};
+
+export function getBracketDisplayOrder(columnId: string, expectedSlots: number): number[] {
+  const order = BRACKET_DISPLAY_ORDER[columnId];
+  if (!order || order.length !== expectedSlots) {
+    return Array.from({ length: expectedSlots }, (_, i) => i);
+  }
+  return order;
+}
+
 /** All Ro32 slot indices that determine teams for a later-round slot. */
 export function collectRo32FeederSlotIndices(
   roundId: string,
