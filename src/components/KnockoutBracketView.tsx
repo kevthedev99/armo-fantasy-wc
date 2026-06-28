@@ -15,6 +15,7 @@ import {
   buildVirtualMatch,
   getColumnById,
   isVirtualMatchId,
+  parseVirtualMatchSlot,
   slotPickToDisplayPick,
 } from "@/lib/bracket-slot-picks";
 import {
@@ -296,6 +297,7 @@ export function KnockoutBracketView({
   const [activeSlotPick, setActiveSlotPick] = useState<
     BracketSlotPick | undefined
   >(undefined);
+  const [activeColumnId, setActiveColumnId] = useState<string>("ro32");
 
   const pickMap = useMemo(() => {
     const map = new Map<number, Pick>();
@@ -312,6 +314,74 @@ export function KnockoutBracketView({
     progress.syncedFixtures > 0
       ? Math.round((progress.picksOnSynced / progress.syncedFixtures) * 100)
       : 0;
+
+  const columnSummaries = useMemo(
+    () =>
+      columns.map(({ column, slots }) => {
+        let pickable = 0;
+        let picked = 0;
+        for (const slot of slots) {
+          if (slot.kind === "match") {
+            pickable += 1;
+            if (pickMap.has(slot.match.id)) picked += 1;
+          } else if (slot.pickable) {
+            pickable += 1;
+            if (slot.slotPick) picked += 1;
+          }
+        }
+        return { columnId: column.id, label: column.label, pickable, picked };
+      }),
+    [columns, pickMap]
+  );
+
+  const activeColumn =
+    columns.find(({ column }) => column.id === activeColumnId) ?? columns[0];
+
+  function findNextPickableSlot(
+    fromColumnId: string,
+    fromSlotIndex: number | null
+  ): { columnId: string; slot: BracketMatchSlot } | null {
+    const startColumnIdx = columns.findIndex(
+      ({ column }) => column.id === fromColumnId
+    );
+    if (startColumnIdx < 0) return null;
+
+    for (let offset = 0; offset < columns.length; offset++) {
+      const colIdx = (startColumnIdx + offset) % columns.length;
+      const { column, slots } = columns[colIdx];
+      for (const slot of slots) {
+        if (offset === 0 && fromSlotIndex !== null) {
+          if (slot.slotIndex <= fromSlotIndex) continue;
+        }
+        if (slot.kind === "match") {
+          if (
+            !pickMap.has(slot.match.id) &&
+            !isPickLocked(slot.match, matches) &&
+            !bracketLocked
+          ) {
+            return { columnId: column.id, slot };
+          }
+        } else if (slot.pickable && !slot.slotPick) {
+          return { columnId: column.id, slot };
+        }
+      }
+    }
+    return null;
+  }
+
+  function openNextPick(after: { columnId: string; slotIndex: number } | null) {
+    const start = after ?? { columnId: columns[0]?.column.id ?? "ro32", slotIndex: -1 };
+    const next = findNextPickableSlot(start.columnId, start.slotIndex);
+    if (!next) return false;
+    setActiveColumnId(next.columnId);
+    if (next.slot.kind === "match") {
+      setActiveSlotPick(undefined);
+      setActiveMatch(next.slot.match);
+    } else if (next.slot.kind === "placeholder") {
+      openSlot(next.slot);
+    }
+    return true;
+  }
 
   useEffect(() => {
     if (!userId || bracketLocked || slotPicksTableMissing) return;
@@ -513,7 +583,104 @@ export function KnockoutBracketView({
         </div>
       )}
 
-      <div className="overflow-x-auto px-4 py-8 sm:px-6">
+      {/* Mobile round tabs — one column at a time, no horizontal scroll */}
+      <div className="sticky top-0 z-30 -mx-px border-y border-white/10 bg-[#0a1628]/95 px-3 py-2 backdrop-blur md:hidden">
+        <div className="flex gap-1.5 overflow-x-auto pb-1">
+          {columnSummaries.map(({ columnId, label, pickable, picked }) => {
+            const isActive = activeColumnId === columnId;
+            const isComplete = pickable > 0 && picked >= pickable;
+            return (
+              <button
+                key={columnId}
+                type="button"
+                onClick={() => setActiveColumnId(columnId)}
+                className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wide transition ${
+                  isActive
+                    ? "border-[#FF007A] bg-[#FF007A] text-white shadow"
+                    : isComplete
+                      ? "border-[#32CD32]/60 bg-[#32CD32]/15 text-[#9be39b]"
+                      : "border-white/15 bg-white/5 text-gray-300 hover:bg-white/10"
+                }`}
+              >
+                <span>{label}</span>
+                {pickable > 0 && (
+                  <span
+                    className={`ml-1.5 rounded-full px-1.5 py-0.5 text-[9px] ${
+                      isActive
+                        ? "bg-white/20"
+                        : isComplete
+                          ? "bg-[#32CD32]/30"
+                          : "bg-black/30"
+                    }`}
+                  >
+                    {picked}/{pickable}
+                  </span>
+                )}
+              </button>
+            );
+          })}
+        </div>
+      </div>
+
+      {/* Mobile: single-column stacked view */}
+      <div className="px-4 py-5 sm:px-6 md:hidden">
+        {activeColumn && (
+          <section className="mx-auto max-w-md">
+            <div className="mb-3 flex items-end justify-between gap-3">
+              <div>
+                <h2 className="text-base font-black uppercase tracking-wide text-[#FFD700]">
+                  {activeColumn.column.label}
+                </h2>
+                <p className="text-[11px] text-gray-400">
+                  +{activeColumn.points} winner · +5 exact
+                </p>
+              </div>
+              <button
+                type="button"
+                onClick={() =>
+                  openNextPick({
+                    columnId: activeColumn.column.id,
+                    slotIndex: -1,
+                  })
+                }
+                disabled={bracketLocked}
+                className="shrink-0 rounded-full bg-[#FF007A] px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white shadow disabled:opacity-50"
+              >
+                Next pick →
+              </button>
+            </div>
+            <div className="space-y-3">
+              {activeColumn.slots.map((slot, index) => (
+                <BracketSlotCard
+                  key={`${activeColumn.column.id}-${index}`}
+                  slot={slot}
+                  pick={
+                    slot.kind === "match"
+                      ? pickMap.get(slot.match.id)
+                      : undefined
+                  }
+                  locked={
+                    bracketLocked ||
+                    (slot.kind === "match" &&
+                      isPickLocked(slot.match, matches))
+                  }
+                  onSelect={() => {
+                    if (slot.kind === "match") {
+                      setActiveSlotPick(undefined);
+                      setActiveMatch(slot.match);
+                    } else if (slot.pickable) {
+                      openSlot(slot);
+                    }
+                  }}
+                />
+              ))}
+            </div>
+          </section>
+        )}
+      </div>
+
+      {/* Desktop: full bracket tree */}
+      <div className="hidden overflow-x-auto px-4 py-8 sm:px-6 md:block">
         <div className="mx-auto flex min-w-max max-w-none gap-4 md:gap-6">
           {columns.map(({ column, slots, points }) => (
             <section
@@ -595,6 +762,25 @@ export function KnockoutBracketView({
           onClose={closePickPanel}
           onSaved={handleSaved}
           onSlotSaved={handleSlotSaved}
+          onAdvanceToNext={() => {
+            const virtual = parseVirtualMatchSlot(activeMatch.id);
+            const from = virtual
+              ? { columnId: virtual.roundId, slotIndex: virtual.slotIndex }
+              : (() => {
+                  for (const { column, slots } of columns) {
+                    for (const slot of slots) {
+                      if (
+                        slot.kind === "match" &&
+                        slot.match.id === activeMatch.id
+                      ) {
+                        return { columnId: column.id, slotIndex: slot.slotIndex };
+                      }
+                    }
+                  }
+                  return null;
+                })();
+            return openNextPick(from);
+          }}
         />
       )}
     </div>
