@@ -7,7 +7,6 @@ import {
   formatRoundOf32Deadline,
   formatRoundOf32StartLabel,
   getRoundOf32LockAt,
-  isGroupStageComplete,
   isKnockoutBracketLocked,
   isKnockoutBracketOpen,
   isPickLocked,
@@ -119,13 +118,11 @@ function BracketSlotCard({
   slot,
   pick,
   locked,
-  slotPicksDisabled = false,
   onSelect,
 }: {
   slot: BracketMatchSlot;
   pick?: Pick;
   locked: boolean;
-  slotPicksDisabled?: boolean;
   onSelect: () => void;
 }) {
   if (slot.kind === "placeholder") {
@@ -134,7 +131,7 @@ function BracketSlotCard({
     const hasBoth = hasHome && hasAway;
     const hasAny = hasHome || hasAway;
     const hasPick = !!slot.slotPick;
-    const pickable = !!slot.pickable && !locked && !slotPicksDisabled;
+    const pickable = !!slot.pickable && !locked;
     const displayPick =
       slot.slotPick && slot.homeTeam && slot.awayTeam
         ? slotPickToDisplayPick(
@@ -222,13 +219,11 @@ function BracketSlotCard({
           <PlaceholderTeam team={slot.awayTeam} fallbackLabel={slot.awayLabel} />
         </div>
         <p className="mt-2 text-center text-[10px] text-gray-400">
-          {slotPicksDisabled && hasBoth
-            ? "Later-round saves need Supabase migration 013"
-            : hasBoth
-              ? "Pick earlier Round of 32 games on this side to unlock"
-              : hasAny
-                ? "Pick earlier matches to fill this slot"
-                : "Awaiting fixture sync"}
+          {hasBoth
+            ? "Pick earlier Round of 32 games on this side to unlock"
+            : hasAny
+              ? "Pick earlier matches to fill this slot"
+              : "Matches must finish for this to be determined"}
         </p>
       </div>
     );
@@ -298,7 +293,6 @@ export function KnockoutBracketView({
   picks: initialPicks,
   initialSlotPicks = [],
   slotPicksTableMissing = false,
-  challengeSettings = null,
 }: KnockoutBracketViewProps) {
   const [picks, setPicks] = useState(initialPicks);
   const [slotPicks, setSlotPicks] = useState<BracketSlotPick[]>(initialSlotPicks);
@@ -313,7 +307,6 @@ export function KnockoutBracketView({
     return map;
   }, [picks]);
 
-  const groupStageComplete = isGroupStageComplete(matches, challengeSettings);
   const bracketLocked = isKnockoutBracketLocked(matches);
   const bracketOpen = isKnockoutBracketOpen(matches);
   const lockAt = getRoundOf32LockAt(matches);
@@ -467,9 +460,9 @@ export function KnockoutBracketView({
               Knockout Bracket
             </h1>
             <p className="mt-2 max-w-xl text-sm text-white/70">
-              Pick confirmed matchups as they become official. Unconfirmed slots
-              stay locked until both teams are known. Fill your full bracket
-              before lock — same points as regular picks.
+              Pick the winner and score for every knockout match. Fill your full
+              bracket before 12:00 PM Pacific tomorrow — same points as regular
+              picks, added to your standings total.
             </p>
           </div>
           <div className="shrink-0 rounded-xl border border-[#FF007A]/40 bg-[#FF007A]/10 px-4 py-3 text-center md:text-right">
@@ -484,31 +477,6 @@ export function KnockoutBracketView({
           </div>
         </div>
       </header>
-
-      {!groupStageComplete && (
-        <div className="border-b border-[#FFD700]/30 bg-[#FFD700]/10 px-4 py-3 sm:px-6">
-          <p className="mx-auto max-w-7xl text-center text-sm text-[#FFD700] sm:text-left">
-            Group stage still in progress — pick any confirmed Round of 32
-            matchups below. More slots unlock as groups finish. Use{" "}
-            <Link href="/picks" className="font-bold underline hover:text-white">
-              Picks
-            </Link>{" "}
-            for remaining group games.
-          </p>
-        </div>
-      )}
-
-      {slotPicksTableMissing && (
-        <div className="border-b border-amber-500/40 bg-amber-500/15 px-4 py-3 sm:px-6">
-          <p className="mx-auto max-w-7xl text-center text-sm text-amber-100 sm:text-left">
-            Round of 32 picks work below. To save Round of 16 through Final in
-            your account, run{" "}
-            <code className="text-[#FFD700]">013_bracket_slot_picks.sql</code> in
-            Supabase → SQL Editor (file is in{" "}
-            <code className="text-[#FFD700]">supabase/migrations/</code>).
-          </p>
-        </div>
-      )}
 
       <div className="border-b border-white/10 bg-black/40 px-4 py-4 sm:px-6">
         <div className="mx-auto max-w-7xl">
@@ -584,12 +552,11 @@ export function KnockoutBracketView({
                           : undefined
                       }
                       locked={bracketLocked}
-                      slotPicksDisabled={slotPicksTableMissing}
                       onSelect={() => {
                         if (slot.kind === "match") {
                           setActiveSlotPick(undefined);
                           setActiveMatch(slot.match);
-                        } else if (slot.pickable && !slotPicksTableMissing) {
+                        } else if (slot.pickable) {
                           openSlot(slot);
                         }
                       }}
