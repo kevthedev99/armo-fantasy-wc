@@ -1,4 +1,5 @@
 import { bracketSlotPickKey } from "@/lib/bracket-slot-picks";
+import { getCanonicalSlot } from "@/lib/knockout-bracket-canonical-slots";
 import {
   feederMatchLabel,
   getBracketDisplayOrder,
@@ -89,18 +90,52 @@ export function matchBelongsToColumn(
   return column.apiRounds.includes(match.round);
 }
 
+/**
+ * Returns each column's matches keyed by canonical FIFA slot index. Resolves
+ * slots via team-pair lookup (Ro32) or Pacific date + within-day rank (later
+ * rounds). Falls back to chronological order for any match whose canonical
+ * slot can't be determined (so the bracket still renders for unknown teams).
+ *
+ * The returned arrays are sparse — `arr[i]` may be undefined for empty slots.
+ */
 export function groupKnockoutMatches(matches: Match[]): Map<string, Match[]> {
   const knockout = matches.filter((m) => m.stage === "knockout");
-
   const grouped = new Map<string, Match[]>();
 
   for (const column of KNOCKOUT_ROUND_COLUMNS) {
-    grouped.set(
-      column.id,
-      knockout
-        .filter((m) => matchBelongsToColumn(m, column))
-        .sort((a, b) => a.id - b.id)
+    const columnMatches = knockout.filter((m) =>
+      matchBelongsToColumn(m, column)
     );
+    const slots: Match[] = new Array(column.expectedSlots);
+    const unresolved: Match[] = [];
+
+    for (const match of columnMatches) {
+      const slot = getCanonicalSlot(match, column.id, columnMatches);
+      if (
+        slot != null &&
+        slot >= 0 &&
+        slot < column.expectedSlots &&
+        !slots[slot]
+      ) {
+        slots[slot] = match;
+      } else {
+        unresolved.push(match);
+      }
+    }
+
+    // Place any unresolved matches into remaining empty slots so the UI still
+    // renders. Chronological order keeps the placement stable across renders.
+    unresolved.sort((a, b) => {
+      const ka = new Date(a.kickoff_at).getTime();
+      const kb = new Date(b.kickoff_at).getTime();
+      return ka === kb ? a.id - b.id : ka - kb;
+    });
+    for (const match of unresolved) {
+      const empty = slots.findIndex((s) => !s);
+      if (empty >= 0) slots[empty] = match;
+    }
+
+    grouped.set(column.id, slots);
   }
 
   return grouped;
