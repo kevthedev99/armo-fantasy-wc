@@ -29,6 +29,8 @@ interface BracketPickPanelProps {
   onClose: () => void;
   onSaved: (pick: Pick) => void;
   onSlotSaved: (slotPick: BracketSlotPick) => void | Promise<void>;
+  /** When provided, shows a "Save & Next" button that advances after saving. */
+  onAdvanceToNext?: () => boolean;
 }
 
 function BracketPickForm({
@@ -40,6 +42,7 @@ function BracketPickForm({
   onClose,
   onSaved,
   onSlotSaved,
+  onAdvanceToNext,
 }: BracketPickPanelProps) {
   const existing = pick ?? slotPick;
   const [pickedWinner, setPickedWinner] = useState<PickWinner>(
@@ -60,7 +63,7 @@ function BracketPickForm({
   const points = getKnockoutBasePoints(match.round);
   const predictsPenalties = outcomeMode === "penalties";
 
-  async function savePick() {
+  async function savePick(advanceAfter: boolean = false) {
     if (locked) return;
 
     const homeScorePred = predictsPenalties
@@ -106,6 +109,9 @@ function BracketPickForm({
             predictsPenalties
           )
         );
+        if (advanceAfter && onAdvanceToNext && onAdvanceToNext()) {
+          return;
+        }
         onClose();
       } catch (err) {
         setError(
@@ -138,6 +144,9 @@ function BracketPickForm({
     }
 
     onSaved(data.pick);
+    if (advanceAfter && onAdvanceToNext && onAdvanceToNext()) {
+      return;
+    }
     onClose();
   }
 
@@ -203,14 +212,28 @@ function BracketPickForm({
               <p className="mb-3 text-center text-xs text-red-600">{error}</p>
             )}
 
-            <button
-              type="button"
-              onClick={savePick}
-              disabled={saving}
-              className="w-full rounded-xl bg-[#FF007A] py-3 text-sm font-black uppercase tracking-wide text-white transition hover:opacity-90 disabled:opacity-50"
-            >
-              {saving ? "Saving…" : pick || slotPick ? "Update Pick" : "Save Pick"}
-            </button>
+            <div className="flex flex-col gap-2 sm:flex-row">
+              <button
+                type="button"
+                onClick={() => savePick(false)}
+                disabled={saving}
+                className={`flex-1 rounded-xl bg-[#FF007A] py-3 text-sm font-black uppercase tracking-wide text-white transition hover:opacity-90 disabled:opacity-50 ${
+                  onAdvanceToNext ? "" : "w-full"
+                }`}
+              >
+                {saving ? "Saving…" : pick || slotPick ? "Update Pick" : "Save Pick"}
+              </button>
+              {onAdvanceToNext && (
+                <button
+                  type="button"
+                  onClick={() => savePick(true)}
+                  disabled={saving}
+                  className="flex-1 rounded-xl bg-[#0056b3] py-3 text-sm font-black uppercase tracking-wide text-white transition hover:opacity-90 disabled:opacity-50"
+                >
+                  Save &amp; Next →
+                </button>
+              )}
+            </div>
 
             {(pick || slotPick) && (
               <p className="mt-3 text-center text-xs text-gray-500">
