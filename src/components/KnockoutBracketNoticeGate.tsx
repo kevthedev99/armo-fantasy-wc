@@ -3,6 +3,7 @@ import {
   isKnockoutBracketLocked,
   isKnockoutBracketOpen,
 } from "@/lib/knockout-bracket";
+import { fetchBracketSlotPicksForUser } from "@/lib/bracket-slot-pick-db";
 import {
   EXPECTED_KNOCKOUT_FIXTURES,
   getKnockoutBracketProgress,
@@ -18,12 +19,14 @@ export async function KnockoutBracketNoticeGate() {
 
   if (!user) return null;
 
-  const [{ data: matches }, { data: picks }] = await Promise.all([
-    supabase
-      .from("matches")
-      .select("id, stage, round, kickoff_at, status"),
-    supabase.from("picks").select("match_id").eq("user_id", user.id),
-  ]);
+  const [{ data: matches }, { data: picks }, { picks: slotPicks }] =
+    await Promise.all([
+      supabase
+        .from("matches")
+        .select("id, stage, round, kickoff_at, status"),
+      supabase.from("picks").select("match_id").eq("user_id", user.id),
+      fetchBracketSlotPicksForUser(supabase, user.id),
+    ]);
 
   const allMatches = matches ?? [];
 
@@ -31,7 +34,11 @@ export async function KnockoutBracketNoticeGate() {
     return null;
   }
 
-  const progress = getKnockoutBracketProgress(allMatches, picks ?? []);
+  const progress = getKnockoutBracketProgress(
+    allMatches,
+    picks ?? [],
+    slotPicks
+  );
 
   return (
     <KnockoutBracketNotice
@@ -39,6 +46,7 @@ export async function KnockoutBracketNoticeGate() {
       bracketComplete={progress.complete}
       matches={allMatches}
       picksOnSynced={progress.picksOnSynced}
+      slotPicksMade={progress.slotPicksMade}
       syncedFixtures={progress.syncedFixtures}
       expectedFixtures={EXPECTED_KNOCKOUT_FIXTURES}
     />

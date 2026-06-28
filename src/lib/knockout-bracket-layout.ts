@@ -84,19 +84,16 @@ export function matchBelongsToColumn(
 }
 
 export function groupKnockoutMatches(matches: Match[]): Map<string, Match[]> {
-  const knockout = matches
-    .filter((m) => m.stage === "knockout")
-    .sort(
-      (a, b) =>
-        new Date(a.kickoff_at).getTime() - new Date(b.kickoff_at).getTime()
-    );
+  const knockout = matches.filter((m) => m.stage === "knockout");
 
   const grouped = new Map<string, Match[]>();
 
   for (const column of KNOCKOUT_ROUND_COLUMNS) {
     grouped.set(
       column.id,
-      knockout.filter((m) => matchBelongsToColumn(m, column))
+      knockout
+        .filter((m) => matchBelongsToColumn(m, column))
+        .sort((a, b) => a.id - b.id)
     );
   }
 
@@ -286,12 +283,14 @@ export function getBracketColumns(
 
 export function getKnockoutBracketProgress(
   matches: Pick<Match, "id" | "stage">[],
-  picks: Pick<UserPick, "match_id">[]
+  picks: Pick<UserPick, "match_id">[],
+  slotPicks: Pick<BracketSlotPick, "round_id" | "slot_index">[] = []
 ): {
   syncedFixtures: number;
   expectedFixtures: number;
   picksMade: number;
   picksOnSynced: number;
+  slotPicksMade: number;
   complete: boolean;
 } {
   const knockoutIds = new Set(
@@ -301,12 +300,14 @@ export function getKnockoutBracketProgress(
 
   const syncedFixtures = knockoutIds.size;
   const picksOnSynced = knockoutPicks.length;
+  const slotPicksMade = slotPicks.length;
 
   return {
     syncedFixtures,
     expectedFixtures: EXPECTED_KNOCKOUT_FIXTURES,
-    picksMade: knockoutPicks.length,
+    picksMade: picksOnSynced + slotPicksMade,
     picksOnSynced,
+    slotPicksMade,
     complete: picksOnSynced >= syncedFixtures && syncedFixtures > 0,
   };
 }

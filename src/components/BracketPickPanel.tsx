@@ -182,7 +182,7 @@ function BracketPickForm({
               </p>
             )}
             <p className="mt-3 text-xs text-gray-500">
-              Knockout bracket closed when Round of 32 started.
+              Knockout bracket closed — the deadline has passed.
             </p>
           </div>
         ) : (

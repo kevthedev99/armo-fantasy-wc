@@ -7,6 +7,7 @@ import {
   rowToBracketSlotPick,
   upsertBracketSlotPickRow,
 } from "@/lib/bracket-slot-pick-db";
+import { isKnockoutBracketLocked } from "@/lib/knockout-bracket";
 import type { BracketSlotRoundId } from "@/lib/types";
 import { createClient } from "@/lib/supabase/server";
 
@@ -41,6 +42,20 @@ export async function POST(request: Request) {
   const input = parseBracketSlotPickInput(await request.json());
   if (!input) {
     return NextResponse.json({ error: "Invalid bracket pick data." }, { status: 400 });
+  }
+
+  const { data: allMatches } = await supabase
+    .from("matches")
+    .select("stage, round, kickoff_at, status");
+
+  if (isKnockoutBracketLocked(allMatches ?? [])) {
+    return NextResponse.json(
+      {
+        error:
+          "Knockout bracket is locked — the deadline has passed. You cannot add or change bracket picks.",
+      },
+      { status: 403 }
+    );
   }
 
   const { data, error } = await upsertBracketSlotPickRow(

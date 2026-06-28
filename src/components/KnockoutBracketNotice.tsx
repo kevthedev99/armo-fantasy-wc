@@ -14,6 +14,7 @@ interface KnockoutBracketNoticeProps {
   bracketComplete: boolean;
   matches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[];
   picksOnSynced: number;
+  slotPicksMade?: number;
   syncedFixtures: number;
   expectedFixtures: number;
 }
@@ -23,6 +24,7 @@ export function KnockoutBracketNotice({
   bracketComplete,
   matches,
   picksOnSynced,
+  slotPicksMade = 0,
   syncedFixtures,
   expectedFixtures,
 }: KnockoutBracketNoticeProps) {
@@ -34,7 +36,8 @@ export function KnockoutBracketNotice({
   const lockAt = getRoundOf32LockAt(matches);
   const deadlineLabel = formatRoundOf32Deadline(lockAt);
   const totalToPick = syncedFixtures > 0 ? syncedFixtures : expectedFixtures;
-  const needsPicks = picksOnSynced < syncedFixtures || syncedFixtures === 0;
+  const totalPicked = picksOnSynced + slotPicksMade;
+  const needsPicks = totalPicked < totalToPick || syncedFixtures === 0;
 
   const open = !bracketLocked && !bracketComplete && !dismissed;
 
@@ -90,7 +93,7 @@ export function KnockoutBracketNotice({
 
           <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-center">
             <p className="text-2xl font-black text-[#0056b3]">
-              {picksOnSynced}/{totalToPick}
+              {totalPicked}/{totalToPick}
             </p>
             <p className="text-xs font-bold uppercase tracking-wide text-gray-500">
               Knockout matches picked
@@ -99,7 +102,8 @@ export function KnockoutBracketNotice({
 
           {needsPicks && (
             <p className="mt-3 text-center text-xs font-medium text-[#FF007A]">
-              Fill your bracket now — it locks when Round of 32 kicks off!
+              Pick South Africa vs Canada and fill the rest of your bracket before
+              the deadline tonight!
             </p>
           )}
 

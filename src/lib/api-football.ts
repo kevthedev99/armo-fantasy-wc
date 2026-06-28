@@ -239,8 +239,12 @@ export async function fetchFixturesForSync(
     );
     byDate = dateResults.flat();
   } else {
-    stats.dateCalls = 1;
-    byDate = await fetchWorldCupFixturesByDate(getTodayPacificDate());
+    const dates = getLightSyncDates(undefined, false);
+    stats.dateCalls = dates.length;
+    const dateResults = await Promise.all(
+      dates.map((date) => fetchWorldCupFixturesByDate(date))
+    );
+    byDate = dateResults.flat();
   }
 
   return {
