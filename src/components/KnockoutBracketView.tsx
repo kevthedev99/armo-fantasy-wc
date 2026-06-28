@@ -545,7 +545,11 @@ export function KnockoutBracketView({
                           ? pickMap.get(slot.match.id)
                           : undefined
                       }
-                      locked={bracketLocked}
+                      locked={
+                        bracketLocked ||
+                        (slot.kind === "match" &&
+                          isPickLocked(slot.match, matches))
+                      }
                       onSelect={() => {
                         if (slot.kind === "match") {
                           setActiveSlotPick(undefined);

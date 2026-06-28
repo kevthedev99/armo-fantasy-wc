@@ -1,6 +1,7 @@
 import { bracketSlotPickKey } from "@/lib/bracket-slot-picks";
 import {
   feederMatchLabel,
+  getBracketDisplayOrder,
   getFeederPair,
   getFeederRoundId,
 } from "@/lib/knockout-bracket-feeders";
@@ -159,8 +160,9 @@ export function buildBracketSlots(matches: Match[]): BracketMatchSlot[] {
 
   for (const column of KNOCKOUT_ROUND_COLUMNS) {
     const roundMatches = grouped.get(column.id) ?? [];
+    const displayOrder = getBracketDisplayOrder(column.id, column.expectedSlots);
 
-    for (let i = 0; i < column.expectedSlots; i++) {
+    for (const i of displayOrder) {
       const match = roundMatches[i];
       if (match) {
         slots.push({ kind: "match", match, slotIndex: i, columnId: column.id });
@@ -252,9 +254,9 @@ function buildColumnSlots(
   winners: (BracketTeamPreview | null)[];
   losers: (BracketTeamPreview | null)[];
 } {
-  const slots: BracketMatchSlot[] = [];
-  const winners: (BracketTeamPreview | null)[] = [];
-  const losers: (BracketTeamPreview | null)[] = [];
+  const slotsByCanonical: BracketMatchSlot[] = new Array(column.expectedSlots);
+  const winners: (BracketTeamPreview | null)[] = new Array(column.expectedSlots).fill(null);
+  const losers: (BracketTeamPreview | null)[] = new Array(column.expectedSlots).fill(null);
   const useLosers = column.id === "third";
   const feeders = useLosers ? feederLosers : feederWinners;
 
@@ -264,9 +266,9 @@ function buildColumnSlots(
 
     if (match) {
       const pick = pickMap.get(match.id);
-      slots.push({ kind: "match", match, slotIndex: i, columnId: column.id });
-      winners.push(winnerFromMatchPick(match, pick));
-      losers.push(loserFromMatchPick(match, pick));
+      slotsByCanonical[i] = { kind: "match", match, slotIndex: i, columnId: column.id };
+      winners[i] = winnerFromMatchPick(match, pick);
+      losers[i] = loserFromMatchPick(match, pick);
     } else {
       const labels = placeholderLabels(column, i);
       const homeTeam = pair ? feeders?.[pair[0]] ?? null : null;
@@ -275,7 +277,7 @@ function buildColumnSlots(
       const pickable =
         column.id !== "ro32" && !!homeTeam && !!awayTeam;
 
-      slots.push({
+      slotsByCanonical[i] = {
         kind: "placeholder",
         columnId: column.id,
         roundLabel: column.label,
@@ -285,15 +287,16 @@ function buildColumnSlots(
         awayTeam,
         pickable,
         slotPick,
-      });
-      winners.push(
-        winnerFromSlotPick(slotPick, homeTeam, awayTeam)
-      );
-      losers.push(
-        loserFromSlotPick(slotPick, homeTeam, awayTeam)
-      );
+      };
+      winners[i] = winnerFromSlotPick(slotPick, homeTeam, awayTeam);
+      losers[i] = loserFromSlotPick(slotPick, homeTeam, awayTeam);
     }
   }
+
+  // Reorder slots to match the official top-to-bottom bracket layout while
+  // keeping winners/losers indexed by canonical slot index for feeder lookups.
+  const displayOrder = getBracketDisplayOrder(column.id, column.expectedSlots);
+  const slots = displayOrder.map((canonicalIndex) => slotsByCanonical[canonicalIndex]);
 
   return { slots, winners, losers };
 }

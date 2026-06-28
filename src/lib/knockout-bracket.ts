@@ -165,7 +165,8 @@ export function isPickLocked(
   now = new Date()
 ): boolean {
   if (match.stage === "knockout") {
-    return isKnockoutBracketLocked(allMatches, now);
+    if (isKnockoutBracketLocked(allMatches, now)) return true;
+    return isMatchLocked(match, now);
   }
   return isMatchLocked(match, now);
 }
