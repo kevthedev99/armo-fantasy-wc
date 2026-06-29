@@ -1,6 +1,7 @@
 import fs from "fs";
 import path from "path";
 import { createClient } from "@supabase/supabase-js";
+import { fetchAllTableRows } from "./lib/supabase-paginate.mjs";
 
 const envPath = path.join(process.cwd(), ".env.local");
 const env = fs.readFileSync(envPath, "utf8");
@@ -35,7 +36,7 @@ const [
   { count: unscoredCount },
   { data: unscoredSample },
   { data: profiles },
-  { data: picks },
+  picks,
 ] = await Promise.all([
   supabase.from("app_settings").select("*").eq("id", 1).single(),
   supabase
@@ -54,7 +55,12 @@ const [
     .eq("is_scored", false)
     .limit(15),
   supabase.from("profiles").select("id, username, total_points, total_wins").order("total_points", { ascending: false }).limit(10),
-  supabase.from("picks").select("user_id, points_earned, is_scored").eq("is_scored", true),
+  fetchAllTableRows(
+    supabase,
+    "picks",
+    "user_id, points_earned, is_scored",
+    "id"
+  ).then((rows) => rows.filter((p) => p.is_scored)),
 ]);
 
 const pointsByUser = new Map();

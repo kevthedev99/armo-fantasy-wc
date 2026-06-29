@@ -7,6 +7,7 @@ import { groupKnockoutMatches } from "@/lib/knockout-bracket-layout";
 import { mapSlotPickToMatch } from "@/lib/bracket-slot-picks";
 import { upsertPickRow } from "@/lib/pick-storage";
 import type { BracketSlotPick, Match } from "@/lib/types";
+import { fetchAllTableRows } from "@/lib/supabase/paginate";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 export function getSyncedMatchForSlotPick(
@@ -45,12 +46,20 @@ export async function migrateSyncedBracketSlotPicks(
   supabase: SupabaseClient,
   matches: Match[]
 ): Promise<{ migrated: number }> {
-  const { data: rows, error } = await supabase
-    .from("bracket_slot_picks")
-    .select("*");
-
-  if (error) {
-    if (isBracketSlotPicksTableError(error.message)) {
+  let rows: unknown[];
+  try {
+    rows = await fetchAllTableRows(
+      supabase,
+      "bracket_slot_picks",
+      "*",
+      "user_id"
+    );
+  } catch (error) {
+    const message =
+      error && typeof error === "object" && "message" in error
+        ? String((error as { message: string }).message)
+        : String(error);
+    if (isBracketSlotPicksTableError(message)) {
       return { migrated: 0 };
     }
     throw error;
@@ -58,8 +67,10 @@ export async function migrateSyncedBracketSlotPicks(
 
   let migrated = 0;
 
-  for (const row of rows ?? []) {
-    const slotPick = rowToBracketSlotPick(row);
+  for (const row of rows) {
+    const slotPick = rowToBracketSlotPick(
+      row as Parameters<typeof rowToBracketSlotPick>[0]
+    );
     const match = getSyncedMatchForSlotPick(matches, slotPick);
     if (!match) continue;
 

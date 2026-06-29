@@ -1,8 +1,7 @@
-import {
-  getKnockoutMatchIdsToRescore,
-} from "@/lib/bracket-chaining";
+import { getKnockoutMatchIdsToRescore } from "@/lib/bracket-chaining";
 import { isMatchFinished, scorePick } from "@/lib/scoring";
 import type { Match, Pick } from "@/lib/types";
+import { fetchAllPages } from "@/lib/supabase/paginate";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
 type ScoreResult = {
@@ -59,15 +58,17 @@ export async function scoreFinishedMatchPicks(
     return { picksScored, affectedUserIds };
   }
 
-  const { data: picksOnMatches } = await supabase
-    .from("picks")
-    .select("*")
-    .in(
-      "match_id",
-      finishedMatches.map((m) => m.id)
-    );
+  const scoredMatchIds = finishedMatches.map((m) => m.id);
+  const picksOnMatches = await fetchAllPages<Pick>((from, to) =>
+    supabase
+      .from("picks")
+      .select("*")
+      .in("match_id", scoredMatchIds)
+      .order("id", { ascending: true })
+      .range(from, to)
+  );
 
-  if (!picksOnMatches?.length) {
+  if (!picksOnMatches.length) {
     return { picksScored, affectedUserIds };
   }
 
@@ -80,13 +81,17 @@ export async function scoreFinishedMatchPicks(
 
   const knockoutPicksByUser = new Map<string, Map<number, Pick>>();
   if (usersWithKnockoutPicks.size > 0 && knockoutMatchIds.length > 0) {
-    const { data: allKnockoutPicks } = await supabase
-      .from("picks")
-      .select("*")
-      .in("user_id", [...usersWithKnockoutPicks])
-      .in("match_id", knockoutMatchIds);
+    const allKnockoutPicks = await fetchAllPages<Pick>((from, to) =>
+      supabase
+        .from("picks")
+        .select("*")
+        .in("user_id", [...usersWithKnockoutPicks])
+        .in("match_id", knockoutMatchIds)
+        .order("id", { ascending: true })
+        .range(from, to)
+    );
 
-    for (const [userId, userPicks] of groupPicksByUser(allKnockoutPicks ?? [])) {
+    for (const [userId, userPicks] of groupPicksByUser(allKnockoutPicks)) {
       knockoutPicksByUser.set(
         userId,
         new Map(userPicks.map((p) => [p.match_id, p]))
@@ -127,15 +132,17 @@ export async function scoreFinishedMatchPicks(
 export async function scoreAllPendingFinishedPicks(
   supabase: SupabaseClient
 ): Promise<ScoreResult> {
-  const { data: unscoredRows, error: unscoredError } = await supabase
-    .from("picks")
-    .select("match_id")
-    .eq("is_scored", false);
-
-  if (unscoredError) throw unscoredError;
+  const unscoredRows = await fetchAllPages<{ match_id: number }>((from, to) =>
+    supabase
+      .from("picks")
+      .select("match_id")
+      .eq("is_scored", false)
+      .order("match_id", { ascending: true })
+      .range(from, to)
+  );
 
   const candidateMatchIds = [
-    ...new Set((unscoredRows ?? []).map((row) => row.match_id)),
+    ...new Set(unscoredRows.map((row) => row.match_id)),
   ];
 
   if (candidateMatchIds.length === 0) {
@@ -191,13 +198,17 @@ export async function scoreUnscoredPickBackfill(
 
   const knockoutPicksByUser = new Map<string, Map<number, Pick>>();
   if (knockoutUsers.size > 0 && knockoutMatchIds.length > 0) {
-    const { data: allKnockoutPicks } = await supabase
-      .from("picks")
-      .select("*")
-      .in("user_id", [...knockoutUsers])
-      .in("match_id", knockoutMatchIds);
+    const allKnockoutPicks = await fetchAllPages<Pick>((from, to) =>
+      supabase
+        .from("picks")
+        .select("*")
+        .in("user_id", [...knockoutUsers])
+        .in("match_id", knockoutMatchIds)
+        .order("id", { ascending: true })
+        .range(from, to)
+    );
 
-    for (const [userId, userPicks] of groupPicksByUser(allKnockoutPicks ?? [])) {
+    for (const [userId, userPicks] of groupPicksByUser(allKnockoutPicks)) {
       knockoutPicksByUser.set(
         userId,
         new Map(userPicks.map((p) => [p.match_id, p]))

@@ -32,6 +32,7 @@ import {
 } from "@/lib/scoring";
 import type { Match, MatchEvent, Pick } from "@/lib/types";
 import { topStandings, computeRankChanges } from "@/lib/standings";
+import { fetchAllPages, fetchAllTableRows } from "@/lib/supabase/paginate";
 import { createServiceClient } from "@/lib/supabase/server";
 
 function authorize(request: Request): boolean {
@@ -75,29 +76,10 @@ function matchRowChanged(
   return prevEvents.some((event, index) => event.id !== matchEvents[index]?.id);
 }
 
-/** Supabase/PostgREST caps responses at 1000 rows — paginate to avoid missing picks. */
 async function fetchAllPicks(
   supabase: ReturnType<typeof createServiceClient>
 ): Promise<Pick[]> {
-  const pageSize = 1000;
-  const all: Pick[] = [];
-  let from = 0;
-
-  while (true) {
-    const { data, error } = await supabase
-      .from("picks")
-      .select("*")
-      .range(from, from + pageSize - 1);
-
-    if (error) throw error;
-    if (!data?.length) break;
-
-    all.push(...(data as Pick[]));
-    if (data.length < pageSize) break;
-    from += pageSize;
-  }
-
-  return all;
+  return fetchAllTableRows<Pick>(supabase, "picks", "*", "id");
 }
 
 async function fetchPicksForUsers(
@@ -111,13 +93,15 @@ async function fetchPicksForUsers(
 
   for (let i = 0; i < userIds.length; i += chunkSize) {
     const chunk = userIds.slice(i, i + chunkSize);
-    const { data, error } = await supabase
-      .from("picks")
-      .select("*")
-      .in("user_id", chunk);
-
-    if (error) throw error;
-    all.push(...((data ?? []) as Pick[]));
+    const chunkPicks = await fetchAllPages<Pick>((from, to) =>
+      supabase
+        .from("picks")
+        .select("*")
+        .in("user_id", chunk)
+        .order("id", { ascending: true })
+        .range(from, to)
+    );
+    all.push(...chunkPicks);
   }
 
   return all;
