@@ -41,6 +41,7 @@ import {
 import { formatPickSummary, isMatchFinished } from "@/lib/scoring";
 import {
   BRACKET_PLACEHOLDER_KICKOFF,
+  isKnockoutSideLost,
   type TeamEliminationChecker,
 } from "@/lib/team-elimination-display";
 import { useTeamElimination } from "@/hooks/useTeamElimination";
@@ -56,13 +57,15 @@ function isSlotTeamEliminated(
   side: "home" | "away",
   checkEliminated?: TeamEliminationChecker
 ): boolean {
-  if (!checkEliminated) return false;
   const cutoff = slotKickoffForElimination(slot);
   if (slot.kind === "match") {
+    if (isKnockoutSideLost(slot.match, side)) return true;
+    if (!checkEliminated) return false;
     const teamId =
       side === "home" ? slot.match.home_team_id : slot.match.away_team_id;
     return checkEliminated(teamId, cutoff);
   }
+  if (!checkEliminated) return false;
   const team = side === "home" ? slot.homeTeam : slot.awayTeam;
   if (!team) return false;
   return checkEliminated(team.id, cutoff);

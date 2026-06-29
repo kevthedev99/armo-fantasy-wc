@@ -497,8 +497,8 @@ export function GamesPage({
             <span className="inline-flex items-center gap-1">
               <EliminationMark />
               <span>
-                Red cross = eliminated from your bracket (picked to win earlier,
-                lost).
+                Red cross = knocked out (lost a knockout match, or off your
+                bracket path).
               </span>
             </span>
           </p>
