@@ -191,11 +191,11 @@ function BracketPickForm({
               </p>
             ) : (
               <p className="text-sm text-amber-800">
-                Bracket locked — no pick saved for this match.
+                No pick saved — this match already started.
               </p>
             )}
             <p className="mt-3 text-xs text-gray-500">
-              Knockout bracket closed — the deadline has passed.
+              Locked — picks cannot be changed after kickoff.
             </p>
           </div>
         ) : (

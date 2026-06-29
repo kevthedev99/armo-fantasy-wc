@@ -1,10 +1,10 @@
 "use client";
 
 import { useEffect, useState } from "react";
-import { getRoundOf32LockAt, isPickLocked } from "@/lib/knockout-bracket";
+import { isPickLocked } from "@/lib/knockout-bracket";
 import type { Match } from "@/lib/types";
 
-/** Re-evaluates pick lock on an interval and at kickoff / Round of 32 start. */
+/** Re-evaluates pick lock on an interval and at kickoff. */
 export function useIsPickLocked(match: Match, allMatches: Match[]): boolean {
   const [now, setNow] = useState(() => new Date());
 
@@ -17,12 +17,6 @@ export function useIsPickLocked(match: Match, allMatches: Match[]): boolean {
     const msUntilKickoff = kickoffMs - Date.now();
     if (msUntilKickoff > 0 && msUntilKickoff < 24 * 60 * 60 * 1000) {
       timers.push(setTimeout(tick, msUntilKickoff + 500));
-    }
-
-    const ro32LockAt = getRoundOf32LockAt(allMatches);
-    const msUntilRo32 = ro32LockAt.getTime() - Date.now();
-    if (msUntilRo32 > 0 && msUntilRo32 < 14 * 24 * 60 * 60 * 1000) {
-      timers.push(setTimeout(tick, msUntilRo32 + 500));
     }
 
     return () => {

@@ -1,8 +1,4 @@
 import Link from "next/link";
-import {
-  formatRoundOf32Deadline,
-  getCanonicalRoundOf32LockAt,
-} from "@/lib/knockout-bracket";
 import { SCORING } from "@/lib/scoring";
 
 const KNOCKOUT_ROUNDS = [
@@ -15,8 +11,6 @@ const KNOCKOUT_ROUNDS = [
 ];
 
 export function RulesPage() {
-  const bracketDeadline = formatRoundOf32Deadline(getCanonicalRoundOf32LockAt());
-
   return (
     <div className="min-h-screen bg-black text-white">
       <header className="border-b border-gray-800 bg-gradient-to-b from-[#0a1628] to-black px-6 py-12 text-center md:px-8">
@@ -128,23 +122,23 @@ export function RulesPage() {
             <li className="flex gap-3">
               <span className="mt-0.5 font-black text-[#FFD700]">03</span>
               <span>
-                <strong className="text-white">Knockout bracket</strong> unlocks
-                once every group stage match is finished — like NCAA March
-                Madness, you must submit{" "}
-                <strong className="text-white">all knockout picks</strong>{" "}
-                before the bracket deadline on{" "}
-                <strong className="text-white">{bracketDeadline}</strong>. The
-                entire knockout bracket locks at that time — even if Round of 32
-                matches are already in progress.
+                <strong className="text-white">Knockout bracket</strong> opens
+                as group matches finish. Fill out your bracket through the Final
+                — you can{" "}
+                <strong className="text-white">
+                  change any knockout pick until that specific game kicks off
+                </strong>
+                , just like group stage.
               </span>
             </li>
             <li className="flex gap-3">
               <span className="mt-0.5 font-black text-[#FFD700]">04</span>
               <span>
-                Pick the winner plus both scores for every knockout match.
-                Correct winner earns round points (see below); exact score adds
-                a <strong className="text-white">+5 bonus</strong>, same as
-                group stage.
+                Pick the winner plus both scores for knockout matches, or choose{" "}
+                <strong className="text-white">Penalties</strong> and only name
+                who wins the shootout — no pen score needed. Correct winner earns
+                round points; exact regulation score adds a{" "}
+                <strong className="text-white">+5 bonus</strong>.
               </span>
             </li>
             <li className="flex gap-3">
@@ -223,24 +217,20 @@ export function RulesPage() {
                 </span>
               </div>
               <p className="text-xs text-gray-500">
-                Pick winner and score for every knockout match, or choose{" "}
-                <strong className="text-gray-300">Penalties</strong> and only
-                name the shootout winner — no pen score needed. If your team
-                wins the match (whether in regulation, extra time, or pens) you
-                earn that round&apos;s base points (e.g. QF +8); if it actually
-                goes to penalties and you nailed the shootout winner, add +
+                If you think a game will go to penalties, choose{" "}
+                <strong className="text-gray-300">Penalties</strong> and pick
+                only who wins the shootout — you do not need a correct full-time
+                or pen score. You still earn that round&apos;s base points if your
+                team wins (including on pens); if it actually goes to penalties
+                and you named the shootout winner, add +
                 {SCORING.knockout.penaltiesWinnerBonus} more. Penalties picks
-                are not eligible for the +5 exact-score bonus — you didn&apos;t
-                predict a regulation score. On regular score picks, deeper
-                rounds pay more for the correct winner; nail the exact score
-                for +5 more.
+                are not eligible for the +5 exact-score bonus.
                 <strong className="text-gray-300">
                   {" "}
                   Sleeper-style chaining: if a team you picked to win loses,
                   that team is crossed out — but other teams you picked can
                   still score in later rounds.
-                </strong>{" "}
-                Fill your full bracket before the deadline — then it locks.
+                </strong>
               </p>
             </div>
           </section>
@@ -249,38 +239,42 @@ export function RulesPage() {
         <section className="rounded-2xl border border-[#FF007A]/30 bg-[#111]">
           <div className="border-b border-[#FF007A]/20 bg-[#FF007A]/10 px-6 py-4">
             <h2 className="text-lg font-black uppercase tracking-wide text-[#FF007A]">
-              Knockout Bracket (March Madness Style)
+              Knockout Bracket
             </h2>
           </div>
           <ul className="space-y-3 px-6 py-6 text-sm leading-relaxed text-gray-300">
             <li>
-              • After the group stage ends, the knockout tab opens for everyone
-              at the same time.
+              • The knockout bracket opens as group stage matches finish. You can
+              pick confirmed matchups right away; other slots unlock as teams are
+              determined.
             </li>
             <li>
-              • You fill out your entire bracket — Round of 32 through the Final
-              — before <strong className="text-white">{bracketDeadline}</strong>.
+              •{" "}
+              <strong className="text-white">
+                Each pick locks when that game kicks off
+              </strong>{" "}
+              — not all at once. You can adjust your bracket any time before a
+              specific match starts.
             </li>
             <li>
-              • Unlike group stage picks (which lock match-by-match),{" "}
-              <strong className="text-white">all knockout picks lock together</strong>{" "}
-              at the bracket deadline. No edits after that, even for later
-              rounds.
-            </li>
-            <li>
-              • Missed knockout picks stay at 0 points. There is no late entry
-              once the bracket closes.
+              • If you picked a team to advance deep and they lose early, that
+              affects your bracket down the line — those later picks with that
+              team earn 0 points.
             </li>
             <li>
               • <strong className="text-white">Team chaining (Sleeper-style):</strong>{" "}
               if you pick a team to win and they lose, that team is crossed out
-              in your bracket — you earn 0 on later games where you picked them.
-              Teams you picked correctly can still score in later rounds, even
-              if you had the wrong opponent in that slot.
+              in your bracket. Teams you picked correctly can still score in
+              later rounds, even if you had the wrong opponent in that slot.
             </li>
             <li>
-              • Bracket deadline: <strong className="text-white">{bracketDeadline}</strong>.
-              The Picks page popup will remind you before the bracket locks.
+              • View other players&apos; picks anytime from the standings. Your
+              bracket and theirs follow the same lock and chaining rules.
+            </li>
+            <li>
+              • Penalties: if you expect a shootout, pick{" "}
+              <strong className="text-white">who wins on pens</strong> only — no
+              score required.
             </li>
           </ul>
         </section>
@@ -295,8 +289,7 @@ export function RulesPage() {
             </p>
             <p>• Group picks lock individually when each match kicks off.</p>
             <p>
-              • Knockout picks all lock at {bracketDeadline} — fill the full
-              bracket before then.
+              • Knockout picks also lock individually when each match kicks off.
             </p>
             <p>• Points are calculated automatically after each match ends.</p>
             <p>• Streak tracks consecutive correct picks.</p>

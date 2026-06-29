@@ -3,7 +3,7 @@ import { notFound } from "next/navigation";
 import { Nav } from "@/components/Nav";
 import { UserPicksView } from "@/components/UserPicksView";
 import { fetchBracketSlotPicksForUser } from "@/lib/bracket-slot-pick-db";
-import { isKnockoutBracketOpen } from "@/lib/knockout-bracket";
+import { isKnockoutChallengeActive } from "@/lib/knockout-bracket";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
 import { normalizeUsername } from "@/lib/username";
@@ -78,7 +78,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         picks={picks ?? []}
         slotPicks={slotPickResult.picks}
         matches={matches ?? []}
-        knockoutUnlocked={isKnockoutBracketOpen(matches ?? [])}
+        knockoutUnlocked={isKnockoutChallengeActive(matches ?? [])}
         isCurrentUser={user?.id === playerProfile.id}
       />
     </>

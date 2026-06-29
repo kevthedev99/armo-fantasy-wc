@@ -4,11 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BracketPickPanel } from "@/components/BracketPickPanel";
 import {
-  formatRoundOf32Deadline,
   formatRoundOf32StartLabel,
-  getRoundOf32LockAt,
-  isKnockoutBracketLocked,
-  isKnockoutBracketOpen,
+  isKnockoutChallengeActive,
   isPickLocked,
 } from "@/lib/knockout-bracket";
 import {
@@ -24,6 +21,7 @@ import {
 } from "@/lib/bracket-slot-picks-client";
 import {
   getSyncedMatchForSlotPick,
+  isBracketSlotPickLocked,
   slotPickToPickPayload,
 } from "@/lib/migrate-bracket-slot-picks";
 import {
@@ -290,6 +288,7 @@ export function KnockoutBracketView({
   picks: initialPicks,
   initialSlotPicks = [],
   slotPicksTableMissing = false,
+  challengeSettings,
 }: KnockoutBracketViewProps) {
   const [picks, setPicks] = useState(initialPicks);
   const [slotPicks, setSlotPicks] = useState<BracketSlotPick[]>(initialSlotPicks);
@@ -305,15 +304,23 @@ export function KnockoutBracketView({
     return map;
   }, [picks]);
 
-  const bracketLocked = isKnockoutBracketLocked(matches);
-  const bracketOpen = isKnockoutBracketOpen(matches);
-  const lockAt = getRoundOf32LockAt(matches);
+  const bracketOpen = isKnockoutChallengeActive(matches, challengeSettings);
   const columns = getBracketColumns(matches, picks, slotPicks);
   const progress = getKnockoutBracketProgress(matches, picks);
   const pct =
     progress.syncedFixtures > 0
       ? Math.round((progress.picksOnSynced / progress.syncedFixtures) * 100)
       : 0;
+
+  function isSlotLocked(slot: BracketMatchSlot): boolean {
+    if (slot.kind === "match") {
+      return isPickLocked(slot.match, matches);
+    }
+    if (slot.slotPick) {
+      return isBracketSlotPickLocked(slot.slotPick, matches);
+    }
+    return false;
+  }
 
   const columnSummaries = useMemo(
     () =>
@@ -376,8 +383,7 @@ export function KnockoutBracketView({
         if (slot.kind === "match") {
           if (
             !pickMap.has(slot.match.id) &&
-            !isPickLocked(slot.match, matches) &&
-            !bracketLocked
+            !isPickLocked(slot.match, matches)
           ) {
             return { columnId: column.id, slot };
           }
@@ -404,7 +410,7 @@ export function KnockoutBracketView({
   }
 
   useEffect(() => {
-    if (!userId || bracketLocked || slotPicksTableMissing) return;
+    if (!userId || slotPicksTableMissing) return;
     if (!slotPicks.length) return;
 
     let cancelled = false;
@@ -461,7 +467,7 @@ export function KnockoutBracketView({
     return () => {
       cancelled = true;
     };
-  }, [userId, matches, bracketLocked, slotPicksTableMissing, slotPicks.length]);
+  }, [userId, matches, slotPicksTableMissing, slotPicks.length]);
 
   function handleSaved(pick: Pick) {
     setPicks((prev) => {
@@ -519,14 +525,14 @@ export function KnockoutBracketView({
             Knockout Bracket
           </h1>
           <p className="mt-2 text-sm text-white/70">
-            NCAA March Madness style — fill every knockout match before the
-            bracket deadline.
-          </p>
+          Pick winners and scores for each knockout match. You can change any
+          pick until that match kicks off — if a team you picked loses early,
+          later picks with that team are crossed out.
+        </p>
         </header>
         <p className="px-6 py-16 text-center text-gray-300">
-          Bracket locked — the deadline was{" "}
-          {formatRoundOf32Deadline(getRoundOf32LockAt(matches))}. Picks can no
-          longer be changed.
+          The knockout bracket is not open yet. Check back once group stage
+          matches start finishing.
         </p>
       </div>
     );
@@ -544,19 +550,17 @@ export function KnockoutBracketView({
               Knockout Bracket
             </h1>
             <p className="mt-2 max-w-xl text-sm text-white/70">
-              Pick the winner and score for every knockout match. Fill your full
-              bracket before {formatRoundOf32Deadline(lockAt)} — same points as
-              regular picks, added to your standings total.
+              Pick the winner and score for each knockout match. Change any pick
+              until that game kicks off — same points as regular picks, added to
+              your standings total.
             </p>
           </div>
-          <div className="shrink-0 rounded-xl border border-[#FF007A]/40 bg-[#FF007A]/10 px-4 py-3 text-center md:text-right">
-            <p className="text-[10px] font-bold uppercase tracking-wider text-[#FF007A]">
-              {bracketLocked ? "Bracket locked" : "Locks at"}
+          <div className="shrink-0 rounded-xl border border-[#32CD32]/40 bg-[#32CD32]/10 px-4 py-3 text-center md:text-right">
+            <p className="text-[10px] font-bold uppercase tracking-wider text-[#32CD32]">
+              Per-match lock
             </p>
             <p className="mt-0.5 text-sm font-bold text-white">
-              {bracketLocked
-                ? "Deadline passed"
-                : formatRoundOf32Deadline(lockAt)}
+              Editable until kickoff
             </p>
           </div>
         </div>
@@ -595,11 +599,10 @@ export function KnockoutBracketView({
         </div>
       </div>
 
-      {!bracketLocked && progress.picksOnSynced < progress.syncedFixtures && (
+      {progress.picksOnSynced < progress.syncedFixtures && (
         <div className="border-b border-[#FF007A]/20 bg-[#FF007A]/10 px-4 py-2 text-center text-xs font-medium text-[#ffb3d9] sm:px-6">
-          Submit picks for all loaded matches before{" "}
-          {formatRoundOf32Deadline(lockAt)} — the entire bracket locks at the
-          deadline.
+          Pick every synced match you can — each slot locks when that game
+          starts. First Ro32 kickoff: {formatRoundOf32StartLabel()}.
         </div>
       )}
 
@@ -663,7 +666,7 @@ export function KnockoutBracketView({
                     slotIndex: -1,
                   })
                 }
-                disabled={bracketLocked || activeColumnComplete}
+                disabled={activeColumnComplete}
                 className="shrink-0 rounded-full bg-[#FF007A] px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white shadow disabled:opacity-50"
               >
                 Next pick →
@@ -679,11 +682,7 @@ export function KnockoutBracketView({
                       ? pickMap.get(slot.match.id)
                       : undefined
                   }
-                  locked={
-                    bracketLocked ||
-                    (slot.kind === "match" &&
-                      isPickLocked(slot.match, matches))
-                  }
+                  locked={isSlotLocked(slot)}
                   onSelect={() => {
                     if (slot.kind === "match") {
                       setActiveSlotPick(undefined);
@@ -772,11 +771,7 @@ export function KnockoutBracketView({
                           ? pickMap.get(slot.match.id)
                           : undefined
                       }
-                      locked={
-                        bracketLocked ||
-                        (slot.kind === "match" &&
-                          isPickLocked(slot.match, matches))
-                      }
+                      locked={isSlotLocked(slot)}
                       onSelect={() => {
                         if (slot.kind === "match") {
                           setActiveSlotPick(undefined);
@@ -844,8 +839,8 @@ export function KnockoutBracketView({
               slotPick={activeSlotPick}
               userId={userId ?? undefined}
               locked={
-                isVirtualMatchId(activeMatch.id)
-                  ? bracketLocked
+                isVirtualMatchId(activeMatch.id) && activeSlotPick
+                  ? isBracketSlotPickLocked(activeSlotPick, matches)
                   : isPickLocked(activeMatch, matches)
               }
               onClose={closePickPanel}

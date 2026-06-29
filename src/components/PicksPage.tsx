@@ -4,10 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { getMatchBucket } from "@/lib/match-status";
 import {
-  formatRoundOf32Deadline,
-  getRoundOf32LockAt,
-  isKnockoutBracketLocked,
-  isKnockoutBracketOpen,
+  isKnockoutChallengeActive,
   isPickLocked,
 } from "@/lib/knockout-bracket";
 import { isMatchFinished } from "@/lib/scoring";
@@ -77,9 +74,7 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
       ? sortPast(stageMatches)
       : sortUpcoming(stageMatches, matches);
 
-  const bracketLocked = isKnockoutBracketLocked(matches);
-  const bracketOpen = isKnockoutBracketOpen(matches);
-  const bracketDeadlineLabel = formatRoundOf32Deadline(getRoundOf32LockAt(matches));
+  const bracketOpen = isKnockoutChallengeActive(matches);
 
   const lockedWithoutPick = visibleMatches.filter(
     (m) => isPickLocked(m, matches) && !pickMap.has(m.id)
@@ -110,15 +105,15 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
 
       <p className="border-b border-gray-200 bg-white px-4 py-3 text-center text-xs text-gray-600 sm:px-6 sm:text-left">
         Group stage: change picks until each match kicks off (+1 winner, +5
-        exact score). Knockout: winner + score for every match — round points
+        exact score). Knockout: pick winner and score per match — round points
         plus +5 for exact score — with Sleeper-style team chaining (a team you
-        picked to win and lost is crossed out). Fill your full bracket before
-        the deadline on {bracketDeadlineLabel}.
+        picked to win and lost is crossed out). Each knockout pick locks when
+        that game starts. Penalties picks: choose the shootout winner only.
       </p>
 
-      {tab === "knockout" && bracketOpen && !bracketLocked && (
+      {tab === "knockout" && bracketOpen && (
           <p className="border-b border-[#FF007A]/20 bg-[#FF007A]/5 px-4 py-2 text-center text-xs font-medium text-[#c4005f] sm:px-6 sm:text-left">
-            Bracket open — submit every knockout pick before {bracketDeadlineLabel}.
+            Knockout bracket open — edit any pick until that match kicks off.
           </p>
         )}
 
@@ -205,7 +200,8 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
 
       {tab === "knockout" && !bracketOpen ? (
         <p className="px-6 py-12 text-center text-gray-600">
-          Knockout bracket locked — the deadline has passed.
+          Knockout bracket is not open yet — check back as group stage matches
+          finish.
         </p>
       ) : visibleMatches.length === 0 ? (
         <p className="px-6 py-12 text-center text-gray-600">

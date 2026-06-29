@@ -6,9 +6,23 @@ import {
 import { groupKnockoutMatches } from "@/lib/knockout-bracket-layout";
 import { mapSlotPickToMatch } from "@/lib/bracket-slot-picks";
 import { upsertPickRow } from "@/lib/pick-storage";
+import { isMatchLocked } from "@/lib/scoring";
 import type { BracketSlotPick, Match } from "@/lib/types";
 import { fetchAllTableRows } from "@/lib/supabase/paginate";
 import type { SupabaseClient } from "@supabase/supabase-js";
+
+/** Later-round slot picks lock once that fixture is synced and has kicked off. */
+export function isBracketSlotPickLocked(
+  slotPick: Pick<BracketSlotPick, "round_id" | "slot_index">,
+  matches: Match[]
+): boolean {
+  const match = getSyncedMatchForSlotPick(
+    matches,
+    slotPick as BracketSlotPick
+  );
+  if (!match) return false;
+  return isMatchLocked(match);
+}
 
 export function getSyncedMatchForSlotPick(
   matches: Match[],

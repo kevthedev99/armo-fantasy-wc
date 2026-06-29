@@ -141,47 +141,42 @@ export function isKnockoutChallengeActive(
 }
 
 /**
- * NCAA-style bracket lock: entire bracket closes at 11:59 PM Pacific on lock date.
- * Individual Ro32 kickoffs do not close the bracket early.
+ * @deprecated Global bracket deadline removed — each knockout pick locks at kickoff.
  */
 export function isKnockoutBracketLocked(
-  matches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[],
+  matches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[] = [],
   now = new Date()
 ): boolean {
-  return now.getTime() >= getRoundOf32LockAt(matches).getTime();
+  void matches;
+  void now;
+  return false;
 }
 
-/** Bracket picks allowed until the official Pacific deadline. */
+/** Knockout bracket is available once the challenge is active. */
 export function isKnockoutBracketOpen(
-  matches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[],
-  now = new Date()
+  matches: Pick<Match, "stage" | "status">[],
+  settings?: {
+    knockout_unlocked?: boolean;
+    group_stage_complete?: boolean;
+  } | null
 ): boolean {
-  return !isKnockoutBracketLocked(matches, now);
+  return isKnockoutChallengeActive(matches, settings);
 }
 
 export function isPickLocked(
   match: Pick<Match, "stage" | "round" | "kickoff_at" | "status">,
-  allMatches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[],
+  allMatches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[] = [],
   now = new Date()
 ): boolean {
-  if (match.stage === "knockout") {
-    if (isKnockoutBracketLocked(allMatches, now)) return true;
-    return isMatchLocked(match, now);
-  }
+  void allMatches;
   return isMatchLocked(match, now);
 }
 
 export function getPickLockMessage(
   match: Pick<Match, "stage" | "round" | "kickoff_at" | "status">,
-  allMatches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[]
+  allMatches: Pick<Match, "stage" | "round" | "kickoff_at" | "status">[] = []
 ): string {
-  if (
-    match.stage === "knockout" &&
-    isKnockoutBracketLocked(allMatches)
-  ) {
-    return "Locked — knockout bracket closed. The deadline has passed.";
-  }
-
+  void allMatches;
   if (isMatchFinished(match.status)) {
     return "Locked — match finished. Final score recorded.";
   }
