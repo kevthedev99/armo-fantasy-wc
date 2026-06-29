@@ -1,5 +1,6 @@
 "use client";
 
+import Link from "next/link";
 import { useEffect, useState } from "react";
 
 /** Shown on each full site load — dismissible until the next reload. */
@@ -58,6 +59,18 @@ export function BracketUpdateAlert() {
             and cannot be changed after the game{" "}
             <strong className="text-gray-900">ends</strong>. If you expect
             penalties, pick only who wins the shootout — not the full-time score.
+          </p>
+          <p className="rounded-xl border border-[#32CD32]/25 bg-[#32CD32]/5 px-4 py-3 text-sm leading-relaxed text-gray-700">
+            Want to know when games kick off? Visit the{" "}
+            <Link
+              href="/games"
+              onClick={() => setOpen(false)}
+              className="font-bold text-[#0056b3] underline decoration-[#0056b3]/40 underline-offset-2 hover:text-[#FF007A]"
+            >
+              Games
+            </Link>{" "}
+            tab to see upcoming match times, live scores, and results — all in
+            Pacific time.
           </p>
 
           <button
