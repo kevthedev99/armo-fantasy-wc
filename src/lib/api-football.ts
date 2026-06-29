@@ -299,24 +299,31 @@ export function parseMatchScoresFromFixture(
   const penHome = f.score.penalty?.home ?? null;
   const penAway = f.score.penalty?.away ?? null;
 
+  // Prefer score after extra time (before pens) so knockout exact-score picks
+  // match whether the fixture ends FT or AET at the same numbers.
+  const homeScore =
+    f.score.extratime?.home ??
+    f.goals.home ??
+    f.score.fulltime?.home ??
+    null;
+  const awayScore =
+    f.score.extratime?.away ??
+    f.goals.away ??
+    f.score.fulltime?.away ??
+    null;
+
   if (status === "PEN" && penHome !== null && penAway !== null) {
     return {
-      homeScore:
-        f.score.extratime?.home ??
-        f.score.fulltime?.home ??
-        f.goals.home,
-      awayScore:
-        f.score.extratime?.away ??
-        f.score.fulltime?.away ??
-        f.goals.away,
+      homeScore,
+      awayScore,
       penHomeScore: penHome,
       penAwayScore: penAway,
     };
   }
 
   return {
-    homeScore: f.goals.home ?? f.score.fulltime.home,
-    awayScore: f.goals.away ?? f.score.fulltime.away,
+    homeScore,
+    awayScore,
     penHomeScore: null,
     penAwayScore: null,
   };

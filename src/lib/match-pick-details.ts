@@ -1,8 +1,7 @@
-import { isMatchFinished } from "@/lib/scoring";
+import { isExactScorePick, isMatchFinished } from "@/lib/scoring";
 import type { Match, PickWinner } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllPages } from "@/lib/supabase/paginate";
-
 export type MatchPickDetails = {
   correctWinner: string[];
   correctScore: string[];
@@ -21,18 +20,15 @@ function actualWinner(homeScore: number, awayScore: number): PickWinner {
   return "draw";
 }
 
-function isExactScorePick(
-  match: Pick<Match, "home_score" | "away_score">,
+function isExactScoreForDetails(
+  match: Match,
   pick: MatchPickInput
 ): boolean {
-  if (match.home_score === null || match.away_score === null) return false;
-  if (pick.home_score_pred === null || pick.away_score_pred === null) {
-    return false;
-  }
-  return (
-    pick.home_score_pred === match.home_score &&
-    pick.away_score_pred === match.away_score
-  );
+  return isExactScorePick(match, {
+    home_score_pred: pick.home_score_pred,
+    away_score_pred: pick.away_score_pred,
+    predicts_penalties: false,
+  });
 }
 
 export function getMatchPickDetails(
@@ -57,7 +53,7 @@ export function getMatchPickDetails(
     .sort((a, b) => a.localeCompare(b));
 
   const correctScore = picks
-    .filter((pick) => isExactScorePick(match, pick))
+    .filter((pick) => isExactScoreForDetails(match, pick))
     .map((pick) => pick.displayName)
     .sort((a, b) => a.localeCompare(b));
 

@@ -1,4 +1,4 @@
-import type { Match, Pick, PickWinner } from "./types";
+import type { Match, Pick as UserPick, PickWinner } from "./types";
 import {
   buildKnockoutMatchMap,
   canScoreKnockoutPick,
@@ -8,7 +8,7 @@ import { pickPredictsPenalties } from "./pick-storage";
 
 export type ScorePickContext = {
   knockoutMatches: ChainingMatch[];
-  picksByMatchId: Map<number, Pick>;
+  picksByMatchId: Map<number, UserPick>;
 };
 
 /**
@@ -147,12 +147,41 @@ function actualWinner(
 }
 
 /**
+ * Final score after 90+extra time (before a shootout). Knockout "full time"
+ * picks use this — a predicted 2-1 matches the same 2-1 whether status is FT or AET.
+ */
+export function getMatchResultScores(
+  match: Pick<Match, "status" | "home_score" | "away_score">
+): { home: number; away: number } | null {
+  if (!isMatchFinished(match.status)) return null;
+  if (match.home_score === null || match.away_score === null) return null;
+  return { home: match.home_score, away: match.away_score };
+}
+
+/** Exact score for group or knockout (not penalties-only picks). */
+export function isExactScorePick(
+  match: Match,
+  pick: Pick<UserPick, "home_score_pred" | "away_score_pred" | "predicts_penalties">
+): boolean {
+  if (pickPredictsPenalties(pick)) return false;
+  const result = getMatchResultScores(match);
+  if (!result) return false;
+  if (pick.home_score_pred === null || pick.away_score_pred === null) {
+    return false;
+  }
+  return (
+    pick.home_score_pred === result.home &&
+    pick.away_score_pred === result.away
+  );
+}
+
+/**
  * Score a single saved pick against a finished match.
  * No pick row for a match means 0 points — nothing is scored or invented.
  */
 export function scorePick(
   match: Match,
-  pick: Pick,
+  pick: UserPick,
   context?: ScorePickContext
 ): number {
   if (
@@ -199,18 +228,12 @@ export function scorePick(
   if (pick.picked_winner === winner) {
     if (match.stage === "group") {
       points += SCORING.group.correctWinner;
-      if (
-        pick.home_score_pred === match.home_score &&
-        pick.away_score_pred === match.away_score
-      ) {
+      if (isExactScorePick(match, pick)) {
         points += SCORING.group.exactScoreBonus;
       }
     } else {
       points += getKnockoutBasePoints(match.round);
-      if (
-        pick.home_score_pred === match.home_score &&
-        pick.away_score_pred === match.away_score
-      ) {
+      if (isExactScorePick(match, pick)) {
         points += SCORING.group.exactScoreBonus;
       }
     }
@@ -221,7 +244,7 @@ export function scorePick(
 
 export function formatPickSummary(
   match: Match,
-  pick: Pick | undefined
+  pick: UserPick | undefined
 ): string | null {
   if (!pick) return null;
 
@@ -310,7 +333,7 @@ export function validateKnockoutPickScores(
 
 /** Leaderboard totals from scored picks only — missed matches contribute nothing. */
 export function aggregateProfileStats(
-  picks: Pick[]
+  picks: UserPick[]
 ): { total_points: number; total_wins: number } {
   let total_points = 0;
   let total_wins = 0;
@@ -324,7 +347,7 @@ export function aggregateProfileStats(
   return { total_points, total_wins };
 }
 
-function pickIsWin(pick: Pick | undefined): boolean {
+function pickIsWin(pick: UserPick | undefined): boolean {
   return !!pick && pick.is_scored && pick.points_earned > 0;
 }
 
@@ -335,7 +358,7 @@ function pickIsWin(pick: Pick | undefined): boolean {
  */
 export function computeCurrentStreak(
   finishedMatches: Match[],
-  picks: Pick[]
+  picks: UserPick[]
 ): number {
   const pickByMatch = new Map(picks.map((p) => [p.match_id, p]));
   const sorted = [...finishedMatches].sort(
