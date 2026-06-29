@@ -1,5 +1,4 @@
 import { Hero } from "@/components/Hero";
-import { HomeStandingsAlert } from "@/components/HomeStandingsAlert";
 import { Nav } from "@/components/Nav";
 import { NewsBar } from "@/components/NewsBar";
 import { StandingsTable } from "@/components/StandingsTable";
@@ -44,7 +43,6 @@ export default async function HomePage() {
 
   return (
     <div className="min-h-screen bg-black">
-      <HomeStandingsAlert />
       <Nav username={profile?.username} />
       <Hero playerCount={playerCount} />
       <NewsBar upcomingMatches={upcomingMatches ?? []} />
