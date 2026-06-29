@@ -2,6 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
+import { BracketInspectorBar } from "@/components/BracketInspectorBar";
+import type { BracketInspectorOption } from "@/components/BracketInspectorBar";
 import { BracketPickPanel } from "@/components/BracketPickPanel";
 import { FinishedMatchPickSummary } from "@/components/FinishedMatchPickSummary";
 import { EliminationMark } from "@/components/EliminatedTeamName";
@@ -82,6 +84,11 @@ interface KnockoutBracketViewProps {
     knockout_unlocked?: boolean;
     group_stage_complete?: boolean;
   } | null;
+  readOnly?: boolean;
+  viewingProfile?: { username: string; display_name: string } | null;
+  inspectorProfiles?: BracketInspectorOption[];
+  displayedUserId?: string | null;
+  selfUsername?: string | null;
 }
 
 function TeamLine({
@@ -179,12 +186,14 @@ function BracketSlotCard({
   slot,
   pick,
   locked,
+  readOnly = false,
   onSelect,
   checkEliminated,
 }: {
   slot: BracketMatchSlot;
   pick?: Pick;
   locked: boolean;
+  readOnly?: boolean;
   onSelect: () => void;
   checkEliminated?: TeamEliminationChecker;
 }) {
@@ -251,6 +260,7 @@ function BracketSlotCard({
     const hasAny = hasHome || hasAway;
     const hasPick = !!slot.slotPick;
     const pickable = !!slot.pickable && !locked;
+    const canOpen = pickable || (readOnly && hasPick);
     const displayPick =
       slot.slotPick && slot.homeTeam && slot.awayTeam
         ? slotPickToDisplayPick(
@@ -266,7 +276,7 @@ function BracketSlotCard({
     const homePicked = slot.slotPick?.picked_winner === "home";
     const awayPicked = slot.slotPick?.picked_winner === "away";
 
-    if (pickable) {
+    if (canOpen) {
       return (
         <button
           type="button"
@@ -288,6 +298,10 @@ function BracketSlotCard({
             ) : chaining?.status === "forced" ? (
               <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold uppercase text-white">
                 Winner locked
+              </span>
+            ) : readOnly ? (
+              <span className="rounded-full bg-[#FFD700]/20 px-2 py-0.5 text-[9px] font-bold uppercase text-[#FFD700]">
+                View pick
               </span>
             ) : (
               <span className="rounded-full bg-[#FF007A]/10 px-2 py-0.5 text-[9px] font-bold uppercase text-[#FF007A]">
@@ -365,6 +379,54 @@ function BracketSlotCard({
   const isLive = getMatchBucket(match) === "live";
   const isFinished = isMatchFinished(match.status);
   const isLocked = locked || isFinished;
+
+  if (readOnly) {
+    return (
+      <button
+        type="button"
+        onClick={onSelect}
+        className={`relative w-full rounded-xl border p-3 text-left transition hover:scale-[1.01] hover:shadow-md ${
+          isFinished
+            ? "border-gray-300 bg-gray-100/90"
+            : hasPick
+              ? "border-[#FFD700]/40 bg-[#1a1400]/40"
+              : "border-gray-300 bg-gray-50/90"
+        }`}
+      >
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">
+            M{slot.slotIndex + 1}
+          </span>
+          <span className="rounded-full bg-[#FFD700]/20 px-2 py-0.5 text-[9px] font-bold uppercase text-[#FFD700]">
+            View pick
+          </span>
+        </div>
+
+        <div className="space-y-1.5">
+          <TeamLine
+            name={match.home_team_name}
+            logo={match.home_team_logo}
+            picked={homePicked}
+            eliminated={homeEliminated}
+          />
+          <TeamLine
+            name={match.away_team_name}
+            logo={match.away_team_logo}
+            picked={awayPicked}
+            eliminated={awayEliminated}
+          />
+        </div>
+
+        <FinishedMatchPickSummary match={match} pick={pick} />
+
+        {!hasPick && (
+          <p className="mt-2 text-center text-[10px] font-medium text-gray-500">
+            No pick saved
+          </p>
+        )}
+      </button>
+    );
+  }
 
   if (isLocked && !isLive) {
     return (
@@ -521,6 +583,11 @@ export function KnockoutBracketView({
   initialSlotPicks = [],
   slotPicksTableMissing = false,
   challengeSettings,
+  readOnly = false,
+  viewingProfile = null,
+  inspectorProfiles,
+  displayedUserId = null,
+  selfUsername = null,
 }: KnockoutBracketViewProps) {
   const [picks, setPicks] = useState(initialPicks);
   const [slotPicks, setSlotPicks] = useState<BracketSlotPick[]>(initialSlotPicks);
@@ -674,8 +741,29 @@ export function KnockoutBracketView({
     return true;
   }
 
+  function handleSlotSelect(slot: BracketMatchSlot) {
+    if (readOnly) {
+      if (slot.kind === "match") {
+        setActiveSlotPick(undefined);
+        setActiveMatch(slot.match);
+        return;
+      }
+      if (slot.kind === "placeholder" && slot.slotPick) {
+        openSlot(slot);
+      }
+      return;
+    }
+    if (isSlotLocked(slot)) return;
+    if (slot.kind === "match") {
+      setActiveSlotPick(undefined);
+      setActiveMatch(slot.match);
+    } else if (slot.pickable) {
+      openSlot(slot);
+    }
+  }
+
   useEffect(() => {
-    if (!userId || slotPicksTableMissing) return;
+    if (!userId || slotPicksTableMissing || readOnly) return;
     if (!slotPicks.length) return;
 
     let cancelled = false;
@@ -732,7 +820,7 @@ export function KnockoutBracketView({
     return () => {
       cancelled = true;
     };
-  }, [userId, matches, slotPicksTableMissing, slotPicks.length]);
+  }, [userId, matches, slotPicksTableMissing, slotPicks.length, readOnly]);
 
   function handleSaved(pick: Pick) {
     setPicks((prev) => {
@@ -830,6 +918,22 @@ export function KnockoutBracketView({
           </div>
         </div>
       </header>
+
+      {inspectorProfiles && displayedUserId && selfUsername && (
+        <BracketInspectorBar
+          profiles={inspectorProfiles}
+          activeUserId={displayedUserId}
+          selfUsername={selfUsername}
+        />
+      )}
+
+      {readOnly && viewingProfile && (
+        <div className="border-b border-[#FFD700]/30 bg-[#FFD700]/10 px-4 py-2.5 text-center text-sm text-[#FFD700] sm:px-6">
+          Viewing{" "}
+          <span className="font-black">{viewingProfile.display_name}</span>
+          &apos;s bracket (@{viewingProfile.username}) — read only
+        </div>
+      )}
 
       {liveKnockoutCount > 0 && (
         <div className="border-b border-red-500/40 bg-red-600/20 px-4 py-2.5 text-center text-sm font-bold text-red-100 sm:px-6">
@@ -944,7 +1048,7 @@ export function KnockoutBracketView({
                     slotIndex: -1,
                   })
                 }
-                disabled={activeColumnComplete}
+                disabled={activeColumnComplete || readOnly}
                 className="shrink-0 rounded-full bg-[#FF007A] px-3 py-1.5 text-[10px] font-black uppercase tracking-wider text-white shadow disabled:opacity-50"
               >
                 Next pick →
@@ -961,16 +1065,9 @@ export function KnockoutBracketView({
                       : undefined
                   }
                   locked={isSlotLocked(slot)}
+                  readOnly={readOnly}
                   checkEliminated={checkEliminated}
-                  onSelect={() => {
-                    if (isSlotLocked(slot)) return;
-                    if (slot.kind === "match") {
-                      setActiveSlotPick(undefined);
-                      setActiveMatch(slot.match);
-                    } else if (slot.pickable) {
-                      openSlot(slot);
-                    }
-                  }}
+                  onSelect={() => handleSlotSelect(slot)}
                 />
               ))}
             </div>
@@ -1052,16 +1149,9 @@ export function KnockoutBracketView({
                           : undefined
                       }
                       locked={isSlotLocked(slot)}
+                      readOnly={readOnly}
                       checkEliminated={checkEliminated}
-                      onSelect={() => {
-                        if (isSlotLocked(slot)) return;
-                        if (slot.kind === "match") {
-                          setActiveSlotPick(undefined);
-                          setActiveMatch(slot.match);
-                        } else if (slot.pickable) {
-                          openSlot(slot);
-                        }
-                      }}
+                      onSelect={() => handleSlotSelect(slot)}
                     />
                   </div>
                 ))}
@@ -1145,14 +1235,17 @@ export function KnockoutBracketView({
               checkEliminated={checkEliminated}
               lockedWinner={lockedWinner}
               locked={
-                isVirtualMatchId(activeMatch.id) && activeSlotPick
+                readOnly ||
+                (isVirtualMatchId(activeMatch.id) && activeSlotPick
                   ? isBracketSlotPickLocked(activeSlotPick, matches)
-                  : isPickLocked(activeMatch, matches)
+                  : isPickLocked(activeMatch, matches))
               }
               onClose={closePickPanel}
               onSaved={handleSaved}
               onSlotSaved={handleSlotSaved}
-              onAdvanceToNext={next ? () => openNextPick(from) : undefined}
+              onAdvanceToNext={
+                readOnly || !next ? undefined : () => openNextPick(from)
+              }
               nextRoundLabel={nextRoundLabel}
             />
           );
