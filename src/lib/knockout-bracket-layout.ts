@@ -3,6 +3,12 @@ import {
   buildVirtualMatch,
   slotPickToDisplayPick,
 } from "@/lib/bracket-slot-picks";
+import {
+  bracketSlotKey,
+  buildBracketChainingContext,
+  computeAllBracketSlotChaining,
+  isSlotPickable,
+} from "@/lib/bracket-slot-chaining";
 import { getCanonicalSlot } from "@/lib/knockout-bracket-canonical-slots";
 import {
   feederMatchLabel,
@@ -10,6 +16,7 @@ import {
   getFeederPair,
   getFeederRoundId,
 } from "@/lib/knockout-bracket-feeders";
+import type { BracketSlotChaining } from "@/lib/bracket-slot-chaining";
 import { normalizeKnockoutRoundLabel } from "@/lib/knockout-bracket";
 import { getKnockoutBasePoints, isMatchLocked } from "@/lib/scoring";
 import type { BracketSlotPick, Match, Pick as UserPick } from "@/lib/types";
@@ -73,7 +80,13 @@ export const EXPECTED_KNOCKOUT_FIXTURES = KNOCKOUT_ROUND_COLUMNS.reduce(
 );
 
 export type BracketMatchSlot =
-  | { kind: "match"; match: Match; slotIndex: number; columnId: string }
+  | {
+      kind: "match";
+      match: Match;
+      slotIndex: number;
+      columnId: string;
+      chaining?: BracketSlotChaining;
+    }
   | {
       kind: "placeholder";
       columnId: string;
@@ -85,6 +98,7 @@ export type BracketMatchSlot =
       awayTeam?: BracketTeamPreview | null;
       pickable?: boolean;
       slotPick?: BracketSlotPick;
+      chaining?: BracketSlotChaining;
     };
 
 export function matchBelongsToColumn(
@@ -364,6 +378,8 @@ export function getBracketColumns(
   );
   const feederWinnersByRound = new Map<string, (BracketTeamPreview | null)[]>();
   const feederLosersByRound = new Map<string, (BracketTeamPreview | null)[]>();
+  const chainingCtx = buildBracketChainingContext(matches, picks, slotPicks);
+  const chainingBySlot = computeAllBracketSlotChaining(chainingCtx);
 
   return KNOCKOUT_ROUND_COLUMNS.map((column) => {
     const roundMatches = grouped.get(column.id) ?? [];
@@ -378,10 +394,29 @@ export function getBracketColumns(
     feederWinnersByRound.set(column.id, winners);
     feederLosersByRound.set(column.id, losers);
 
+    const slotsWithChaining = slots.map((slot) => {
+      const chaining = chainingBySlot.get(
+        bracketSlotKey(column.id, slot.slotIndex)
+      );
+      if (!chaining) return slot;
+
+      if (slot.kind === "match") {
+        return { ...slot, chaining };
+      }
+
+      const pickable =
+        !!slot.pickable &&
+        isSlotPickable(chaining, false) &&
+        !!slot.homeTeam &&
+        !!slot.awayTeam;
+
+      return { ...slot, chaining, pickable };
+    });
+
     const sampleRound = column.apiRounds[0];
     return {
       column,
-      slots,
+      slots: slotsWithChaining,
       points: getKnockoutBasePoints(sampleRound),
     };
   });

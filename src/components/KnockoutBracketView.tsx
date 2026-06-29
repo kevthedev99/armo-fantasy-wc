@@ -45,6 +45,7 @@ import {
   type TeamEliminationChecker,
 } from "@/lib/team-elimination-display";
 import { useTeamElimination } from "@/hooks/useTeamElimination";
+import { getLockedWinnerForSlot } from "@/lib/bracket-slot-chaining";
 import type { BracketSlotPick, Match, Pick } from "@/lib/types";
 
 function slotKickoffForElimination(slot: BracketMatchSlot): string {
@@ -189,6 +190,60 @@ function BracketSlotCard({
 }) {
   const homeEliminated = isSlotTeamEliminated(slot, "home", checkEliminated);
   const awayEliminated = isSlotTeamEliminated(slot, "away", checkEliminated);
+  const chaining = slot.chaining;
+
+  if (chaining?.status === "bust") {
+    return (
+      <div className="relative rounded-xl border border-dashed border-gray-400 bg-gray-100/90 p-3 opacity-80">
+        <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-500">
+          {slot.kind === "placeholder"
+            ? `${slot.roundLabel} · Slot ${slot.slotIndex + 1}`
+            : `M${slot.slotIndex + 1}`}
+        </p>
+        <p className="text-center text-[10px] font-bold uppercase text-gray-600">
+          Bracket bust
+        </p>
+        <p className="mt-1 text-center text-[9px] text-gray-500">
+          Both feeder picks were wrong — 0 pts on this path
+        </p>
+      </div>
+    );
+  }
+
+  if (slot.kind === "placeholder" && chaining?.status === "pending") {
+    const hasHome = !!slot.homeTeam;
+    const hasAway = !!slot.awayTeam;
+    const hasAny = hasHome || hasAway;
+    return (
+      <div
+        className={`relative rounded-xl border border-dashed p-3 ${
+          hasAny
+            ? "border-[#0056b3]/25 bg-gray-50/90 opacity-85"
+            : "border-gray-300 bg-gray-50/80 opacity-70"
+        }`}
+      >
+        <p className="mb-2 text-[9px] font-bold uppercase tracking-wider text-gray-400">
+          {slot.roundLabel} · Slot {slot.slotIndex + 1}
+        </p>
+        <div className="space-y-1.5">
+          <PlaceholderTeam
+            team={slot.homeTeam}
+            fallbackLabel={slot.homeLabel}
+            eliminated={homeEliminated}
+          />
+          <PlaceholderTeam
+            team={slot.awayTeam}
+            fallbackLabel={slot.awayLabel}
+            eliminated={awayEliminated}
+          />
+        </div>
+        <p className="mt-2 text-center text-[10px] text-gray-500">
+          Waiting on feeder matches to finish
+        </p>
+      </div>
+    );
+  }
+
   if (slot.kind === "placeholder") {
     const hasHome = !!slot.homeTeam;
     const hasAway = !!slot.awayTeam;
@@ -229,6 +284,10 @@ function BracketSlotCard({
             {hasPick ? (
               <span className="rounded-full bg-[#32CD32] px-2 py-0.5 text-[9px] font-bold uppercase text-white">
                 Picked
+              </span>
+            ) : chaining?.status === "forced" ? (
+              <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold uppercase text-white">
+                Winner locked
               </span>
             ) : (
               <span className="rounded-full bg-[#FF007A]/10 px-2 py-0.5 text-[9px] font-bold uppercase text-[#FF007A]">
@@ -398,6 +457,10 @@ function BracketSlotCard({
           <span className="rounded-full bg-[#32CD32] px-2 py-0.5 text-[9px] font-bold uppercase text-white">
             Picked
           </span>
+        ) : chaining?.status === "forced" ? (
+          <span className="rounded-full bg-amber-500 px-2 py-0.5 text-[9px] font-bold uppercase text-white">
+            Winner locked
+          </span>
         ) : (
           <span className="rounded-full bg-[#FF007A]/10 px-2 py-0.5 text-[9px] font-bold uppercase text-[#FF007A]">
             {locked ? "Missed" : "Tap to pick"}
@@ -519,10 +582,15 @@ export function KnockoutBracketView({
         let pickable = 0;
         let picked = 0;
         for (const slot of slots) {
+          const countsTowardPickable =
+            slot.chaining?.status !== "bust" &&
+            slot.chaining?.status !== "pending";
           if (slot.kind === "match") {
-            pickable += 1;
-            if (pickMap.has(slot.match.id)) picked += 1;
-          } else if (slot.pickable) {
+            if (countsTowardPickable) {
+              pickable += 1;
+              if (pickMap.has(slot.match.id)) picked += 1;
+            }
+          } else if (slot.pickable && countsTowardPickable) {
             pickable += 1;
             if (slot.slotPick) picked += 1;
           }
@@ -572,6 +640,12 @@ export function KnockoutBracketView({
           if (slot.slotIndex <= fromSlotIndex) continue;
         }
         if (slot.kind === "match") {
+          if (
+            slot.chaining?.status === "bust" ||
+            slot.chaining?.status === "pending"
+          ) {
+            continue;
+          }
           if (
             !pickMap.has(slot.match.id) &&
             !isPickLocked(slot.match, matches)
@@ -1040,6 +1114,28 @@ export function KnockoutBracketView({
                 null
               : null;
 
+          let activeChaining = undefined;
+          if (from) {
+            for (const { column, slots } of columns) {
+              if (column.id !== from.columnId) continue;
+              const slot = slots.find((s) => s.slotIndex === from.slotIndex);
+              if (slot) {
+                activeChaining = slot.chaining;
+                break;
+              }
+            }
+          }
+
+          const lockedWinner =
+            from && activeChaining
+              ? getLockedWinnerForSlot(
+                  from.columnId,
+                  from.slotIndex,
+                  activeMatch,
+                  activeChaining
+                )
+              : null;
+
           return (
             <BracketPickPanel
               match={activeMatch}
@@ -1047,6 +1143,7 @@ export function KnockoutBracketView({
               slotPick={activeSlotPick}
               userId={userId ?? undefined}
               checkEliminated={checkEliminated}
+              lockedWinner={lockedWinner}
               locked={
                 isVirtualMatchId(activeMatch.id) && activeSlotPick
                   ? isBracketSlotPickLocked(activeSlotPick, matches)

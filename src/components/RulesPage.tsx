@@ -227,9 +227,10 @@ export function RulesPage() {
                 are not eligible for the +5 exact-score bonus.
                 <strong className="text-gray-300">
                   {" "}
-                  Sleeper-style chaining: if a team you picked to win loses,
-                  that team is crossed out — but other teams you picked can
-                  still score in later rounds.
+                  NCAA bracket chaining: your bracket is a tree. If both feeder
+                  picks for a slot were wrong, that path is bust (0 pts). If only
+                  one feeder was wrong, you must ride the team you got right —
+                  you can change the score but not the winner.
                 </strong>
               </p>
             </div>
@@ -266,10 +267,16 @@ export function RulesPage() {
               team earn 0 points.
             </li>
             <li>
-              • <strong className="text-white">Team chaining (Sleeper-style):</strong>{" "}
-              if you pick a team to win and they lose, that team is crossed out
-              in your bracket. Teams you picked correctly can still score in
-              later rounds, even if you had the wrong opponent in that slot.
+              • <strong className="text-white">NCAA bracket chaining:</strong>{" "}
+              your bracket is a prediction tree. If both feeder picks for a
+              slot were wrong, that entire path is bust — unpickable and 0
+              points. If only one feeder was wrong, you are locked to the team
+              you got right: you may change the predicted score until kickoff,
+              but not the winner.
+            </li>
+            <li>
+              • Teams you picked to win and lost are crossed out in earlier
+              rounds on your bracket view.
             </li>
             <li>
               • View other players&apos; picks anytime from the standings. Your

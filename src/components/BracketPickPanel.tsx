@@ -35,6 +35,8 @@ interface BracketPickPanelProps {
   userId?: string;
   locked: boolean;
   checkEliminated?: TeamEliminationChecker;
+  /** When set, the winner is locked by bracket path (score can still change). */
+  lockedWinner?: PickWinner | null;
   onClose: () => void;
   onSaved: (pick: Pick) => void;
   onSlotSaved: (slotPick: BracketSlotPick) => void | Promise<void>;
@@ -56,11 +58,11 @@ function BracketPickForm({
   onAdvanceToNext,
   nextRoundLabel,
   checkEliminated,
+  lockedWinner = null,
 }: BracketPickPanelProps) {
   const existing = pick ?? slotPick;
-  const [pickedWinner, setPickedWinner] = useState<PickWinner>(
-    existing?.picked_winner ?? "home"
-  );
+  const initialWinner = lockedWinner ?? existing?.picked_winner ?? "home";
+  const [pickedWinner, setPickedWinner] = useState<PickWinner>(initialWinner);
   const [homeScore, setHomeScore] = useState(
     existing?.home_score_pred != null ? String(existing.home_score_pred) : "0"
   );
@@ -88,8 +90,10 @@ function BracketPickForm({
       ? null
       : normalizeGroupScore(awayScore);
 
+    const winnerToSave = lockedWinner ?? pickedWinner;
+
     const scoreError = validateKnockoutPick(
-      pickedWinner,
+      winnerToSave,
       homeScorePred ?? 0,
       awayScorePred ?? 0,
       predictsPenalties
@@ -118,7 +122,7 @@ function BracketPickForm({
             virtualSlot.roundId as BracketSlotRoundId,
             virtualSlot.slotIndex,
             match,
-            pickedWinner,
+            winnerToSave,
             homeScorePred,
             awayScorePred,
             predictsPenalties
@@ -143,7 +147,7 @@ function BracketPickForm({
       headers: { "Content-Type": "application/json" },
       body: JSON.stringify({
         matchId: match.id,
-        pickedWinner,
+        pickedWinner: winnerToSave,
         homeScorePred,
         awayScorePred,
         predictsPenalties,
@@ -168,7 +172,7 @@ function BracketPickForm({
   const previewPick = {
     ...pick,
     ...slotPick,
-    picked_winner: pickedWinner,
+    picked_winner: lockedWinner ?? pickedWinner,
     home_score_pred: predictsPenalties ? null : normalizeGroupScore(homeScore),
     away_score_pred: predictsPenalties ? null : normalizeGroupScore(awayScore),
     predicts_penalties: predictsPenalties,
@@ -228,11 +232,16 @@ function BracketPickForm({
           </div>
         ) : (
           <>
+            {lockedWinner && (
+              <p className="mb-3 rounded-lg border border-amber-300 bg-amber-50 px-3 py-2 text-center text-xs font-bold text-amber-900">
+                Your bracket locks the winner — adjust the score only.
+              </p>
+            )}
             <KnockoutPickFields
               match={match}
               outcomeMode={outcomeMode}
               onOutcomeModeChange={setOutcomeMode}
-              pickedWinner={pickedWinner}
+              pickedWinner={lockedWinner ?? pickedWinner}
               onPickedWinnerChange={setPickedWinner}
               homeScore={homeScore}
               awayScore={awayScore}
@@ -240,6 +249,7 @@ function BracketPickForm({
               onAwayScoreChange={setAwayScore}
               homeEliminated={homeEliminated}
               awayEliminated={awayEliminated}
+              lockedWinner={lockedWinner}
             />
 
             {error && (

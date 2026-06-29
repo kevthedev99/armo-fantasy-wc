@@ -19,6 +19,8 @@ interface KnockoutPickFieldsProps {
   disabled?: boolean;
   homeEliminated?: boolean;
   awayEliminated?: boolean;
+  /** When set, the winner cannot be changed (NCAA forced bracket path). */
+  lockedWinner?: PickWinner | null;
 }
 
 export function KnockoutPickFields({
@@ -34,6 +36,7 @@ export function KnockoutPickFields({
   disabled = false,
   homeEliminated = false,
   awayEliminated = false,
+  lockedWinner = null,
 }: KnockoutPickFieldsProps) {
   const penaltiesMode = outcomeMode === "penalties";
 
@@ -45,11 +48,13 @@ export function KnockoutPickFields({
   ) {
     const eliminated =
       value === "home" ? homeEliminated : value === "away" ? awayEliminated : false;
+    const winnerLocked =
+      lockedWinner != null && lockedWinner !== value;
     return (
       <button
         key={value}
         type="button"
-        disabled={disabled}
+        disabled={disabled || winnerLocked}
         onClick={() => onPickedWinnerChange(value)}
         className={`rounded-lg border px-2 py-2 text-[10px] font-bold uppercase transition md:text-xs ${
           pickedWinner === value

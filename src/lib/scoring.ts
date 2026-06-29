@@ -1,3 +1,8 @@
+import type {
+  BracketChainingContext,
+  BracketSlotChaining,
+} from "@/lib/bracket-slot-chaining";
+import { isValidStrictBracketPick } from "@/lib/bracket-slot-chaining";
 import type { Match, Pick as UserPick, PickWinner } from "./types";
 import {
   buildKnockoutMatchMap,
@@ -9,6 +14,10 @@ import { pickPredictsPenalties } from "./pick-storage";
 export type ScorePickContext = {
   knockoutMatches: ChainingMatch[];
   picksByMatchId: Map<number, UserPick>;
+  bracketChaining?: {
+    ctx: BracketChainingContext;
+    cache: Map<string, BracketSlotChaining>;
+  };
 };
 
 /**
@@ -193,6 +202,18 @@ export function scorePick(
   }
 
   if (match.stage === "knockout" && context) {
+    if (
+      context.bracketChaining &&
+      !isValidStrictBracketPick(
+        match,
+        pick.picked_winner,
+        context.bracketChaining.ctx,
+        context.bracketChaining.cache
+      )
+    ) {
+      return 0;
+    }
+
     const matchesById = buildKnockoutMatchMap(context.knockoutMatches);
     if (
       !canScoreKnockoutPick(

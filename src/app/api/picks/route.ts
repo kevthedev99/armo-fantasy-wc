@@ -8,7 +8,8 @@ import {
   validatePickScores,
   isMatchFinished,
 } from "@/lib/scoring";
-import type { PickWinner } from "@/lib/types";
+import { validateStrictBracketPickForUser } from "@/lib/validate-bracket-pick";
+import type { Match, PickWinner } from "@/lib/types";
 
 export async function POST(request: Request) {
   const supabase = await createClient();
@@ -51,7 +52,7 @@ export async function POST(request: Request) {
 
   const { data: allMatches } = await supabase
     .from("matches")
-    .select("stage, round, kickoff_at, status");
+    .select("*");
 
   if (isPickLocked(match, allMatches ?? [])) {
     return NextResponse.json(
@@ -89,6 +90,19 @@ export async function POST(request: Request) {
         );
   if (scoreError) {
     return NextResponse.json({ error: scoreError }, { status: 400 });
+  }
+
+  if (match.stage === "knockout") {
+    const bracketError = await validateStrictBracketPickForUser(
+      supabase,
+      user.id,
+      match as Match,
+      pickedWinner,
+      (allMatches ?? []) as Match[]
+    );
+    if (bracketError) {
+      return NextResponse.json({ error: bracketError }, { status: 400 });
+    }
   }
 
   const pickRow: {

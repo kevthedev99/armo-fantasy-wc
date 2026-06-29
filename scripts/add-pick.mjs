@@ -50,6 +50,42 @@ function pickWinner(home, away) {
   return "draw";
 }
 
+const KNOCKOUT_ROUND_POINTS = {
+  "Round of 32": 4,
+  "Round of 16": 6,
+  "8th Finals": 4,
+  "Quarter-finals": 8,
+  "Semi-finals": 16,
+  "3rd Place Final": 8,
+  "Third place": 8,
+  Final: 24,
+};
+
+function getKnockoutBasePoints(round) {
+  return KNOCKOUT_ROUND_POINTS[round] ?? 4;
+}
+
+function scoreFinishedPick(match, pick) {
+  const actual =
+    match.home_score > match.away_score
+      ? "home"
+      : match.away_score > match.home_score
+        ? "away"
+        : "draw";
+  if (pick.picked_winner !== actual) return 0;
+
+  const exact =
+    pick.home_score_pred !== null &&
+    pick.away_score_pred !== null &&
+    pick.home_score_pred === match.home_score &&
+    pick.away_score_pred === match.away_score;
+
+  if (match.stage === "group") {
+    return 1 + (exact ? 5 : 0);
+  }
+  return getKnockoutBasePoints(match.round) + (exact ? 5 : 0);
+}
+
 const { data: profile, error: profileError } = await supabase
   .from("profiles")
   .select("id, username, display_name")
@@ -156,22 +192,7 @@ if (
   match.home_score !== null &&
   match.away_score !== null
 ) {
-  const actual =
-    match.home_score > match.away_score
-      ? "home"
-      : match.away_score > match.home_score
-        ? "away"
-        : "draw";
-  if (pick.picked_winner === actual) {
-    pointsEarned += 1;
-    if (
-      match.stage === "group" &&
-      pick.home_score_pred === match.home_score &&
-      pick.away_score_pred === match.away_score
-    ) {
-      pointsEarned += 5;
-    }
-  }
+  pointsEarned = scoreFinishedPick(match, pick);
 
   await supabase
     .from("picks")

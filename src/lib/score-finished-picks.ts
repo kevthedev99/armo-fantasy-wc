@@ -1,6 +1,11 @@
 import { getKnockoutMatchIdsToRescore } from "@/lib/bracket-chaining";
+import {
+  buildBracketChainingContext,
+  computeAllBracketSlotChaining,
+} from "@/lib/bracket-slot-chaining";
+import { rowToBracketSlotPick } from "@/lib/bracket-slot-pick-db";
 import { isMatchFinished, scorePick } from "@/lib/scoring";
-import type { Match, Pick } from "@/lib/types";
+import type { BracketSlotPick, Match, Pick } from "@/lib/types";
 import { fetchAllPages } from "@/lib/supabase/paginate";
 import type { SupabaseClient } from "@supabase/supabase-js";
 
@@ -19,9 +24,58 @@ function groupPicksByUser(picks: Pick[]): Map<string, Pick[]> {
   return map;
 }
 
+async function buildKnockoutScoreContexts(
+  supabase: SupabaseClient,
+  userIds: string[],
+  km: Match[],
+  knockoutPicksByUser: Map<string, Map<number, Pick>>
+) {
+  const contexts = new Map<string, NonNullable<Parameters<typeof scorePick>[2]>>();
+
+  let slotPicksByUser = new Map<string, BracketSlotPick[]>();
+  if (userIds.length > 0) {
+    try {
+      const slotRows = await fetchAllPages<Parameters<typeof rowToBracketSlotPick>[0]>(
+        (from, to) =>
+        supabase
+          .from("bracket_slot_picks")
+          .select("*")
+          .in("user_id", userIds)
+          .order("id", { ascending: true })
+          .range(from, to)
+      );
+      for (const row of slotRows) {
+        const pick = rowToBracketSlotPick(row);
+        const list = slotPicksByUser.get(pick.user_id) ?? [];
+        list.push(pick);
+        slotPicksByUser.set(pick.user_id, list);
+      }
+    } catch {
+      slotPicksByUser = new Map();
+    }
+  }
+
+  for (const userId of userIds) {
+    const userPicks = [
+      ...(knockoutPicksByUser.get(userId)?.values() ?? []),
+    ];
+    const userSlotPicks = slotPicksByUser.get(userId) ?? [];
+    const chainingCtx = buildBracketChainingContext(km, userPicks, userSlotPicks);
+    const cache = computeAllBracketSlotChaining(chainingCtx);
+
+    contexts.set(userId, {
+      knockoutMatches: km,
+      picksByMatchId: knockoutPicksByUser.get(userId) ?? new Map<number, Pick>(),
+      bracketChaining: { ctx: chainingCtx, cache },
+    });
+  }
+
+  return contexts;
+}
+
 /**
- * Score (or rescore) picks on finished matches. Knockout picks use Sleeper-style
- * team chaining — only teams you picked to win and lost are crossed out.
+ * Score (or rescore) picks on finished matches. Knockout picks use NCAA-style
+ * bracket chaining — bust paths score 0; forced paths require the chained winner.
  */
 export async function scoreFinishedMatchPicks(
   supabase: SupabaseClient,
@@ -99,18 +153,20 @@ export async function scoreFinishedMatchPicks(
     }
   }
 
+  const knockoutScoreContexts = await buildKnockoutScoreContexts(
+    supabase,
+    [...usersWithKnockoutPicks],
+    km,
+    knockoutPicksByUser
+  );
+
   for (const match of finishedMatches) {
     const picks = picksOnMatches.filter((p) => p.match_id === match.id);
 
     for (const pick of picks) {
       const context =
         match.stage === "knockout"
-          ? {
-              knockoutMatches: km,
-              picksByMatchId:
-                knockoutPicksByUser.get(pick.user_id) ??
-                new Map<number, Pick>(),
-            }
+          ? knockoutScoreContexts.get(pick.user_id)
           : undefined;
 
       const points = scorePick(match as Match, pick, context);
@@ -216,6 +272,13 @@ export async function scoreUnscoredPickBackfill(
     }
   }
 
+  const knockoutScoreContexts = await buildKnockoutScoreContexts(
+    supabase,
+    [...knockoutUsers],
+    km,
+    knockoutPicksByUser
+  );
+
   for (const row of rows ?? []) {
     const joined = row.matches as Match | Match[] | null;
     const match = Array.isArray(joined) ? joined[0] : joined;
@@ -224,11 +287,7 @@ export async function scoreUnscoredPickBackfill(
     const pick = row as Pick;
     const context =
       match.stage === "knockout"
-        ? {
-            knockoutMatches: km,
-            picksByMatchId:
-              knockoutPicksByUser.get(pick.user_id) ?? new Map<number, Pick>(),
-          }
+        ? knockoutScoreContexts.get(pick.user_id)
         : undefined;
 
     const points = scorePick(match, pick, context);
