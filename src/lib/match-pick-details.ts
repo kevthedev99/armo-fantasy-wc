@@ -21,6 +21,20 @@ function actualWinner(homeScore: number, awayScore: number): PickWinner {
   return "draw";
 }
 
+function isExactScorePick(
+  match: Pick<Match, "home_score" | "away_score">,
+  pick: MatchPickInput
+): boolean {
+  if (match.home_score === null || match.away_score === null) return false;
+  if (pick.home_score_pred === null || pick.away_score_pred === null) {
+    return false;
+  }
+  return (
+    pick.home_score_pred === match.home_score &&
+    pick.away_score_pred === match.away_score
+  );
+}
+
 export function getMatchPickDetails(
   match: Match,
   picks: MatchPickInput[]
@@ -42,16 +56,10 @@ export function getMatchPickDetails(
     .map((pick) => pick.displayName)
     .sort((a, b) => a.localeCompare(b));
 
-  const correctScore =
-    match.stage === "group"
-      ? picks
-          .filter(
-            (pick) =>
-              pick.home_score_pred === home && pick.away_score_pred === away
-          )
-          .map((pick) => pick.displayName)
-          .sort((a, b) => a.localeCompare(b))
-      : [];
+  const correctScore = picks
+    .filter((pick) => isExactScorePick(match, pick))
+    .map((pick) => pick.displayName)
+    .sort((a, b) => a.localeCompare(b));
 
   return { correctWinner, correctScore };
 }
