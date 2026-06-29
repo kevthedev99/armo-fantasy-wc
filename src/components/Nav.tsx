@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { WorldCupLogo } from "@/components/WorldCupLogo";
+import { openStandingsAlert } from "@/lib/standings-alert";
 
 interface NavProps {
   username?: string;
@@ -52,6 +53,7 @@ export function Nav({ username }: NavProps) {
           <Link
             key={href}
             href={href}
+            onClick={href === "/" ? () => openStandingsAlert() : undefined}
             className={`text-sm font-semibold tracking-wide transition sm:text-base ${
               isActive(href)
                 ? href.startsWith("/casino")

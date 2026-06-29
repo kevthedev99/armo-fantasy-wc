@@ -1,12 +1,15 @@
 "use client";
 
 import Link from "next/link";
-import { useEffect, useState } from "react";
+import { useEffect } from "react";
 
-/** Shown on each full site load — dismissible until the next reload. */
-export function BracketUpdateAlert() {
-  const [open, setOpen] = useState(true);
+interface BracketUpdateAlertProps {
+  open: boolean;
+  onClose: () => void;
+}
 
+/** Knockout bracket rules modal — controlled by the Standings tab host. */
+export function BracketUpdateAlert({ open, onClose }: BracketUpdateAlertProps) {
   useEffect(() => {
     if (!open) return;
     const previous = document.body.style.overflow;
@@ -29,7 +32,7 @@ export function BracketUpdateAlert() {
         type="button"
         className="absolute inset-0 bg-black/75"
         aria-label="Close alert"
-        onClick={() => setOpen(false)}
+        onClick={onClose}
       />
       <div className="relative max-h-[min(90vh,640px)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#FFD700]/50 bg-white shadow-2xl">
         <div className="sticky top-0 border-b border-[#FFD700]/30 bg-gradient-to-r from-[#0a1628] via-[#0056b3] to-[#FF007A] px-5 py-4 text-center">
@@ -64,7 +67,7 @@ export function BracketUpdateAlert() {
             Want to know when games kick off? Visit the{" "}
             <Link
               href="/games"
-              onClick={() => setOpen(false)}
+              onClick={onClose}
               className="font-bold text-[#0056b3] underline decoration-[#0056b3]/40 underline-offset-2 hover:text-[#FF007A]"
             >
               Games
@@ -75,7 +78,7 @@ export function BracketUpdateAlert() {
 
           <button
             type="button"
-            onClick={() => setOpen(false)}
+            onClick={onClose}
             className="min-h-11 w-full rounded-full bg-[#FF007A] px-4 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:opacity-90"
           >
             Close
