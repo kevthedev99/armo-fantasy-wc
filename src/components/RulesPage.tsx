@@ -254,7 +254,11 @@ export function RulesPage() {
                 Each pick locks when that game kicks off
               </strong>{" "}
               — not all at once. You can adjust your bracket any time before a
-              specific match starts.
+              specific match starts.{" "}
+              <strong className="text-white">
+                Once a match ends, that pick is final
+              </strong>{" "}
+              and cannot be changed.
             </li>
             <li>
               • If you picked a team to advance deep and they lose early, that
@@ -289,7 +293,8 @@ export function RulesPage() {
             </p>
             <p>• Group picks lock individually when each match kicks off.</p>
             <p>
-              • Knockout picks also lock individually when each match kicks off.
+              • Knockout picks lock when each match kicks off and stay locked
+              after the final whistle — no retroactive edits.
             </p>
             <p>• Points are calculated automatically after each match ends.</p>
             <p>• Streak tracks consecutive correct picks.</p>

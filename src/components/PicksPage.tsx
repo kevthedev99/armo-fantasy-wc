@@ -76,6 +76,13 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
 
   const bracketOpen = isKnockoutChallengeActive(matches);
 
+  const liveMatchCount =
+    view === "upcoming"
+      ? stageMatches.filter(
+          (m) => !isMatchFinished(m.status) && getMatchBucket(m) === "live"
+        ).length
+      : 0;
+
   const lockedWithoutPick = visibleMatches.filter(
     (m) => isPickLocked(m, matches) && !pickMap.has(m.id)
   ).length;
@@ -116,6 +123,14 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
             Knockout bracket open — edit any pick until that match kicks off.
           </p>
         )}
+
+      {view === "upcoming" && liveMatchCount > 0 && (
+        <p className="border-b border-red-300 bg-red-50 px-4 py-2 text-center text-xs font-bold text-red-800 sm:px-6 sm:text-left">
+          <span className="mr-1.5 inline-block h-2 w-2 animate-pulse rounded-full bg-red-500 align-middle" />
+          {liveMatchCount} game{liveMatchCount !== 1 ? "s" : ""} live now —
+          highlighted in red below
+        </p>
+      )}
 
       {view === "upcoming" && lockedWithoutPick > 0 && (
         <p className="border-b border-amber-200 bg-amber-50 px-4 py-2 text-center text-xs font-medium text-amber-900 sm:px-6 sm:text-left">
@@ -217,6 +232,7 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
               match={match}
               pick={pickMap.get(match.id)}
               allMatches={matches}
+              userPicks={picks}
               onSaved={handleSaved}
             />
           ))}

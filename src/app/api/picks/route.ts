@@ -6,6 +6,7 @@ import {
   normalizeGroupScore,
   validateKnockoutPick,
   validatePickScores,
+  isMatchFinished,
 } from "@/lib/scoring";
 import type { PickWinner } from "@/lib/types";
 
@@ -55,8 +56,9 @@ export async function POST(request: Request) {
   if (isPickLocked(match, allMatches ?? [])) {
     return NextResponse.json(
       {
-        error:
-          "Picks are locked — this match has started. You cannot add or change a pick.",
+        error: isMatchFinished(match.status)
+          ? "Picks are locked — this match has finished. You cannot change a pick after the final whistle."
+          : "Picks are locked — this match has started. You cannot add or change a pick.",
       },
       { status: 403 }
     );

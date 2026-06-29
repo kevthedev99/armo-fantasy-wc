@@ -54,11 +54,10 @@ export function BracketUpdateAlert() {
             eliminated early, it affects your bracket down the line.
           </p>
           <p className="rounded-xl border border-[#0056b3]/20 bg-[#0056b3]/5 px-4 py-3 text-sm leading-relaxed text-gray-700">
-            If you think a game will go to{" "}
-            <strong className="text-gray-900">penalties</strong>, you only need
-            to pick{" "}
-            <strong className="text-gray-900">who wins the shootout</strong> —
-            not the correct full-time score.
+            Picks lock when a match <strong className="text-gray-900">starts</strong>{" "}
+            and cannot be changed after the game{" "}
+            <strong className="text-gray-900">ends</strong>. If you expect
+            penalties, pick only who wins the shootout — not the full-time score.
           </p>
 
           <button

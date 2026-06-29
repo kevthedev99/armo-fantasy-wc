@@ -52,7 +52,7 @@ export async function POST(request: Request) {
     return NextResponse.json(
       {
         error:
-          "This match has started — your pick is locked and cannot be changed.",
+          "This match has started or finished — your pick is locked and cannot be changed.",
       },
       { status: 403 }
     );
@@ -100,6 +100,25 @@ export async function DELETE(request: Request) {
     !Number.isInteger(slotIndex)
   ) {
     return NextResponse.json({ error: "Invalid slot." }, { status: 400 });
+  }
+
+  const { data: allMatches } = await supabase
+    .from("matches")
+    .select("stage, round, kickoff_at, status, home_team_id, away_team_id, home_team_name, away_team_name, home_team_logo, away_team_logo");
+
+  if (
+    isBracketSlotPickLocked(
+      { round_id: roundId, slot_index: slotIndex },
+      (allMatches ?? []) as Match[]
+    )
+  ) {
+    return NextResponse.json(
+      {
+        error:
+          "This match has started or finished — your pick is locked and cannot be changed.",
+      },
+      { status: 403 }
+    );
   }
 
   const { error } = await deleteBracketSlotPickRow(

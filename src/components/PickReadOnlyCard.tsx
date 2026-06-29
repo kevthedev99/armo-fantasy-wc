@@ -1,33 +1,53 @@
 import { format } from "date-fns";
+import { EliminatedTeamName } from "@/components/EliminatedTeamName";
 import { isVirtualMatchId } from "@/lib/bracket-slot-picks";
+import {
+  formatScore,
+  getMatchBucket,
+  getStatusLabel,
+} from "@/lib/match-status";
 import {
   formatPickSummary,
   getMatchLockMessage,
   isMatchFinished,
   isMatchLocked,
 } from "@/lib/scoring";
+import {
+  isMatchSideEliminated,
+  type TeamEliminationChecker,
+} from "@/lib/team-elimination-display";
 import type { Match, Pick } from "@/lib/types";
 
 interface PickReadOnlyCardProps {
   match: Match;
   pick?: Pick;
+  checkEliminated?: TeamEliminationChecker;
 }
 
-export function PickReadOnlyCard({ match, pick }: PickReadOnlyCardProps) {
+export function PickReadOnlyCard({
+  match,
+  pick,
+  checkEliminated,
+}: PickReadOnlyCardProps) {
   const locked = isMatchLocked(match);
   const missed = locked && !pick;
   const summary = pick ? formatPickSummary(match, pick) : null;
   const finished = isMatchFinished(match.status);
+  const isLive = getMatchBucket(match) === "live";
   const lockMessage = getMatchLockMessage(match);
+  const homeEliminated = isMatchSideEliminated(match, "home", checkEliminated);
+  const awayEliminated = isMatchSideEliminated(match, "away", checkEliminated);
 
   return (
     <article
       className={`rounded-xl border p-4 shadow-sm ${
-        missed
-          ? "border-amber-300 bg-amber-50/80"
-          : locked
-            ? "border-gray-300 bg-gray-50"
-            : "border-gray-200 bg-white"
+        isLive
+          ? "border-red-400 bg-red-50/80 ring-2 ring-red-200"
+          : missed
+            ? "border-amber-300 bg-amber-50/80"
+            : locked
+              ? "border-gray-300 bg-gray-50"
+              : "border-gray-200 bg-white"
       }`}
     >
       <div className="mb-2 flex flex-wrap items-center justify-between gap-2">
@@ -41,15 +61,36 @@ export function PickReadOnlyCard({ match, pick }: PickReadOnlyCardProps) {
           </span>
         )}
         <time className="text-[10px] font-medium uppercase text-gray-500">
-          {isVirtualMatchId(match.id)
-            ? "Bracket pick"
-            : format(new Date(match.kickoff_at), "EEE, MMM d, h:mm a")}
+          {isLive ? (
+            <span className="flex items-center justify-end gap-1 font-bold text-red-600">
+              <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
+              Live · {getStatusLabel(match.status)}
+            </span>
+          ) : isVirtualMatchId(match.id) ? (
+            "Bracket pick"
+          ) : (
+            format(new Date(match.kickoff_at), "EEE, MMM d, h:mm a")
+          )}
         </time>
       </div>
 
-      <p className="mb-3 text-center text-sm font-black uppercase">
-        {match.home_team_name} vs {match.away_team_name}
+      <p className="mb-3 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-sm font-black uppercase">
+        <EliminatedTeamName
+          name={match.home_team_name}
+          eliminated={homeEliminated}
+        />
+        <span className="text-gray-400">vs</span>
+        <EliminatedTeamName
+          name={match.away_team_name}
+          eliminated={awayEliminated}
+        />
       </p>
+
+      {isLive && match.home_score !== null && match.away_score !== null && (
+        <p className="mb-2 text-center text-lg font-black text-red-700">
+          {formatScore(match)}
+        </p>
+      )}
 
       {finished &&
         match.home_score !== null &&
@@ -72,12 +113,18 @@ export function PickReadOnlyCard({ match, pick }: PickReadOnlyCardProps) {
         <div className="flex flex-wrap items-center justify-between gap-2">
           <span
             className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase text-white ${
-              locked ? "bg-gray-500" : "bg-[#32CD32]"
+              isLive ? "bg-red-600" : locked ? "bg-gray-500" : "bg-[#32CD32]"
             }`}
           >
-            {locked ? "Locked pick" : "Pick"}
+            {isLive ? "Live pick" : locked ? "Locked pick" : "Pick"}
           </span>
-          <span className="rounded-full bg-[#32CD32]/15 px-3 py-1 text-xs font-bold uppercase text-[#1a7a1a]">
+          <span
+            className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+              isLive
+                ? "bg-red-100 text-red-800"
+                : "bg-[#32CD32]/15 text-[#1a7a1a]"
+            }`}
+          >
             {summary}
           </span>
         </div>

@@ -1,5 +1,6 @@
 "use client";
 
+import { EliminationMark } from "@/components/EliminatedTeamName";
 import type { Match, PickWinner } from "@/lib/types";
 import { PENALTIES_PICK_SENTINEL } from "@/lib/pick-storage";
 
@@ -16,6 +17,8 @@ interface KnockoutPickFieldsProps {
   onHomeScoreChange: (value: string) => void;
   onAwayScoreChange: (value: string) => void;
   disabled?: boolean;
+  homeEliminated?: boolean;
+  awayEliminated?: boolean;
 }
 
 export function KnockoutPickFields({
@@ -29,8 +32,42 @@ export function KnockoutPickFields({
   onHomeScoreChange,
   onAwayScoreChange,
   disabled = false,
+  homeEliminated = false,
+  awayEliminated = false,
 }: KnockoutPickFieldsProps) {
   const penaltiesMode = outcomeMode === "penalties";
+
+  function renderWinnerButton(
+    value: PickWinner,
+    label: string,
+    activeClass: string,
+    hoverClass: string
+  ) {
+    const eliminated =
+      value === "home" ? homeEliminated : value === "away" ? awayEliminated : false;
+    return (
+      <button
+        key={value}
+        type="button"
+        disabled={disabled}
+        onClick={() => onPickedWinnerChange(value)}
+        className={`rounded-lg border px-2 py-2 text-[10px] font-bold uppercase transition md:text-xs ${
+          pickedWinner === value
+            ? activeClass
+            : `border-gray-300 bg-white text-gray-800 ${hoverClass}`
+        } ${eliminated ? "opacity-70" : ""}`}
+      >
+        <span className={eliminated ? "line-through decoration-red-400/80" : ""}>
+          {label.length > 12 ? `${label.slice(0, 10)}…` : label}
+        </span>
+        {eliminated && (
+          <span className="ml-1 inline-flex align-middle">
+            <EliminationMark className="h-3.5 w-3.5 text-[9px]" />
+          </span>
+        )}
+      </button>
+    );
+  }
 
   return (
     <>
@@ -69,51 +106,35 @@ export function KnockoutPickFields({
             <strong>+5</strong> more for the right winner.
           </p>
           <div className="mb-3 grid grid-cols-2 gap-2">
-            {(
-              [
-                ["home", match.home_team_name],
-                ["away", match.away_team_name],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                disabled={disabled}
-                onClick={() => onPickedWinnerChange(value)}
-                className={`rounded-lg border px-2 py-2 text-[10px] font-bold uppercase transition md:text-xs ${
-                  pickedWinner === value
-                    ? "border-[#FF007A] bg-[#FF007A] text-white"
-                    : "border-gray-300 bg-white text-gray-800 hover:border-[#FF007A]"
-                }`}
-              >
-                {label.length > 12 ? `${label.slice(0, 10)}…` : label}
-              </button>
-            ))}
+            {renderWinnerButton(
+              "home",
+              match.home_team_name,
+              "border-[#FF007A] bg-[#FF007A] text-white",
+              "hover:border-[#FF007A]"
+            )}
+            {renderWinnerButton(
+              "away",
+              match.away_team_name,
+              "border-[#FF007A] bg-[#FF007A] text-white",
+              "hover:border-[#FF007A]"
+            )}
           </div>
         </>
       ) : (
         <>
           <div className="mb-3 grid grid-cols-2 gap-2">
-            {(
-              [
-                ["home", match.home_team_name],
-                ["away", match.away_team_name],
-              ] as const
-            ).map(([value, label]) => (
-              <button
-                key={value}
-                type="button"
-                disabled={disabled}
-                onClick={() => onPickedWinnerChange(value)}
-                className={`rounded-lg border px-2 py-2 text-[10px] font-bold uppercase transition md:text-xs ${
-                  pickedWinner === value
-                    ? "border-[#0056b3] bg-[#0056b3] text-white"
-                    : "border-gray-300 bg-white text-gray-800 hover:border-[#0056b3]"
-                }`}
-              >
-                {label.length > 12 ? `${label.slice(0, 10)}…` : label}
-              </button>
-            ))}
+            {renderWinnerButton(
+              "home",
+              match.home_team_name,
+              "border-[#0056b3] bg-[#0056b3] text-white",
+              "hover:border-[#0056b3]"
+            )}
+            {renderWinnerButton(
+              "away",
+              match.away_team_name,
+              "border-[#0056b3] bg-[#0056b3] text-white",
+              "hover:border-[#0056b3]"
+            )}
           </div>
 
           <div className="mb-2 flex items-center justify-center gap-2">

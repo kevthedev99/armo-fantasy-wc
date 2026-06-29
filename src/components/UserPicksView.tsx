@@ -3,6 +3,7 @@
 import { useMemo, useState } from "react";
 import { buildKnockoutProfileEntries } from "@/lib/knockout-bracket-layout";
 import { formatStreak, isMatchLocked } from "@/lib/scoring";
+import { useTeamElimination } from "@/hooks/useTeamElimination";
 import type { BracketSlotPick, Match, Pick, Profile } from "@/lib/types";
 import { PickReadOnlyCard } from "./PickReadOnlyCard";
 
@@ -48,6 +49,8 @@ export function UserPicksView({
     picks.forEach((p) => map.set(p.match_id, p));
     return map;
   }, [picks]);
+
+  const checkEliminated = useTeamElimination(picks, matches);
 
   const groupVisible = useMemo(
     () => buildVisible(matches, pickMap, "group"),
@@ -156,7 +159,12 @@ export function UserPicksView({
           </p>
         ) : (
           visible.map(({ pick, match }) => (
-            <PickReadOnlyCard key={match.id} match={match} pick={pick} />
+            <PickReadOnlyCard
+              key={match.id}
+              match={match}
+              pick={pick}
+              checkEliminated={tab === "knockout" ? checkEliminated : undefined}
+            />
           ))
         )}
       </div>

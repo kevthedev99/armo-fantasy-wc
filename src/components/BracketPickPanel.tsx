@@ -5,6 +5,7 @@ import { formatKickoffPST } from "@/lib/format-pst";
 import {
   formatPickSummary,
   getKnockoutBasePoints,
+  isMatchFinished,
   normalizeGroupScore,
   SCORING,
   validateKnockoutPick,
@@ -20,6 +21,12 @@ import {
   outcomeModeFromPick,
   type KnockoutOutcomeMode,
 } from "@/components/KnockoutPickFields";
+import { EliminatedTeamName } from "@/components/EliminatedTeamName";
+import { FinishedMatchPickSummary } from "@/components/FinishedMatchPickSummary";
+import {
+  isMatchSideEliminated,
+  type TeamEliminationChecker,
+} from "@/lib/team-elimination-display";
 
 interface BracketPickPanelProps {
   match: Match;
@@ -27,6 +34,7 @@ interface BracketPickPanelProps {
   slotPick?: BracketSlotPick;
   userId?: string;
   locked: boolean;
+  checkEliminated?: TeamEliminationChecker;
   onClose: () => void;
   onSaved: (pick: Pick) => void;
   onSlotSaved: (slotPick: BracketSlotPick) => void | Promise<void>;
@@ -47,6 +55,7 @@ function BracketPickForm({
   onSlotSaved,
   onAdvanceToNext,
   nextRoundLabel,
+  checkEliminated,
 }: BracketPickPanelProps) {
   const existing = pick ?? slotPick;
   const [pickedWinner, setPickedWinner] = useState<PickWinner>(
@@ -66,6 +75,8 @@ function BracketPickForm({
 
   const points = getKnockoutBasePoints(match.round);
   const predictsPenalties = outcomeMode === "penalties";
+  const homeEliminated = isMatchSideEliminated(match, "home", checkEliminated);
+  const awayEliminated = isMatchSideEliminated(match, "away", checkEliminated);
 
   async function savePick(advanceAfter: boolean = false) {
     if (locked) return;
@@ -169,8 +180,19 @@ function BracketPickForm({
         <p className="text-[10px] font-bold uppercase tracking-widest text-[#FFD700]">
           {match.round}
         </p>
-        <h2 id="bracket-pick-title" className="mt-1 text-lg font-black uppercase">
-          {match.home_team_name} vs {match.away_team_name}
+        <h2
+          id="bracket-pick-title"
+          className="mt-1 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-lg font-black uppercase sm:justify-start"
+        >
+          <EliminatedTeamName
+            name={match.home_team_name}
+            eliminated={homeEliminated}
+          />
+          <span className="text-white/60">vs</span>
+          <EliminatedTeamName
+            name={match.away_team_name}
+            eliminated={awayEliminated}
+          />
         </h2>
         <p className="mt-1 text-xs text-white/70">
           {isVirtualMatchId(match.id)
@@ -185,7 +207,9 @@ function BracketPickForm({
       <div className="p-5">
         {locked ? (
           <div className="text-center">
-            {pick || slotPick ? (
+            {isMatchFinished(match.status) ? (
+              <FinishedMatchPickSummary match={match} pick={previewPick} />
+            ) : pick || slotPick ? (
               <p className="rounded-xl bg-gray-100 px-4 py-3 text-sm font-bold text-gray-800">
                 {formatPickSummary(match, previewPick)}
               </p>
@@ -195,7 +219,11 @@ function BracketPickForm({
               </p>
             )}
             <p className="mt-3 text-xs text-gray-500">
-              Locked — picks cannot be changed after kickoff.
+              Locked — picks cannot be changed after kickoff
+              {isMatchFinished(match.status)
+                ? " or once the match has finished"
+                : ""}
+              .
             </p>
           </div>
         ) : (
@@ -210,6 +238,8 @@ function BracketPickForm({
               awayScore={awayScore}
               onHomeScoreChange={setHomeScore}
               onAwayScoreChange={setAwayScore}
+              homeEliminated={homeEliminated}
+              awayEliminated={awayEliminated}
             />
 
             {error && (

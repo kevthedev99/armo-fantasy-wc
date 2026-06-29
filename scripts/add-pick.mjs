@@ -109,8 +109,9 @@ const pickRow = {
   user_id: profile.id,
   match_id: match.id,
   picked_winner: pickedWinner,
-  home_score_pred: match.stage === "group" ? homeScorePred : null,
-  away_score_pred: match.stage === "group" ? awayScorePred : null,
+  home_score_pred: homeScorePred,
+  away_score_pred: awayScorePred,
+  predicts_penalties: false,
   winning_goal_minute_pred: null,
   updated_at: new Date().toISOString(),
 };

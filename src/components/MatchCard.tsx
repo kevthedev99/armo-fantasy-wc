@@ -8,7 +8,13 @@ import {
   type KnockoutOutcomeMode,
 } from "@/components/KnockoutPickFields";
 import { useIsPickLocked } from "@/hooks/useIsPickLocked";
+import { useTeamElimination } from "@/hooks/useTeamElimination";
 import { getPickLockMessage } from "@/lib/knockout-bracket";
+import {
+  EliminatedTeamName,
+  EliminationMark,
+} from "@/components/EliminatedTeamName";
+import { FinishedMatchPickSummary } from "@/components/FinishedMatchPickSummary";
 import {
   formatScore,
   getMatchBucket,
@@ -21,18 +27,31 @@ import {
   validateKnockoutPick,
   validatePickScores,
 } from "@/lib/scoring";
+import {
+  isMatchSideEliminated,
+} from "@/lib/team-elimination-display";
 import type { Match, Pick, PickWinner } from "@/lib/types";
 
 interface MatchCardProps {
   match: Match;
   pick?: Pick;
   allMatches: Match[];
+  userPicks: Pick[];
   onSaved: (pick: Pick) => void;
 }
 
-export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) {
+export function MatchCard({
+  match,
+  pick,
+  allMatches,
+  userPicks,
+  onSaved,
+}: MatchCardProps) {
   const locked = useIsPickLocked(match, allMatches);
   const lockMessage = getPickLockMessage(match, allMatches);
+  const checkEliminated = useTeamElimination(userPicks, allMatches);
+  const homeEliminated = isMatchSideEliminated(match, "home", checkEliminated);
+  const awayEliminated = isMatchSideEliminated(match, "away", checkEliminated);
   const isKnockout = match.stage === "knockout";
   const [pickedWinner, setPickedWinner] = useState<PickWinner>(
     pick?.picked_winner ?? "home"
@@ -159,7 +178,7 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
           {isLive ? (
             <span className="flex items-center justify-end gap-1 text-[10px] font-bold uppercase text-red-600">
               <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-red-500" />
-              {getStatusLabel(match.status)}
+              Live · {getStatusLabel(match.status)}
             </span>
           ) : (
             <time className="block text-[10px] font-medium uppercase text-gray-500">
@@ -181,58 +200,77 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-sm font-black uppercase">
+      <div className="mb-4 flex flex-col items-center gap-2">
+        {isLive && match.home_score !== null && match.away_score !== null && (
+          <p className="font-display text-2xl font-black tracking-wide text-red-700">
+            {formatScore(match)}
+          </p>
+        )}
+        <div className="flex flex-wrap items-center justify-center gap-x-2 gap-y-1 text-center text-sm font-black uppercase">
         {match.home_team_logo && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={match.home_team_logo}
             alt=""
-            className="h-5 w-5 object-contain"
+            className={`h-5 w-5 object-contain ${homeEliminated ? "grayscale opacity-70" : ""}`}
           />
         )}
-        <span className="truncate">{match.home_team_name}</span>
+        <EliminatedTeamName
+          name={match.home_team_name}
+          eliminated={homeEliminated}
+        />
         <span className="text-gray-400">vs</span>
-        <span className="truncate">{match.away_team_name}</span>
+        <EliminatedTeamName
+          name={match.away_team_name}
+          eliminated={awayEliminated}
+        />
         {match.away_team_logo && (
           // eslint-disable-next-line @next/next/no-img-element
           <img
             src={match.away_team_logo}
             alt=""
-            className="h-5 w-5 object-contain"
+            className={`h-5 w-5 object-contain ${awayEliminated ? "grayscale opacity-70" : ""}`}
           />
         )}
+        </div>
       </div>
 
       {locked ? (
         <>
-          {pick && summary ? (
-            <div className="mb-3 flex flex-col items-center gap-2 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
-              <span
-                className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase text-white ${
-                  isLive ? "bg-red-600" : "bg-gray-500"
-                }`}
-              >
-                {isLive ? "Live pick" : "Locked pick"}
-              </span>
-              <span
-                className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
-                  isLive
-                    ? "bg-red-100 text-red-800"
-                    : "bg-[#32CD32]/15 text-[#1a7a1a]"
-                }`}
-              >
-                {summary}
-              </span>
-            </div>
+          {isMatchFinished(match.status) ? (
+            <FinishedMatchPickSummary match={match} pick={pick} size="sm" />
           ) : (
-            <div className="mb-3 rounded-lg border border-amber-400/60 bg-amber-100/80 px-3 py-2 text-center">
-              <p className="text-[10px] font-black uppercase tracking-wide text-amber-900">
-                No pick made
-              </p>
-              <p className="mt-0.5 text-xs text-amber-800">
-                This match is locked — you can&apos;t add or change a pick now.
-              </p>
-            </div>
+            <>
+              {pick && summary ? (
+                <div className="mb-3 flex flex-col items-center gap-2 text-center sm:flex-row sm:items-center sm:justify-between sm:text-left">
+                  <span
+                    className={`rounded-full px-2 py-0.5 text-[10px] font-bold uppercase text-white ${
+                      isLive ? "bg-red-600" : "bg-gray-500"
+                    }`}
+                  >
+                    {isLive ? "Live pick" : "Locked pick"}
+                  </span>
+                  <span
+                    className={`rounded-full px-3 py-1 text-xs font-bold uppercase ${
+                      isLive
+                        ? "bg-red-100 text-red-800"
+                        : "bg-[#32CD32]/15 text-[#1a7a1a]"
+                    }`}
+                  >
+                    {summary}
+                  </span>
+                </div>
+              ) : (
+                <div className="mb-3 rounded-lg border border-amber-400/60 bg-amber-100/80 px-3 py-2 text-center">
+                  <p className="text-[10px] font-black uppercase tracking-wide text-amber-900">
+                    No pick made
+                  </p>
+                  <p className="mt-0.5 text-xs text-amber-800">
+                    This match is locked — you can&apos;t add or change a pick now.
+                  </p>
+                </div>
+              )}
+            </>
           )}
           <p className="text-center text-xs font-medium text-gray-500">
             🔒 {lockMessage || "Locked — match has started"}
@@ -262,11 +300,20 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
               awayScore={awayScore}
               onHomeScoreChange={setHomeScore}
               onAwayScoreChange={setAwayScore}
+              homeEliminated={homeEliminated}
+              awayEliminated={awayEliminated}
             />
           ) : (
             <>
               <div className="mb-3 grid grid-cols-3 gap-2">
-                {winnerOptions.map(([value, label]) => (
+                {winnerOptions.map(([value, label]) => {
+                  const eliminated =
+                    value === "home"
+                      ? homeEliminated
+                      : value === "away"
+                        ? awayEliminated
+                        : false;
+                  return (
                   <button
                     key={value}
                     type="button"
@@ -275,11 +322,19 @@ export function MatchCard({ match, pick, allMatches, onSaved }: MatchCardProps) 
                       pickedWinner === value
                         ? "border-[#0056b3] bg-[#0056b3] text-white"
                         : "border-gray-300 bg-white text-gray-800 hover:border-[#0056b3]"
-                    }`}
+                    } ${eliminated ? "opacity-70" : ""}`}
                   >
-                    {label.length > 12 ? `${label.slice(0, 10)}…` : label}
+                    <span className={eliminated ? "line-through decoration-red-400/80" : ""}>
+                      {label.length > 12 ? `${label.slice(0, 10)}…` : label}
+                    </span>
+                    {eliminated && (
+                      <span className="ml-1 inline-flex align-middle">
+                        <EliminationMark className="h-3.5 w-3.5 text-[9px]" />
+                      </span>
+                    )}
                   </button>
-                ))}
+                  );
+                })}
               </div>
 
               <div className="mb-2 flex items-center justify-center gap-2">

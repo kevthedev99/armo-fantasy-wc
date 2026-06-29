@@ -21,12 +21,20 @@ import {
   formatPickerList,
   type MatchPickDetails,
 } from "@/lib/match-pick-details";
-import type { GroupBracket, Match, MatchEvent, PickWinner } from "@/lib/types";
+import { useTeamElimination } from "@/hooks/useTeamElimination";
+import {
+  EliminatedTeamName,
+  EliminationMark,
+} from "@/components/EliminatedTeamName";
+import { isMatchSideEliminated } from "@/lib/team-elimination-display";
+import type { TeamEliminationChecker } from "@/lib/team-elimination-display";
+import type { GroupBracket, Match, MatchEvent, Pick, PickWinner } from "@/lib/types";
 
 interface GamesPageProps {
   matches: Match[];
   groupBrackets?: GroupBracket[];
   pickByMatchId?: Record<number, PickWinner>;
+  userPicks?: Pick[];
   pickDetailsByMatchId?: Record<number, MatchPickDetails>;
   isLoggedIn?: boolean;
 }
@@ -118,11 +126,15 @@ function MatchRow({
   variant,
   pickedWinner,
   pickDetails,
+  homeEliminated = false,
+  awayEliminated = false,
 }: {
   match: Match;
   variant: "live" | "upcoming" | "finished";
   pickedWinner?: PickWinner;
   pickDetails?: MatchPickDetails;
+  homeEliminated?: boolean;
+  awayEliminated?: boolean;
 }) {
   const live = variant === "live";
   const finished = variant === "finished";
@@ -149,8 +161,10 @@ function MatchRow({
       <div className="flex items-center gap-1.5 sm:gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
           <TeamLogo src={match.home_team_logo} name={match.home_team_name} />
-          <span
-            className={`min-w-0 flex-1 truncate text-sm font-semibold ${
+          <EliminatedTeamName
+            name={match.home_team_name}
+            eliminated={homeEliminated}
+            className={`min-w-0 flex-1 text-sm font-semibold ${
               showScore &&
               match.home_score !== null &&
               match.away_score !== null &&
@@ -158,9 +172,7 @@ function MatchRow({
                 ? "text-black"
                 : "text-gray-700"
             }`}
-          >
-            {match.home_team_name}
-          </span>
+          />
           {showHomePick(pickedWinner) && <PickMark />}
         </div>
 
@@ -192,8 +204,11 @@ function MatchRow({
 
         <div className="flex min-w-0 flex-1 flex-row-reverse items-center gap-1.5 sm:gap-2">
           <TeamLogo src={match.away_team_logo} name={match.away_team_name} />
-          <span
-            className={`min-w-0 flex-1 truncate text-right text-sm font-semibold ${
+          <EliminatedTeamName
+            name={match.away_team_name}
+            eliminated={awayEliminated}
+            markAfter
+            className={`min-w-0 flex-1 text-sm font-semibold ${
               showScore &&
               match.home_score !== null &&
               match.away_score !== null &&
@@ -201,9 +216,7 @@ function MatchRow({
                 ? "text-black"
                 : "text-gray-700"
             }`}
-          >
-            {match.away_team_name}
-          </span>
+          />
           {showAwayPick(pickedWinner) && <PickMark />}
         </div>
       </div>
@@ -255,6 +268,7 @@ function MatchGroup({
   knockoutStageBadge,
   pickByMatchId,
   pickDetailsByMatchId,
+  checkEliminated,
 }: {
   title: string;
   matches: Match[];
@@ -263,6 +277,7 @@ function MatchGroup({
   knockoutStageBadge?: string | null;
   pickByMatchId: Record<number, PickWinner>;
   pickDetailsByMatchId: Record<number, MatchPickDetails>;
+  checkEliminated?: TeamEliminationChecker;
 }) {
   if (matches.length === 0) return null;
 
@@ -304,6 +319,8 @@ function MatchGroup({
               variant={variant}
               pickedWinner={pickByMatchId[match.id]}
               pickDetails={pickDetailsByMatchId[match.id]}
+              homeEliminated={isMatchSideEliminated(match, "home", checkEliminated)}
+              awayEliminated={isMatchSideEliminated(match, "away", checkEliminated)}
             />
           </div>
         ))}
@@ -354,10 +371,12 @@ export function GamesPage({
   matches,
   groupBrackets: initialGroupBrackets = [],
   pickByMatchId = {},
+  userPicks = [],
   pickDetailsByMatchId = {},
   isLoggedIn = false,
 }: GamesPageProps) {
   const router = useRouter();
+  const checkEliminated = useTeamElimination(userPicks, matches);
   const [view, setView] = useState<GamesView>("future");
   const [groupBrackets, setGroupBrackets] =
     useState<GroupBracket[]>(initialGroupBrackets);
@@ -469,11 +488,18 @@ export function GamesPage({
         }`}
       >
         {isLoggedIn && (
-          <p className="flex items-center gap-2 text-xs text-gray-500">
+          <p className="flex flex-wrap items-center gap-2 text-xs text-gray-500">
             <PickMark />
             <span>
               Blue checkmark = the team you picked to win. Draw picks show on
               both teams.
+            </span>
+            <span className="inline-flex items-center gap-1">
+              <EliminationMark />
+              <span>
+                Red cross = eliminated from your bracket (picked to win earlier,
+                lost).
+              </span>
             </span>
           </p>
         )}
@@ -487,6 +513,7 @@ export function GamesPage({
             knockoutStageBadge={getKnockoutStageBadgeLabel(live)}
             pickByMatchId={pickByMatchId}
             pickDetailsByMatchId={pickDetailsByMatchId}
+            checkEliminated={isLoggedIn ? checkEliminated : undefined}
           />
         )}
 
@@ -525,6 +552,7 @@ export function GamesPage({
                 knockoutStageBadge={getKnockoutStageBadgeLabel(dayMatches)}
                 pickByMatchId={pickByMatchId}
                 pickDetailsByMatchId={pickDetailsByMatchId}
+                checkEliminated={isLoggedIn ? checkEliminated : undefined}
               />
             ))}
           </>
@@ -548,6 +576,7 @@ export function GamesPage({
                 knockoutStageBadge={getKnockoutStageBadgeLabel(dayMatches)}
                 pickByMatchId={pickByMatchId}
                 pickDetailsByMatchId={pickDetailsByMatchId}
+                checkEliminated={isLoggedIn ? checkEliminated : undefined}
               />
             ))}
           </>

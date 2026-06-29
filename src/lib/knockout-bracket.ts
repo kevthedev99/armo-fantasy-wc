@@ -169,6 +169,7 @@ export function isPickLocked(
   now = new Date()
 ): boolean {
   void allMatches;
+  if (isMatchFinished(match.status)) return true;
   return isMatchLocked(match, now);
 }
 

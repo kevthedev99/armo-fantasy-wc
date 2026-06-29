@@ -3,6 +3,8 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { BracketPickPanel } from "@/components/BracketPickPanel";
+import { FinishedMatchPickSummary } from "@/components/FinishedMatchPickSummary";
+import { EliminationMark } from "@/components/EliminatedTeamName";
 import {
   formatRoundOf32StartLabel,
   isKnockoutChallengeActive,
@@ -31,8 +33,40 @@ import {
   type BracketTeamPreview,
 } from "@/lib/knockout-bracket-layout";
 import { formatKickoffPST } from "@/lib/format-pst";
-import { formatPickSummary } from "@/lib/scoring";
+import {
+  formatScore,
+  getMatchBucket,
+  getStatusLabel,
+} from "@/lib/match-status";
+import { formatPickSummary, isMatchFinished } from "@/lib/scoring";
+import {
+  BRACKET_PLACEHOLDER_KICKOFF,
+  type TeamEliminationChecker,
+} from "@/lib/team-elimination-display";
+import { useTeamElimination } from "@/hooks/useTeamElimination";
 import type { BracketSlotPick, Match, Pick } from "@/lib/types";
+
+function slotKickoffForElimination(slot: BracketMatchSlot): string {
+  if (slot.kind === "match") return slot.match.kickoff_at;
+  return BRACKET_PLACEHOLDER_KICKOFF;
+}
+
+function isSlotTeamEliminated(
+  slot: BracketMatchSlot,
+  side: "home" | "away",
+  checkEliminated?: TeamEliminationChecker
+): boolean {
+  if (!checkEliminated) return false;
+  const cutoff = slotKickoffForElimination(slot);
+  if (slot.kind === "match") {
+    const teamId =
+      side === "home" ? slot.match.home_team_id : slot.match.away_team_id;
+    return checkEliminated(teamId, cutoff);
+  }
+  const team = side === "home" ? slot.homeTeam : slot.awayTeam;
+  if (!team) return false;
+  return checkEliminated(team.id, cutoff);
+}
 
 interface KnockoutBracketViewProps {
   userId: string | null;
@@ -63,18 +97,25 @@ function TeamLine({
         picked
           ? "bg-[#0056b3]/15 text-[#0056b3] ring-1 ring-[#0056b3]/40"
           : "bg-white/80 text-gray-800"
-      } ${eliminated ? "opacity-40 line-through" : ""}`}
+      } ${eliminated ? "opacity-70" : ""}`}
     >
       {logo ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={logo} alt="" className="h-4 w-4 shrink-0 object-contain" />
+        <img
+          src={logo}
+          alt=""
+          className={`h-4 w-4 shrink-0 object-contain ${eliminated ? "grayscale" : ""}`}
+        />
       ) : (
         <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[8px] font-bold text-gray-500">
           ?
         </span>
       )}
-      <span className="truncate">{name}</span>
-      {picked && (
+      <span className={`min-w-0 flex-1 truncate ${eliminated ? "line-through decoration-red-400/80" : ""}`}>
+        {name}
+      </span>
+      {eliminated && <EliminationMark />}
+      {picked && !eliminated && (
         <span className="ml-auto shrink-0 text-[9px] font-black uppercase text-[#0056b3]">
           Pick
         </span>
@@ -86,22 +127,39 @@ function TeamLine({
 function PlaceholderTeam({
   team,
   fallbackLabel,
+  eliminated,
 }: {
   team?: BracketTeamPreview | null;
   fallbackLabel: string;
+  eliminated?: boolean;
 }) {
   if (team) {
     return (
-      <div className="flex min-w-0 items-center gap-2 rounded-lg bg-white/90 px-2 py-1.5 text-xs font-semibold text-gray-800 ring-1 ring-[#0056b3]/20">
+      <div
+        className={`flex min-w-0 items-center gap-2 rounded-lg bg-white/90 px-2 py-1.5 text-xs font-semibold text-gray-800 ring-1 ring-[#0056b3]/20 ${
+          eliminated ? "opacity-70" : ""
+        }`}
+      >
         {team.logo ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={team.logo} alt="" className="h-4 w-4 shrink-0 object-contain" />
+          <img
+            src={team.logo}
+            alt=""
+            className={`h-4 w-4 shrink-0 object-contain ${eliminated ? "grayscale" : ""}`}
+          />
         ) : (
           <span className="flex h-4 w-4 shrink-0 items-center justify-center rounded-full bg-gray-200 text-[8px] font-bold text-gray-500">
             ?
           </span>
         )}
-        <span className="truncate">{team.name}</span>
+        <span
+          className={`min-w-0 flex-1 truncate ${
+            eliminated ? "line-through decoration-red-400/80" : ""
+          }`}
+        >
+          {team.name}
+        </span>
+        {eliminated && <EliminationMark />}
       </div>
     );
   }
@@ -118,12 +176,16 @@ function BracketSlotCard({
   pick,
   locked,
   onSelect,
+  checkEliminated,
 }: {
   slot: BracketMatchSlot;
   pick?: Pick;
   locked: boolean;
   onSelect: () => void;
+  checkEliminated?: TeamEliminationChecker;
 }) {
+  const homeEliminated = isSlotTeamEliminated(slot, "home", checkEliminated);
+  const awayEliminated = isSlotTeamEliminated(slot, "away", checkEliminated);
   if (slot.kind === "placeholder") {
     const hasHome = !!slot.homeTeam;
     const hasAway = !!slot.awayTeam;
@@ -176,11 +238,13 @@ function BracketSlotCard({
               name={slot.homeTeam!.name}
               logo={slot.homeTeam!.logo}
               picked={homePicked}
+              eliminated={homeEliminated}
             />
             <TeamLine
               name={slot.awayTeam!.name}
               logo={slot.awayTeam!.logo}
               picked={awayPicked}
+              eliminated={awayEliminated}
             />
           </div>
           {hasPick && displayPick && slot.homeTeam && slot.awayTeam && (
@@ -214,8 +278,16 @@ function BracketSlotCard({
           {slot.roundLabel} · Slot {slot.slotIndex + 1}
         </p>
         <div className="space-y-1.5">
-          <PlaceholderTeam team={slot.homeTeam} fallbackLabel={slot.homeLabel} />
-          <PlaceholderTeam team={slot.awayTeam} fallbackLabel={slot.awayLabel} />
+          <PlaceholderTeam
+            team={slot.homeTeam}
+            fallbackLabel={slot.homeLabel}
+            eliminated={homeEliminated}
+          />
+          <PlaceholderTeam
+            team={slot.awayTeam}
+            fallbackLabel={slot.awayLabel}
+            eliminated={awayEliminated}
+          />
         </div>
         <p className="mt-2 text-center text-[10px] text-gray-400">
           Matches must finish for this to be determined
@@ -228,24 +300,98 @@ function BracketSlotCard({
   const hasPick = !!pick;
   const homePicked = pick?.picked_winner === "home";
   const awayPicked = pick?.picked_winner === "away";
+  const isLive = getMatchBucket(match) === "live";
+  const isFinished = isMatchFinished(match.status);
+  const isLocked = locked || isFinished;
+
+  if (isLocked && !isLive) {
+    return (
+      <div
+        className={`relative w-full rounded-xl border p-3 ${
+          isFinished
+            ? "border-gray-300 bg-gray-100/90"
+            : "border-amber-200 bg-amber-50/80"
+        }`}
+      >
+        <div className="mb-2 flex items-center justify-between gap-2">
+          <span className="text-[9px] font-bold uppercase tracking-wider text-gray-500">
+            M{slot.slotIndex + 1}
+          </span>
+          <span
+            className={`rounded-full px-2 py-0.5 text-[9px] font-bold uppercase text-white ${
+              isFinished ? "bg-gray-500" : "bg-amber-600"
+            }`}
+          >
+            {isFinished ? "Final — locked" : "Locked"}
+          </span>
+        </div>
+
+        <div className="space-y-1.5">
+          <TeamLine
+            name={match.home_team_name}
+            logo={match.home_team_logo}
+            picked={homePicked}
+            eliminated={homeEliminated}
+          />
+          <TeamLine
+            name={match.away_team_name}
+            logo={match.away_team_logo}
+            picked={awayPicked}
+            eliminated={awayEliminated}
+          />
+        </div>
+
+        <FinishedMatchPickSummary match={match} pick={pick} />
+
+        {!isFinished && hasPick && pick && (
+          <p className="mt-2 text-center text-[10px] font-bold uppercase text-gray-600">
+            Your pick: {formatPickSummary(match, pick)}
+          </p>
+        )}
+
+        {!isFinished && !hasPick && (
+          <p className="mt-2 text-center text-[10px] font-medium text-amber-800">
+            No pick — locked at kickoff
+          </p>
+        )}
+
+        <p className="mt-1.5 text-center text-[9px] text-gray-500">
+          {isFinished
+            ? "Picks cannot be changed after the match ends"
+            : "Picks lock once the match starts"}
+        </p>
+      </div>
+    );
+  }
 
   return (
     <button
       type="button"
       onClick={onSelect}
       className={`group relative w-full rounded-xl border p-3 text-left transition hover:scale-[1.02] hover:shadow-lg ${
-        hasPick
-          ? "border-[#32CD32]/50 bg-gradient-to-br from-[#f0fff4] to-white shadow-sm"
-          : locked
-            ? "border-amber-200 bg-amber-50/50"
-            : "border-[#0056b3]/30 bg-white shadow-sm hover:border-[#FF007A]/50"
+        isLive
+          ? "border-red-500 bg-gradient-to-br from-red-50 to-red-100/80 shadow-md ring-2 ring-red-300"
+          : hasPick
+            ? "border-[#32CD32]/50 bg-gradient-to-br from-[#f0fff4] to-white shadow-sm"
+            : locked
+              ? "border-amber-200 bg-amber-50/50"
+              : "border-[#0056b3]/30 bg-white shadow-sm hover:border-[#FF007A]/50"
       }`}
     >
       <div className="mb-2 flex items-center justify-between gap-2">
-        <span className="text-[9px] font-bold uppercase tracking-wider text-gray-400">
+        <span
+          className={`text-[9px] font-bold uppercase tracking-wider ${
+            isLive ? "text-red-600" : "text-gray-400"
+          }`}
+        >
           M{slot.slotIndex + 1}
         </span>
-        {hasPick ? (
+        {isLive ? (
+          <span className="flex items-center gap-1 rounded-full bg-red-600 px-2 py-0.5 text-[9px] font-bold uppercase text-white">
+            <span className="inline-block h-1.5 w-1.5 animate-pulse rounded-full bg-white" />
+            Live
+          </span>
+        ) : hasPick ? (
           <span className="rounded-full bg-[#32CD32] px-2 py-0.5 text-[9px] font-bold uppercase text-white">
             Picked
           </span>
@@ -261,23 +407,43 @@ function BracketSlotCard({
           name={match.home_team_name}
           logo={match.home_team_logo}
           picked={homePicked}
+          eliminated={homeEliminated}
         />
         <TeamLine
           name={match.away_team_name}
           logo={match.away_team_logo}
           picked={awayPicked}
+          eliminated={awayEliminated}
         />
       </div>
 
-      {hasPick && pick && (
+      {isLive && match.home_score !== null && match.away_score !== null && (
+        <p className="mt-2 text-center font-display text-lg font-black tracking-wide text-red-700">
+          {formatScore(match)}
+        </p>
+      )}
+
+      {hasPick && pick && !isLive && (
         <p className="mt-2 text-center text-[10px] font-bold uppercase text-[#1a7a1a]">
           {formatPickSummary(match, pick)}
         </p>
       )}
 
-      <p className="mt-1.5 text-center text-[9px] text-gray-400">
-        {formatKickoffPST(match.kickoff_at)}
-      </p>
+      {hasPick && pick && isLive && (
+        <p className="mt-1 text-center text-[10px] font-bold uppercase text-red-800">
+          Your pick: {formatPickSummary(match, pick)}
+        </p>
+      )}
+
+      {isLive ? (
+        <p className="mt-1.5 text-center text-[9px] font-bold uppercase text-red-600">
+          {getStatusLabel(match.status)}
+        </p>
+      ) : (
+        <p className="mt-1.5 text-center text-[9px] text-gray-400">
+          {formatKickoffPST(match.kickoff_at)}
+        </p>
+      )}
     </button>
   );
 }
@@ -304,6 +470,8 @@ export function KnockoutBracketView({
     return map;
   }, [picks]);
 
+  const checkEliminated = useTeamElimination(picks, matches);
+
   const bracketOpen = isKnockoutChallengeActive(matches, challengeSettings);
   const columns = getBracketColumns(matches, picks, slotPicks);
   const progress = getKnockoutBracketProgress(matches, picks);
@@ -311,6 +479,26 @@ export function KnockoutBracketView({
     progress.syncedFixtures > 0
       ? Math.round((progress.picksOnSynced / progress.syncedFixtures) * 100)
       : 0;
+
+  const liveColumnIds = useMemo(() => {
+    const ids = new Set<string>();
+    for (const { column, slots } of columns) {
+      for (const slot of slots) {
+        if (slot.kind === "match" && getMatchBucket(slot.match) === "live") {
+          ids.add(column.id);
+        }
+      }
+    }
+    return ids;
+  }, [columns]);
+
+  const liveKnockoutCount = useMemo(
+    () =>
+      matches.filter(
+        (m) => m.stage === "knockout" && getMatchBucket(m) === "live"
+      ).length,
+    [matches]
+  );
 
   function isSlotLocked(slot: BracketMatchSlot): boolean {
     if (slot.kind === "match") {
@@ -566,6 +754,14 @@ export function KnockoutBracketView({
         </div>
       </header>
 
+      {liveKnockoutCount > 0 && (
+        <div className="border-b border-red-500/40 bg-red-600/20 px-4 py-2.5 text-center text-sm font-bold text-red-100 sm:px-6">
+          <span className="mr-2 inline-block h-2 w-2 animate-pulse rounded-full bg-red-400 align-middle" />
+          {liveKnockoutCount} live knockout match
+          {liveKnockoutCount !== 1 ? "es" : ""} — highlighted in red below
+        </div>
+      )}
+
       <div className="border-b border-white/10 bg-black/40 px-4 py-4 sm:px-6">
         <div className="mx-auto max-w-7xl">
           <div className="flex flex-wrap items-center justify-between gap-3">
@@ -612,17 +808,22 @@ export function KnockoutBracketView({
           {columnSummaries.map(({ columnId, label, pickable, picked }) => {
             const isActive = activeColumnId === columnId;
             const isComplete = pickable > 0 && picked >= pickable;
+            const hasLive = liveColumnIds.has(columnId);
             return (
               <button
                 key={columnId}
                 type="button"
                 onClick={() => setActiveColumnId(columnId)}
                 className={`shrink-0 rounded-full border px-3 py-1.5 text-[10px] font-black uppercase tracking-wide transition ${
-                  isActive
-                    ? "border-[#FF007A] bg-[#FF007A] text-white shadow"
-                    : isComplete
-                      ? "border-[#32CD32]/60 bg-[#32CD32]/15 text-[#9be39b]"
-                      : "border-white/15 bg-white/5 text-gray-300 hover:bg-white/10"
+                  hasLive
+                    ? isActive
+                      ? "border-red-400 bg-red-600 text-white shadow ring-2 ring-red-300"
+                      : "border-red-500/70 bg-red-950/60 text-red-200"
+                    : isActive
+                      ? "border-[#FF007A] bg-[#FF007A] text-white shadow"
+                      : isComplete
+                        ? "border-[#32CD32]/60 bg-[#32CD32]/15 text-[#9be39b]"
+                        : "border-white/15 bg-white/5 text-gray-300 hover:bg-white/10"
                 }`}
               >
                 <span>{label}</span>
@@ -683,7 +884,9 @@ export function KnockoutBracketView({
                       : undefined
                   }
                   locked={isSlotLocked(slot)}
+                  checkEliminated={checkEliminated}
                   onSelect={() => {
+                    if (isSlotLocked(slot)) return;
                     if (slot.kind === "match") {
                       setActiveSlotPick(undefined);
                       setActiveMatch(slot.match);
@@ -772,7 +975,9 @@ export function KnockoutBracketView({
                           : undefined
                       }
                       locked={isSlotLocked(slot)}
+                      checkEliminated={checkEliminated}
                       onSelect={() => {
+                        if (isSlotLocked(slot)) return;
                         if (slot.kind === "match") {
                           setActiveSlotPick(undefined);
                           setActiveMatch(slot.match);
@@ -838,6 +1043,7 @@ export function KnockoutBracketView({
               pick={pickMap.get(activeMatch.id)}
               slotPick={activeSlotPick}
               userId={userId ?? undefined}
+              checkEliminated={checkEliminated}
               locked={
                 isVirtualMatchId(activeMatch.id) && activeSlotPick
                   ? isBracketSlotPickLocked(activeSlotPick, matches)

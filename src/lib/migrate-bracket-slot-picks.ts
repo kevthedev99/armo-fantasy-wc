@@ -5,8 +5,8 @@ import {
 } from "@/lib/bracket-slot-pick-db";
 import { groupKnockoutMatches } from "@/lib/knockout-bracket-layout";
 import { mapSlotPickToMatch } from "@/lib/bracket-slot-picks";
+import { isPickLocked } from "@/lib/knockout-bracket";
 import { upsertPickRow } from "@/lib/pick-storage";
-import { isMatchLocked } from "@/lib/scoring";
 import type { BracketSlotPick, Match } from "@/lib/types";
 import { fetchAllTableRows } from "@/lib/supabase/paginate";
 import type { SupabaseClient } from "@supabase/supabase-js";
@@ -21,7 +21,7 @@ export function isBracketSlotPickLocked(
     slotPick as BracketSlotPick
   );
   if (!match) return false;
-  return isMatchLocked(match);
+  return isPickLocked(match, matches);
 }
 
 export function getSyncedMatchForSlotPick(
