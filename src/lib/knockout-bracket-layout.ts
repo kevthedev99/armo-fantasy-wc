@@ -1,4 +1,8 @@
-import { bracketSlotPickKey } from "@/lib/bracket-slot-picks";
+import {
+  bracketSlotPickKey,
+  buildVirtualMatch,
+  slotPickToDisplayPick,
+} from "@/lib/bracket-slot-picks";
 import { getCanonicalSlot } from "@/lib/knockout-bracket-canonical-slots";
 import {
   feederMatchLabel,
@@ -7,7 +11,7 @@ import {
   getFeederRoundId,
 } from "@/lib/knockout-bracket-feeders";
 import { normalizeKnockoutRoundLabel } from "@/lib/knockout-bracket";
-import { getKnockoutBasePoints } from "@/lib/scoring";
+import { getKnockoutBasePoints, isMatchLocked } from "@/lib/scoring";
 import type { BracketSlotPick, Match, Pick as UserPick } from "@/lib/types";
 
 export type BracketTeamPreview = {
@@ -416,4 +420,91 @@ export function getKnockoutBracketProgress(
 
 export function getRoundLabelForMatch(match: Match): string {
   return normalizeKnockoutRoundLabel(match.round);
+}
+
+const KNOCKOUT_ROUND_ORDER = Object.fromEntries(
+  KNOCKOUT_ROUND_COLUMNS.map((column, index) => [column.id, index])
+);
+
+function teamPreviewFromMatches(
+  matches: Match[],
+  teamId: number
+): BracketTeamPreview {
+  for (const match of matches) {
+    if (match.home_team_id === teamId) {
+      return {
+        id: teamId,
+        name: match.home_team_name,
+        logo: match.home_team_logo,
+      };
+    }
+    if (match.away_team_id === teamId) {
+      return {
+        id: teamId,
+        name: match.away_team_name,
+        logo: match.away_team_logo,
+      };
+    }
+  }
+  return { id: teamId, name: `Team ${teamId}`, logo: null };
+}
+
+export type KnockoutPickEntry = {
+  match: Match;
+  pick?: UserPick;
+  columnId: string;
+  slotIndex: number;
+};
+
+/** Synced Ro32 picks plus later-round bracket_slot_picks for profile views. */
+export function buildKnockoutProfileEntries(
+  matches: Match[],
+  picks: UserPick[],
+  slotPicks: BracketSlotPick[] = []
+): KnockoutPickEntry[] {
+  const pickMap = new Map(picks.map((pick) => [pick.match_id, pick]));
+  const entries: KnockoutPickEntry[] = [];
+  const columns = getBracketColumns(matches, picks, slotPicks);
+
+  for (const { column, slots } of columns) {
+    for (const slot of slots) {
+      if (slot.kind === "match") {
+        const pick = pickMap.get(slot.match.id);
+        if (pick || isMatchLocked(slot.match)) {
+          entries.push({
+            match: slot.match,
+            pick,
+            columnId: column.id,
+            slotIndex: slot.slotIndex,
+          });
+        }
+        continue;
+      }
+
+      if (!slot.slotPick) continue;
+
+      const home =
+        slot.homeTeam ??
+        teamPreviewFromMatches(matches, slot.slotPick.home_team_id);
+      const away =
+        slot.awayTeam ??
+        teamPreviewFromMatches(matches, slot.slotPick.away_team_id);
+      const match = buildVirtualMatch(column, slot.slotIndex, home, away);
+
+      entries.push({
+        match,
+        pick: slotPickToDisplayPick(slot.slotPick, match),
+        columnId: column.id,
+        slotIndex: slot.slotIndex,
+      });
+    }
+  }
+
+  return entries.sort((a, b) => {
+    const roundDiff =
+      (KNOCKOUT_ROUND_ORDER[a.columnId] ?? 99) -
+      (KNOCKOUT_ROUND_ORDER[b.columnId] ?? 99);
+    if (roundDiff !== 0) return roundDiff;
+    return a.slotIndex - b.slotIndex;
+  });
 }

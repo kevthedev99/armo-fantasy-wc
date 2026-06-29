@@ -2,6 +2,7 @@ import Link from "next/link";
 import { notFound } from "next/navigation";
 import { Nav } from "@/components/Nav";
 import { UserPicksView } from "@/components/UserPicksView";
+import { fetchBracketSlotPicksForUser } from "@/lib/bracket-slot-pick-db";
 import { isKnockoutBracketOpen } from "@/lib/knockout-bracket";
 import { createClient } from "@/lib/supabase/server";
 import type { Profile } from "@/lib/types";
@@ -43,6 +44,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
     { data: picks },
     { data: matches },
     { data: currentProfile },
+    slotPickResult,
   ] = await Promise.all([
     supabase.from("profiles").select("*"),
     supabase.from("picks").select("*").eq("user_id", playerProfile.id),
@@ -54,6 +56,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
           .eq("id", user.id)
           .single()
       : Promise.resolve({ data: null }),
+    fetchBracketSlotPicksForUser(supabase, playerProfile.id),
   ]);
 
   const rank = getRank(allProfiles ?? [], playerProfile.id);
@@ -73,6 +76,7 @@ export default async function PlayerPage({ params }: PlayerPageProps) {
         profile={playerProfile}
         rank={rank}
         picks={picks ?? []}
+        slotPicks={slotPickResult.picks}
         matches={matches ?? []}
         knockoutUnlocked={isKnockoutBracketOpen(matches ?? [])}
         isCurrentUser={user?.id === playerProfile.id}

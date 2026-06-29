@@ -1,14 +1,16 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { buildKnockoutProfileEntries } from "@/lib/knockout-bracket-layout";
 import { formatStreak, isMatchLocked } from "@/lib/scoring";
-import type { Match, Pick, Profile } from "@/lib/types";
+import type { BracketSlotPick, Match, Pick, Profile } from "@/lib/types";
 import { PickReadOnlyCard } from "./PickReadOnlyCard";
 
 interface UserPicksViewProps {
   profile: Profile;
   rank: number;
   picks: Pick[];
+  slotPicks?: BracketSlotPick[];
   matches: Match[];
   knockoutUnlocked: boolean;
   isCurrentUser: boolean;
@@ -34,6 +36,7 @@ export function UserPicksView({
   profile,
   rank,
   picks,
+  slotPicks = [],
   matches,
   knockoutUnlocked,
   isCurrentUser,
@@ -51,8 +54,8 @@ export function UserPicksView({
     [matches, pickMap]
   );
   const knockoutVisible = useMemo(
-    () => buildVisible(matches, pickMap, "knockout"),
-    [matches, pickMap]
+    () => buildKnockoutProfileEntries(matches, picks, slotPicks),
+    [matches, picks, slotPicks]
   );
 
   const visible = tab === "group" ? groupVisible : knockoutVisible;

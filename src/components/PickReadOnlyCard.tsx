@@ -1,4 +1,5 @@
 import { format } from "date-fns";
+import { isVirtualMatchId } from "@/lib/bracket-slot-picks";
 import {
   formatPickSummary,
   getMatchLockMessage,
@@ -40,7 +41,9 @@ export function PickReadOnlyCard({ match, pick }: PickReadOnlyCardProps) {
           </span>
         )}
         <time className="text-[10px] font-medium uppercase text-gray-500">
-          {format(new Date(match.kickoff_at), "EEE, MMM d, h:mm a")}
+          {isVirtualMatchId(match.id)
+            ? "Bracket pick"
+            : format(new Date(match.kickoff_at), "EEE, MMM d, h:mm a")}
         </time>
       </div>
 
