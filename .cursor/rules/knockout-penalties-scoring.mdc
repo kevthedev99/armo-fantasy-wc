@@ -1,0 +1,16 @@
+---
+description: Knockout penalties pick scoring — wrong shootout winner is zero points
+globs: src/lib/scoring.ts,src/lib/match-pick-details.ts,src/lib/score-finished-picks.ts,src/components/RulesPage.tsx
+alwaysApply: false
+---
+
+# Knockout penalties picks
+
+When a user picks **Penalties** for a knockout match:
+
+- They only name **who wins the shootout** (no regulation or pen score).
+- **Wrong shootout winner → 0 points for the entire pick** — no round base points, no bonuses, no partial credit.
+- **Right shootout winner** → round base points; +penalties bonus only if the match actually went to a shootout (`PEN` status).
+- Penalties picks are **not** eligible for the +5 exact-score bonus.
+
+`scorePick()` in `scoring.ts` is the source of truth. Games "Details" lists must not treat wrong pen-side pickers as correct winner or correct penalties pick.

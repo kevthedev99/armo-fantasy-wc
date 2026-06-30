@@ -223,8 +223,12 @@ export function RulesPage() {
                 or pen score. You still earn that round&apos;s base points if your
                 team wins (including on pens); if it actually goes to penalties
                 and you named the shootout winner, add +
-                {SCORING.knockout.penaltiesWinnerBonus} more. Penalties picks
-                are not eligible for the +5 exact-score bonus.
+                {SCORING.knockout.penaltiesWinnerBonus} more.{" "}
+                <strong className="text-gray-300">
+                  Wrong shootout winner = 0 points for the entire pick — no
+                  partial credit.
+                </strong>{" "}
+                Penalties picks are not eligible for the +5 exact-score bonus.
                 <strong className="text-gray-300">
                   {" "}
                   NCAA bracket chaining: your bracket is a tree. If both feeder
@@ -285,7 +289,8 @@ export function RulesPage() {
             <li>
               • Penalties: if you expect a shootout, pick{" "}
               <strong className="text-white">who wins on pens</strong> only — no
-              score required.
+              score required. Wrong shootout winner ={" "}
+              <strong className="text-white">0 points</strong> for that pick.
             </li>
           </ul>
         </section>

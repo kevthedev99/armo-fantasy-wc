@@ -234,7 +234,7 @@ export function scorePick(
   if (!winner) return 0;
 
   if (match.stage === "knockout" && pickPredictsPenalties(pick)) {
-    // Wrong winner = 0 points either way.
+    // Penalties path: wrong shootout winner = 0 for the entire pick (no base pts).
     if (pick.picked_winner !== winner) return 0;
 
     // Right winner — always award the round's base points. The +5 exact-score
