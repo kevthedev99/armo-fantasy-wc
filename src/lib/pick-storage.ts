@@ -29,10 +29,13 @@ type PickRow = {
   predicts_penalties?: boolean;
 };
 
-function toLegacyPickRow(row: PickRow) {
+function toLegacyPickRow(row: PickRow): Omit<PickRow, "predicts_penalties"> {
   const { predicts_penalties, ...rest } = row;
   if (!predicts_penalties) {
-    return rest;
+    return {
+      ...rest,
+      winning_goal_minute_pred: null,
+    };
   }
   return {
     ...rest,

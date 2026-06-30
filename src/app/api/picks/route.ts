@@ -124,8 +124,8 @@ export async function POST(request: Request) {
     updated_at: new Date().toISOString(),
   };
 
-  if (predicts_penalties) {
-    pickRow.predicts_penalties = true;
+  if (match.stage === "knockout") {
+    pickRow.predicts_penalties = predicts_penalties;
   }
 
   const { data: existing } = await supabase
