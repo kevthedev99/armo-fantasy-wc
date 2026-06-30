@@ -105,21 +105,66 @@ export async function postDiscordRedCard(params: {
   });
 }
 
+export async function postDiscordPenaltyGoal(params: {
+  scorerName: string;
+  minute?: string;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number;
+  awayScore: number;
+  penHomeScore: number;
+  penAwayScore: number;
+  statusLabel: string;
+  groupOrRound?: string | null;
+}): Promise<boolean> {
+  const {
+    scorerName,
+    minute,
+    homeTeam,
+    awayTeam,
+    homeScore,
+    awayScore,
+    penHomeScore,
+    penAwayScore,
+    statusLabel,
+  } = params;
+  const context = params.groupOrRound ? ` · ${params.groupOrRound}` : "";
+  const minuteLabel = minute ? ` ${minute}` : "";
+
+  return postDiscord({
+    embeds: [
+      {
+        title: "🎯 PENALTY GOAL",
+        description: `**${scorerName}**${minuteLabel}\n${homeTeam} **${homeScore}–${awayScore}** ${awayTeam}\nShootout **${penHomeScore}–${penAwayScore}**`,
+        color: 0x7c3aed,
+        footer: { text: `${statusLabel}${context}` },
+      },
+    ],
+  });
+}
+
 export async function postDiscordFullTime(params: {
   homeTeam: string;
   awayTeam: string;
   homeScore: number;
   awayScore: number;
+  penHomeScore?: number | null;
+  penAwayScore?: number | null;
   groupOrRound?: string | null;
 }): Promise<boolean> {
-  const { homeTeam, awayTeam, homeScore, awayScore } = params;
+  const { homeTeam, awayTeam, homeScore, awayScore, penHomeScore, penAwayScore } =
+    params;
   const context = params.groupOrRound ? ` · ${params.groupOrRound}` : "";
+  const pens =
+    penHomeScore != null && penAwayScore != null
+      ? ` (${penHomeScore}–${penAwayScore} pens)`
+      : "";
 
   return postDiscord({
     embeds: [
       {
         title: "🏁 FULL TIME",
-        description: `${homeTeam} **${homeScore}–${awayScore}** ${awayTeam}`,
+        description: `${homeTeam} **${homeScore}–${awayScore}** ${awayTeam}${pens}`,
         color: DISCORD_EMBED_BLUE,
         footer: { text: `Armo Fantasy WC${context}` },
       },

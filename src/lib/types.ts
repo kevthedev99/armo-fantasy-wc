@@ -35,7 +35,7 @@ export interface Match {
   match_events: MatchEvent[];
 }
 
-export type MatchEventType = "goal" | "red_card";
+export type MatchEventType = "goal" | "penalty_goal" | "red_card";
 
 export interface MatchEvent {
   id: string;

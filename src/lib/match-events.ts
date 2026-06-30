@@ -4,9 +4,16 @@ import { isMatchFinished, isMatchInProgress } from "./scoring";
 export type MatchEventFetchSnapshot = {
   home_score: number | null;
   away_score: number | null;
+  pen_home_score?: number | null;
+  pen_away_score?: number | null;
   status: string;
   match_events: MatchEvent[] | null;
 };
+
+function isPenaltyShootoutGoalDetail(detail: string): boolean {
+  const normalized = detail.toLowerCase();
+  return normalized.includes("penalty shootout") && !normalized.includes("missed");
+}
 
 /** Only call fixtures/events when we may get new goals, cards, or need a one-time backfill. */
 export function shouldFetchEvents(
@@ -14,8 +21,22 @@ export function shouldFetchEvents(
   oldMatch: MatchEventFetchSnapshot | null,
   homeScore: number | null,
   awayScore: number | null,
+  penHomeScore: number | null = null,
+  penAwayScore: number | null = null,
   options?: { pollInProgress?: boolean }
 ): boolean {
+  const inShootout = status === "P" || status === "PEN";
+
+  if (inShootout) {
+    if (options?.pollInProgress) return true;
+    if (!oldMatch) return false;
+    const oldPenHome = oldMatch.pen_home_score ?? 0;
+    const oldPenAway = oldMatch.pen_away_score ?? 0;
+    const newPenHome = penHomeScore ?? 0;
+    const newPenAway = penAwayScore ?? 0;
+    if (oldPenHome !== newPenHome || oldPenAway !== newPenAway) return true;
+  }
+
   if (isMatchInProgress(status)) {
     if (options?.pollInProgress) return true;
     if (!oldMatch) return false;
@@ -83,7 +104,12 @@ export function parseFixtureEvents(
     )
     .map((event) => ({
       id: eventKey(event),
-      type: event.type === "Goal" ? "goal" : "red_card",
+      type:
+        event.type === "Goal"
+          ? isPenaltyShootoutGoalDetail(event.detail)
+            ? "penalty_goal"
+            : "goal"
+          : "red_card",
       minute: event.time.elapsed,
       extraMinute: event.time.extra,
       playerName: event.player.name ?? "Unknown",

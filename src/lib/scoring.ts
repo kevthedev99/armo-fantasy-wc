@@ -69,22 +69,25 @@ export function getActualWinnerSide(match: {
   pen_away_score: number | null;
   status: string;
 }): PickWinner | null {
-  if (
-    match.home_score === null ||
-    match.away_score === null ||
-    !isMatchFinished(match.status)
-  ) {
+  if (match.home_score === null || match.away_score === null) {
     return null;
   }
 
-  if (match.status === "PEN") {
-    const penHome = match.pen_home_score;
-    const penAway = match.pen_away_score;
-    if (penHome !== null && penAway !== null) {
-      if (penHome > penAway) return "home";
-      if (penAway > penHome) return "away";
+  if (match.home_score !== match.away_score) {
+    if (!isMatchFinished(match.status) && !isMatchInProgress(match.status)) {
+      return null;
     }
+    return actualWinner(match.home_score, match.away_score);
   }
+
+  const penHome = match.pen_home_score;
+  const penAway = match.pen_away_score;
+  if (penHome !== null && penAway !== null) {
+    if (penHome > penAway) return "home";
+    if (penAway > penHome) return "away";
+  }
+
+  if (!isMatchFinished(match.status)) return null;
 
   return actualWinner(match.home_score, match.away_score);
 }

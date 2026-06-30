@@ -340,7 +340,7 @@ export async function GET(request: Request) {
 
     let matchEvents: MatchEvent[] = oldMatch?.match_events ?? [];
     if (
-      shouldFetchEvents(status, oldMatch, homeScore, awayScore, {
+      shouldFetchEvents(status, oldMatch, homeScore, awayScore, penHomeScore, penAwayScore, {
         pollInProgress: isDiscordConfigured(),
       })
     ) {
@@ -386,6 +386,8 @@ export async function GET(request: Request) {
           away_team_name: f.teams.away.name,
           home_score: homeScore,
           away_score: awayScore,
+          pen_home_score: penHomeScore,
+          pen_away_score: penAwayScore,
           group_name: parseGroupName(f.league.round),
           round: f.league.round,
         });
@@ -399,6 +401,8 @@ export async function GET(request: Request) {
         awayTeam: f.teams.away.name,
         homeScore,
         awayScore,
+        penHomeScore,
+        penAwayScore,
         status,
         groupOrRound,
         newEvents,

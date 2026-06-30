@@ -321,6 +321,15 @@ export function parseMatchScoresFromFixture(
     };
   }
 
+  if (status === "P" && penHome !== null && penAway !== null) {
+    return {
+      homeScore,
+      awayScore,
+      penHomeScore: penHome,
+      penAwayScore: penAway,
+    };
+  }
+
   return {
     homeScore,
     awayScore,

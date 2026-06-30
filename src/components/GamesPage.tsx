@@ -6,8 +6,11 @@ import { getKnockoutStageBadgeLabel } from "@/lib/knockout-bracket";
 import {
   formatPSTDateHeader,
   formatPSTTime,
+  formatRegulationScore,
+  formatPenaltyShootoutScore,
   formatScore,
   getMatchBucket,
+  getMatchLeaderSide,
   getPSTDateKey,
   getStatusLabel,
 } from "@/lib/match-status";
@@ -151,6 +154,8 @@ function MatchRow({
       awayGoals.length > 0 ||
       homeRedCards.length > 0 ||
       awayRedCards.length > 0);
+  const leader = showScore ? getMatchLeaderSide(match) : null;
+  const penScore = showScore ? formatPenaltyShootoutScore(match) : null;
 
   return (
     <article
@@ -165,22 +170,32 @@ function MatchRow({
             name={match.home_team_name}
             eliminated={homeEliminated}
             className={`min-w-0 flex-1 text-sm font-semibold ${
-              showScore &&
-              match.home_score !== null &&
-              match.away_score !== null &&
-              match.home_score > match.away_score
-                ? "text-black"
-                : "text-gray-700"
+              leader === "home" ? "text-black" : "text-gray-700"
             }`}
           />
           {showHomePick(pickedWinner) && <PickMark />}
         </div>
 
-        <div className="flex w-14 shrink-0 flex-col items-center sm:w-20">
+        <div
+          className={`flex shrink-0 flex-col items-center ${
+            penScore ? "w-16 sm:w-24" : "w-14 sm:w-20"
+          }`}
+        >
           {showScore ? (
-            <span className="font-display text-lg tracking-wide text-black sm:text-xl">
-              {formatScore(match)}
-            </span>
+            penScore ? (
+              <>
+                <span className="font-display text-lg tracking-wide text-black sm:text-xl">
+                  {formatRegulationScore(match)}
+                </span>
+                <span className="text-[10px] font-bold leading-tight text-gray-600 sm:text-xs">
+                  ({penScore})
+                </span>
+              </>
+            ) : (
+              <span className="font-display text-lg tracking-wide text-black sm:text-xl">
+                {formatScore(match)}
+              </span>
+            )
           ) : (
             <span className="text-xs font-bold text-[#0056b3] sm:text-sm">
               {formatPSTTime(match.kickoff_at)}
@@ -209,12 +224,7 @@ function MatchRow({
             eliminated={awayEliminated}
             markAfter
             className={`min-w-0 flex-1 text-sm font-semibold ${
-              showScore &&
-              match.home_score !== null &&
-              match.away_score !== null &&
-              match.away_score > match.home_score
-                ? "text-black"
-                : "text-gray-700"
+              leader === "away" ? "text-black" : "text-gray-700"
             }`}
           />
           {showAwayPick(pickedWinner) && <PickMark />}

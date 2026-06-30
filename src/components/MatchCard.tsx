@@ -194,7 +194,7 @@ export function MatchCard({
             match.home_score !== null &&
             match.away_score !== null && (
               <span className="text-[10px] font-bold text-[#0056b3]">
-                FT {match.home_score}-{match.away_score}
+                FT {formatScore(match)}
               </span>
             )}
         </div>

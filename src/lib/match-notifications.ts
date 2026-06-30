@@ -2,6 +2,7 @@ import {
   postDiscordKickoff,
   postDiscordFullTime,
   postDiscordGoal,
+  postDiscordPenaltyGoal,
   postDiscordRedCard,
 } from "@/lib/discord";
 import { formatEventMinute } from "@/lib/match-events";
@@ -12,12 +13,18 @@ import type { Match, MatchEvent } from "@/lib/types";
 type ScoreSnapshot = {
   home_score: number | null;
   away_score: number | null;
+  pen_home_score?: number | null;
+  pen_away_score?: number | null;
   status: string;
   match_events?: MatchEvent[] | null;
 };
 
 function score(n: number | null | undefined): number {
   return n ?? 0;
+}
+
+function inPenaltyShootout(status: string): boolean {
+  return status === "P" || status === "PEN";
 }
 
 export function shouldNotifyFullTime(
@@ -46,6 +53,8 @@ export async function notifyMatchEvents(params: {
   awayTeam: string;
   homeScore: number | null;
   awayScore: number | null;
+  penHomeScore?: number | null;
+  penAwayScore?: number | null;
   status: string;
   groupOrRound?: string | null;
   newEvents: MatchEvent[];
@@ -57,6 +66,8 @@ export async function notifyMatchEvents(params: {
     awayTeam,
     homeScore,
     awayScore,
+    penHomeScore,
+    penAwayScore,
     status,
     newEvents,
     bootstrap,
@@ -80,6 +91,8 @@ export async function notifyMatchEvents(params: {
   }
 
   const statusLabel = getStatusLabel(status);
+  const penHome = score(penHomeScore);
+  const penAway = score(penAwayScore);
   let sent = 0;
 
   for (const event of newEvents) {
@@ -94,6 +107,22 @@ export async function notifyMatchEvents(params: {
         awayTeam,
         homeScore: score(homeScore),
         awayScore: score(awayScore),
+        statusLabel,
+        groupOrRound: params.groupOrRound,
+      });
+      if (ok) sent++;
+    }
+
+    if (event.type === "penalty_goal") {
+      const ok = await postDiscordPenaltyGoal({
+        scorerName: event.playerName,
+        minute: formatEventMinute(event),
+        homeTeam,
+        awayTeam,
+        homeScore: score(homeScore),
+        awayScore: score(awayScore),
+        penHomeScore: penHome,
+        penAwayScore: penAway,
         statusLabel,
         groupOrRound: params.groupOrRound,
       });
@@ -116,6 +145,82 @@ export async function notifyMatchEvents(params: {
     }
   }
 
+  if (inPenaltyShootout(status) && oldMatch) {
+    sent += await notifyPenaltyShootoutScoreDelta({
+      oldMatch,
+      homeTeam,
+      awayTeam,
+      homeScore,
+      awayScore,
+      penHomeScore: penHome,
+      penAwayScore: penAway,
+      statusLabel,
+      groupOrRound: params.groupOrRound,
+      newEvents,
+    });
+  }
+
+  return sent;
+}
+
+async function notifyPenaltyShootoutScoreDelta(params: {
+  oldMatch: ScoreSnapshot;
+  homeTeam: string;
+  awayTeam: string;
+  homeScore: number | null;
+  awayScore: number | null;
+  penHomeScore: number;
+  penAwayScore: number;
+  statusLabel: string;
+  groupOrRound?: string | null;
+  newEvents: MatchEvent[];
+}): Promise<number> {
+  const oldPenHome = params.oldMatch.pen_home_score ?? 0;
+  const oldPenAway = params.oldMatch.pen_away_score ?? 0;
+  const homeDelta = params.penHomeScore - oldPenHome;
+  const awayDelta = params.penAwayScore - oldPenAway;
+
+  if (homeDelta <= 0 && awayDelta <= 0) return 0;
+
+  const eventHomeGoals = params.newEvents.filter(
+    (event) => event.type === "penalty_goal" && event.side === "home"
+  ).length;
+  const eventAwayGoals = params.newEvents.filter(
+    (event) => event.type === "penalty_goal" && event.side === "away"
+  ).length;
+
+  let sent = 0;
+
+  for (let i = eventHomeGoals; i < homeDelta; i++) {
+    const ok = await postDiscordPenaltyGoal({
+      scorerName: params.homeTeam,
+      homeTeam: params.homeTeam,
+      awayTeam: params.awayTeam,
+      homeScore: score(params.homeScore),
+      awayScore: score(params.awayScore),
+      penHomeScore: params.penHomeScore,
+      penAwayScore: params.penAwayScore,
+      statusLabel: params.statusLabel,
+      groupOrRound: params.groupOrRound,
+    });
+    if (ok) sent++;
+  }
+
+  for (let i = eventAwayGoals; i < awayDelta; i++) {
+    const ok = await postDiscordPenaltyGoal({
+      scorerName: params.awayTeam,
+      homeTeam: params.homeTeam,
+      awayTeam: params.awayTeam,
+      homeScore: score(params.homeScore),
+      awayScore: score(params.awayScore),
+      penHomeScore: params.penHomeScore,
+      penAwayScore: params.penAwayScore,
+      statusLabel: params.statusLabel,
+      groupOrRound: params.groupOrRound,
+    });
+    if (ok) sent++;
+  }
+
   return sent;
 }
 
@@ -126,6 +231,8 @@ export async function notifyFullTime(
     | "away_team_name"
     | "home_score"
     | "away_score"
+    | "pen_home_score"
+    | "pen_away_score"
     | "group_name"
     | "round"
   >
@@ -135,6 +242,8 @@ export async function notifyFullTime(
     awayTeam: match.away_team_name,
     homeScore: score(match.home_score),
     awayScore: score(match.away_score),
+    penHomeScore: match.pen_home_score,
+    penAwayScore: match.pen_away_score,
     groupOrRound: match.group_name ?? match.round,
   });
 }
