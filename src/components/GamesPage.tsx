@@ -13,6 +13,7 @@ import {
   getMatchLeaderSide,
   getPSTDateKey,
   getStatusLabel,
+  matchEndedInPenalties,
 } from "@/lib/match-status";
 import {
   formatEventMinute,
@@ -109,7 +110,13 @@ function RedCardLine({ event }: { event: MatchEvent }) {
   );
 }
 
-function MatchDetails({ details }: { details: MatchPickDetails }) {
+function MatchDetails({
+  details,
+  showPenaltiesPick,
+}: {
+  details: MatchPickDetails;
+  showPenaltiesPick: boolean;
+}) {
   return (
     <div className="mt-2 space-y-1 border-t border-gray-100 pt-2 text-xs text-gray-600">
       <p>
@@ -120,6 +127,12 @@ function MatchDetails({ details }: { details: MatchPickDetails }) {
         <span className="font-bold text-gray-700">Correct score:</span>{" "}
         {formatPickerList(details.correctScore)}
       </p>
+      {showPenaltiesPick && (
+        <p>
+          <span className="font-bold text-gray-700">Correct penalties pick:</span>{" "}
+          {formatPickerList(details.correctPenaltiesPick)}
+        </p>
+      )}
     </div>
   );
 }
@@ -263,7 +276,12 @@ function MatchRow({
             <span>Details</span>
             <span aria-hidden>{detailsOpen ? "▲" : "▼"}</span>
           </button>
-          {detailsOpen && <MatchDetails details={pickDetails} />}
+          {detailsOpen && (
+            <MatchDetails
+              details={pickDetails}
+              showPenaltiesPick={matchEndedInPenalties(match)}
+            />
+          )}
         </div>
       )}
     </article>

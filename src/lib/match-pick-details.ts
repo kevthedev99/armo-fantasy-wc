@@ -1,24 +1,28 @@
-import { isExactScorePick, isMatchFinished } from "@/lib/scoring";
+import {
+  getActualWinnerSide,
+  isExactScorePick,
+  isMatchDecidedByPenalties,
+  isMatchFinished,
+  pickPredictsPenalties,
+} from "@/lib/scoring";
 import type { Match, PickWinner } from "@/lib/types";
 import type { SupabaseClient } from "@supabase/supabase-js";
 import { fetchAllPages } from "@/lib/supabase/paginate";
+
 export type MatchPickDetails = {
   correctWinner: string[];
   correctScore: string[];
+  correctPenaltiesPick: string[];
 };
 
 export type MatchPickInput = {
   picked_winner: PickWinner;
   home_score_pred: number | null;
   away_score_pred: number | null;
+  predicts_penalties?: boolean;
+  winning_goal_minute_pred?: number | null;
   displayName: string;
 };
-
-function actualWinner(homeScore: number, awayScore: number): PickWinner {
-  if (homeScore > awayScore) return "home";
-  if (awayScore > homeScore) return "away";
-  return "draw";
-}
 
 function isExactScoreForDetails(
   match: Match,
@@ -27,8 +31,15 @@ function isExactScoreForDetails(
   return isExactScorePick(match, {
     home_score_pred: pick.home_score_pred,
     away_score_pred: pick.away_score_pred,
-    predicts_penalties: false,
+    predicts_penalties: pickPredictsPenalties(pick),
   });
+}
+
+function matchResolvedViaPenalties(match: Match): boolean {
+  return (
+    isMatchDecidedByPenalties(match.status) ||
+    (match.pen_home_score !== null && match.pen_away_score !== null)
+  );
 }
 
 export function getMatchPickDetails(
@@ -40,12 +51,13 @@ export function getMatchPickDetails(
     match.home_score === null ||
     match.away_score === null
   ) {
-    return { correctWinner: [], correctScore: [] };
+    return { correctWinner: [], correctScore: [], correctPenaltiesPick: [] };
   }
 
-  const home = match.home_score;
-  const away = match.away_score;
-  const winner = actualWinner(home, away);
+  const winner = getActualWinnerSide(match);
+  if (!winner) {
+    return { correctWinner: [], correctScore: [], correctPenaltiesPick: [] };
+  }
 
   const correctWinner = picks
     .filter((pick) => pick.picked_winner === winner)
@@ -57,7 +69,17 @@ export function getMatchPickDetails(
     .map((pick) => pick.displayName)
     .sort((a, b) => a.localeCompare(b));
 
-  return { correctWinner, correctScore };
+  const correctPenaltiesPick = matchResolvedViaPenalties(match)
+    ? picks
+        .filter(
+          (pick) =>
+            pickPredictsPenalties(pick) && pick.picked_winner === winner
+        )
+        .map((pick) => pick.displayName)
+        .sort((a, b) => a.localeCompare(b))
+    : [];
+
+  return { correctWinner, correctScore, correctPenaltiesPick };
 }
 
 export function formatPickerList(names: string[]): string {
@@ -69,6 +91,8 @@ type PickWithProfileRow = {
   picked_winner: PickWinner;
   home_score_pred: number | null;
   away_score_pred: number | null;
+  predicts_penalties?: boolean;
+  winning_goal_minute_pred?: number | null;
   profiles:
     | { display_name: string; username: string }
     | { display_name: string; username: string }[];
@@ -82,7 +106,7 @@ export async function fetchAllPicksWithProfiles(
     supabase
       .from("picks")
       .select(
-        "match_id, picked_winner, home_score_pred, away_score_pred, profiles!inner(display_name, username)"
+        "match_id, picked_winner, home_score_pred, away_score_pred, predicts_penalties, winning_goal_minute_pred, profiles!inner(display_name, username)"
       )
       .order("match_id", { ascending: true })
       .order("user_id", { ascending: true })
@@ -109,6 +133,8 @@ export function buildPickDetailsByMatchId(
       picked_winner: pick.picked_winner,
       home_score_pred: pick.home_score_pred,
       away_score_pred: pick.away_score_pred,
+      predicts_penalties: pick.predicts_penalties,
+      winning_goal_minute_pred: pick.winning_goal_minute_pred,
       displayName: profile.display_name || profile.username,
     });
     picksByMatch.set(pick.match_id, list);
