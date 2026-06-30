@@ -1,5 +1,7 @@
 "use client";
 
+import { useState } from "react";
+import { BlockedTeamPickDialog } from "@/components/BlockedTeamPickDialog";
 import { EliminationMark } from "@/components/EliminatedTeamName";
 import type { Match, PickWinner } from "@/lib/types";
 import { PENALTIES_PICK_SENTINEL } from "@/lib/pick-storage";
@@ -39,6 +41,17 @@ export function KnockoutPickFields({
   lockedWinner = null,
 }: KnockoutPickFieldsProps) {
   const penaltiesMode = outcomeMode === "penalties";
+  const [blockedDialog, setBlockedDialog] = useState<{
+    blockedTeamName: string;
+    lockedTeamName: string;
+  } | null>(null);
+
+  const lockedTeamName =
+    lockedWinner === "home"
+      ? match.home_team_name
+      : lockedWinner === "away"
+        ? match.away_team_name
+        : null;
 
   function renderWinnerButton(
     value: PickWinner,
@@ -50,17 +63,34 @@ export function KnockoutPickFields({
       value === "home" ? homeEliminated : value === "away" ? awayEliminated : false;
     const winnerLocked =
       lockedWinner != null && lockedWinner !== value;
+    const teamName = value === "home" ? match.home_team_name : match.away_team_name;
+
+    function handleClick() {
+      if (disabled) return;
+      if (winnerLocked && lockedTeamName) {
+        setBlockedDialog({
+          blockedTeamName: teamName,
+          lockedTeamName,
+        });
+        return;
+      }
+      onPickedWinnerChange(value);
+    }
+
     return (
       <button
         key={value}
         type="button"
-        disabled={disabled || winnerLocked}
-        onClick={() => onPickedWinnerChange(value)}
+        disabled={disabled}
+        aria-disabled={winnerLocked || undefined}
+        onClick={handleClick}
         className={`rounded-lg border px-2 py-2 text-[10px] font-bold uppercase transition md:text-xs ${
           pickedWinner === value
             ? activeClass
-            : `border-gray-300 bg-white text-gray-800 ${hoverClass}`
-        } ${eliminated ? "opacity-70" : ""}`}
+            : `border-gray-300 bg-white text-gray-800 ${winnerLocked ? "" : hoverClass}`
+        } ${eliminated ? "opacity-70" : ""} ${
+          winnerLocked ? "cursor-not-allowed opacity-55" : ""
+        }`}
       >
         <span className={eliminated ? "line-through decoration-red-400/80" : ""}>
           {label.length > 12 ? `${label.slice(0, 10)}…` : label}
@@ -169,6 +199,13 @@ export function KnockoutPickFields({
             Round points for correct winner, +5 for exact score after 90/ET.
           </p>
         </>
+      )}
+      {blockedDialog && (
+        <BlockedTeamPickDialog
+          blockedTeamName={blockedDialog.blockedTeamName}
+          lockedTeamName={blockedDialog.lockedTeamName}
+          onClose={() => setBlockedDialog(null)}
+        />
       )}
     </>
   );
