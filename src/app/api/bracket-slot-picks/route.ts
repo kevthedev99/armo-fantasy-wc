@@ -46,9 +46,7 @@ export async function POST(request: Request) {
     return NextResponse.json({ error: "Invalid bracket pick data." }, { status: 400 });
   }
 
-  const { data: allMatches } = await supabase
-    .from("matches")
-    .select("stage, round, kickoff_at, status, home_team_id, away_team_id, home_team_name, away_team_name, home_team_logo, away_team_logo");
+  const { data: allMatches } = await supabase.from("matches").select("*");
 
   if (isBracketSlotPickLocked(input, (allMatches ?? []) as Match[])) {
     return NextResponse.json(
@@ -149,9 +147,7 @@ export async function DELETE(request: Request) {
     return NextResponse.json({ error: "Invalid slot." }, { status: 400 });
   }
 
-  const { data: allMatches } = await supabase
-    .from("matches")
-    .select("stage, round, kickoff_at, status, home_team_id, away_team_id, home_team_name, away_team_name, home_team_logo, away_team_logo");
+  const { data: allMatches } = await supabase.from("matches").select("*");
 
   if (
     isBracketSlotPickLocked(
