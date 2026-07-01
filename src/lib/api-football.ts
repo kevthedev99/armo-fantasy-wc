@@ -332,19 +332,37 @@ function pickRegulationScore(
     };
   }
 
-  const extratime = nullableScorePair(
-    f.score.extratime?.home,
-    f.score.extratime?.away
-  );
   const goals = nullableScorePair(f.goals.home, f.goals.away);
   const fulltime = nullableScorePair(
     f.score.fulltime?.home,
     f.score.fulltime?.away
   );
+  const extratime = nullableScorePair(
+    f.score.extratime?.home,
+    f.score.extratime?.away
+  );
+
+  // `goals` is the final tally. `score.extratime` is often only goals scored
+  // during extra time (e.g. 1-0) while fulltime is 2-2 and goals is 3-2.
+  if (goals) {
+    return { home: goals.home, away: goals.away };
+  }
+
+  const status = f.fixture.status.short;
+  if (
+    fulltime &&
+    extratime &&
+    (status === "AET" || status === "ET" || status === "PEN")
+  ) {
+    return {
+      home: fulltime.home + extratime.home,
+      away: fulltime.away + extratime.away,
+    };
+  }
 
   return {
-    home: extratime?.home ?? goals?.home ?? fulltime?.home ?? null,
-    away: extratime?.away ?? goals?.away ?? fulltime?.away ?? null,
+    home: fulltime?.home ?? extratime?.home ?? null,
+    away: fulltime?.away ?? extratime?.away ?? null,
   };
 }
 
