@@ -291,6 +291,63 @@ export type ParsedMatchScores = {
   penAwayScore: number | null;
 };
 
+function nullableScorePair(
+  home: number | null | undefined,
+  away: number | null | undefined
+): { home: number; away: number } | null {
+  if (home == null || away == null) return null;
+  return { home, away };
+}
+
+/**
+ * On PEN fixtures API-Football often sets score.extratime to 0-0 while goals/fulltime
+ * hold the tied score before the shootout (e.g. 1-1).
+ */
+function pickPreShootoutRegulationScore(
+  f: ApiFootballFixture
+): { home: number; away: number } | null {
+  const candidates = [
+    nullableScorePair(f.goals.home, f.goals.away),
+    nullableScorePair(f.score.fulltime?.home, f.score.fulltime?.away),
+    nullableScorePair(f.score.extratime?.home, f.score.extratime?.away),
+  ].filter((pair): pair is { home: number; away: number } => pair !== null);
+
+  if (!candidates.length) return null;
+
+  const nonZero = candidates.find((pair) => pair.home !== 0 || pair.away !== 0);
+  if (nonZero) return nonZero;
+
+  return candidates[0];
+}
+
+function pickRegulationScore(
+  f: ApiFootballFixture,
+  decidedByPens: boolean
+): { home: number | null; away: number | null } {
+  if (decidedByPens) {
+    const preShootout = pickPreShootoutRegulationScore(f);
+    return {
+      home: preShootout?.home ?? null,
+      away: preShootout?.away ?? null,
+    };
+  }
+
+  const extratime = nullableScorePair(
+    f.score.extratime?.home,
+    f.score.extratime?.away
+  );
+  const goals = nullableScorePair(f.goals.home, f.goals.away);
+  const fulltime = nullableScorePair(
+    f.score.fulltime?.home,
+    f.score.fulltime?.away
+  );
+
+  return {
+    home: extratime?.home ?? goals?.home ?? fulltime?.home ?? null,
+    away: extratime?.away ?? goals?.away ?? fulltime?.away ?? null,
+  };
+}
+
 /** Regulation/extra-time score plus optional penalty shootout counts. */
 export function parseMatchScoresFromFixture(
   f: ApiFootballFixture
@@ -298,30 +355,17 @@ export function parseMatchScoresFromFixture(
   const status = f.fixture.status.short;
   const penHome = f.score.penalty?.home ?? null;
   const penAway = f.score.penalty?.away ?? null;
+  const decidedByPens =
+    status === "PEN" ||
+    status === "P" ||
+    (penHome !== null && penAway !== null);
 
-  // Prefer score after extra time (before pens) so knockout exact-score picks
-  // match whether the fixture ends FT or AET at the same numbers.
-  const homeScore =
-    f.score.extratime?.home ??
-    f.goals.home ??
-    f.score.fulltime?.home ??
-    null;
-  const awayScore =
-    f.score.extratime?.away ??
-    f.goals.away ??
-    f.score.fulltime?.away ??
-    null;
+  const { home: homeScore, away: awayScore } = pickRegulationScore(
+    f,
+    decidedByPens
+  );
 
-  if (status === "PEN" && penHome !== null && penAway !== null) {
-    return {
-      homeScore,
-      awayScore,
-      penHomeScore: penHome,
-      penAwayScore: penAway,
-    };
-  }
-
-  if (status === "P" && penHome !== null && penAway !== null) {
+  if (decidedByPens && penHome !== null && penAway !== null) {
     return {
       homeScore,
       awayScore,
