@@ -133,6 +133,21 @@ export function slotPickToDisplayPick(
   };
 }
 
+function pickedTeamIdFromSlotPick(
+  slotPick: Pick<BracketSlotPick, "home_team_id" | "away_team_id" | "picked_winner">
+): number | null {
+  if (slotPick.picked_winner === "home") return slotPick.home_team_id;
+  if (slotPick.picked_winner === "away") return slotPick.away_team_id;
+  return null;
+}
+
+export type ResolvedSlotPickFields = {
+  picked_winner: PickWinner;
+  home_score_pred: number | null;
+  away_score_pred: number | null;
+  predicts_penalties: boolean;
+};
+
 /** Map slot-pick winner/scores onto a synced match (teams may be swapped). */
 export function mapSlotPickToMatch(
   slotPick: Pick<
@@ -173,5 +188,83 @@ export function mapSlotPickToMatch(
     home_score_pred: slotPick.away_score_pred,
     away_score_pred: slotPick.home_score_pred,
     predicts_penalties: slotPick.predicts_penalties,
+  };
+}
+
+/**
+ * Map a bracket slot pick onto a synced fixture when feeder upsets changed one
+ * side (e.g. predicted Germany vs France, actual Paraguay vs France).
+ * Returns null when the picked team is not in the synced match.
+ */
+export function resolveSlotPickForSyncedMatch(
+  slotPick: Pick<
+    BracketSlotPick,
+    | "home_team_id"
+    | "away_team_id"
+    | "picked_winner"
+    | "home_score_pred"
+    | "away_score_pred"
+    | "predicts_penalties"
+  >,
+  match: Match
+): ResolvedSlotPickFields | null {
+  const teamsMatch =
+    (slotPick.home_team_id === match.home_team_id &&
+      slotPick.away_team_id === match.away_team_id) ||
+    (slotPick.home_team_id === match.away_team_id &&
+      slotPick.away_team_id === match.home_team_id);
+
+  if (teamsMatch) {
+    return mapSlotPickToMatch(slotPick, match);
+  }
+
+  const pickedTeamId = pickedTeamIdFromSlotPick(slotPick);
+  if (pickedTeamId === null) return null;
+
+  const pickedIsHomeInSlot = slotPick.picked_winner === "home";
+  const pickedScore = pickedIsHomeInSlot
+    ? slotPick.home_score_pred
+    : slotPick.away_score_pred;
+  const otherScore = pickedIsHomeInSlot
+    ? slotPick.away_score_pred
+    : slotPick.home_score_pred;
+
+  if (match.home_team_id === pickedTeamId) {
+    return {
+      picked_winner: "home",
+      home_score_pred: pickedScore,
+      away_score_pred: otherScore,
+      predicts_penalties: slotPick.predicts_penalties,
+    };
+  }
+
+  if (match.away_team_id === pickedTeamId) {
+    return {
+      picked_winner: "away",
+      home_score_pred: otherScore,
+      away_score_pred: pickedScore,
+      predicts_penalties: slotPick.predicts_penalties,
+    };
+  }
+
+  return null;
+}
+
+/** Display pick for a synced match from a bracket slot pick, if mappable. */
+export function displayPickFromSlotPickForSyncedMatch(
+  slotPick: BracketSlotPick,
+  match: Match
+): UserPick | null {
+  const resolved = resolveSlotPickForSyncedMatch(slotPick, match);
+  if (!resolved) return null;
+
+  return {
+    id: slotPick.id,
+    user_id: slotPick.user_id,
+    match_id: match.id,
+    ...resolved,
+    winning_goal_minute_pred: null,
+    points_earned: 0,
+    is_scored: false,
   };
 }

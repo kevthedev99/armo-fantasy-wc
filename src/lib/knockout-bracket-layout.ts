@@ -1,6 +1,7 @@
 import {
   bracketSlotPickKey,
   buildVirtualMatch,
+  displayPickFromSlotPickForSyncedMatch,
   slotPickToDisplayPick,
 } from "@/lib/bracket-slot-picks";
 import {
@@ -85,6 +86,7 @@ export type BracketMatchSlot =
       match: Match;
       slotIndex: number;
       columnId: string;
+      slotPick?: BracketSlotPick;
       chaining?: BracketSlotChaining;
     }
   | {
@@ -324,7 +326,14 @@ function buildColumnSlots(
 
     if (match) {
       const pick = pickMap.get(match.id);
-      slotsByCanonical[i] = { kind: "match", match, slotIndex: i, columnId: column.id };
+      const slotPick = slotPickMap.get(bracketSlotPickKey(column.id, i));
+      slotsByCanonical[i] = {
+        kind: "match",
+        match,
+        slotIndex: i,
+        columnId: column.id,
+        slotPick,
+      };
       winners[i] = winnerFromMatchPick(match, pick);
       losers[i] = loserFromMatchPick(match, pick);
     } else {
@@ -504,7 +513,12 @@ export function buildKnockoutProfileEntries(
   for (const { column, slots } of columns) {
     for (const slot of slots) {
       if (slot.kind === "match") {
-        const pick = pickMap.get(slot.match.id);
+        const pick =
+          pickMap.get(slot.match.id) ??
+          (slot.slotPick
+            ? displayPickFromSlotPickForSyncedMatch(slot.slotPick, slot.match) ??
+              undefined
+            : undefined);
         if (pick || isMatchLocked(slot.match)) {
           entries.push({
             match: slot.match,

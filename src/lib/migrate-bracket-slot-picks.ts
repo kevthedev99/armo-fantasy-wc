@@ -4,7 +4,7 @@ import {
   rowToBracketSlotPick,
 } from "@/lib/bracket-slot-pick-db";
 import { groupKnockoutMatches } from "@/lib/knockout-bracket-layout";
-import { mapSlotPickToMatch } from "@/lib/bracket-slot-picks";
+import { resolveSlotPickForSyncedMatch } from "@/lib/bracket-slot-picks";
 import { isPickLocked } from "@/lib/knockout-bracket";
 import { upsertPickRow } from "@/lib/pick-storage";
 import type { BracketSlotPick, Match } from "@/lib/types";
@@ -29,23 +29,16 @@ export function getSyncedMatchForSlotPick(
   slotPick: BracketSlotPick
 ): Match | undefined {
   const grouped = groupKnockoutMatches(matches);
-  const match = grouped.get(slotPick.round_id)?.[slotPick.slot_index];
-  if (!match) return undefined;
-
-  const teamsMatch =
-    (slotPick.home_team_id === match.home_team_id &&
-      slotPick.away_team_id === match.away_team_id) ||
-    (slotPick.home_team_id === match.away_team_id &&
-      slotPick.away_team_id === match.home_team_id);
-
-  return teamsMatch ? match : undefined;
+  return grouped.get(slotPick.round_id)?.[slotPick.slot_index];
 }
 
 export function slotPickToPickPayload(
   slotPick: BracketSlotPick,
   match: Match
 ) {
-  const mapped = mapSlotPickToMatch(slotPick, match);
+  const mapped = resolveSlotPickForSyncedMatch(slotPick, match);
+  if (!mapped) return null;
+
   return {
     matchId: match.id,
     pickedWinner: mapped.picked_winner,
@@ -88,7 +81,8 @@ export async function migrateSyncedBracketSlotPicks(
     const match = getSyncedMatchForSlotPick(matches, slotPick);
     if (!match) continue;
 
-    const mapped = mapSlotPickToMatch(slotPick, match);
+    const mapped = resolveSlotPickForSyncedMatch(slotPick, match);
+    if (!mapped) continue;
     const { data: existing } = await supabase
       .from("picks")
       .select("id")

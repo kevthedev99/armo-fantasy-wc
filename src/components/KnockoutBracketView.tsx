@@ -14,6 +14,7 @@ import {
 } from "@/lib/knockout-bracket";
 import {
   buildVirtualMatch,
+  displayPickFromSlotPickForSyncedMatch,
   getColumnById,
   isVirtualMatchId,
   parseVirtualMatchSlot,
@@ -49,6 +50,28 @@ import {
 import { useTeamElimination } from "@/hooks/useTeamElimination";
 import { getLockedWinnerForSlot } from "@/lib/bracket-slot-chaining";
 import type { BracketSlotPick, Match, Pick } from "@/lib/types";
+
+function effectivePickForMatchSlot(
+  slot: Extract<BracketMatchSlot, { kind: "match" }>,
+  pickMap: Map<number, Pick>
+): Pick | undefined {
+  const direct = pickMap.get(slot.match.id);
+  if (direct) return direct;
+  if (!slot.slotPick) return undefined;
+  return (
+    displayPickFromSlotPickForSyncedMatch(slot.slotPick, slot.match) ?? undefined
+  );
+}
+
+function hasEffectivePickForSlot(
+  slot: BracketMatchSlot,
+  pickMap: Map<number, Pick>
+): boolean {
+  if (slot.kind === "match") {
+    return !!effectivePickForMatchSlot(slot, pickMap);
+  }
+  return !!slot.slotPick;
+}
 
 function slotKickoffForElimination(slot: BracketMatchSlot): string {
   if (slot.kind === "match") return slot.match.kickoff_at;
@@ -655,7 +678,7 @@ export function KnockoutBracketView({
           if (slot.kind === "match") {
             if (countsTowardPickable) {
               pickable += 1;
-              if (pickMap.has(slot.match.id)) picked += 1;
+              if (hasEffectivePickForSlot(slot, pickMap)) picked += 1;
             }
           } else if (slot.pickable && countsTowardPickable) {
             pickable += 1;
@@ -714,7 +737,7 @@ export function KnockoutBracketView({
             continue;
           }
           if (
-            !pickMap.has(slot.match.id) &&
+            !hasEffectivePickForSlot(slot, pickMap) &&
             !isPickLocked(slot.match, matches)
           ) {
             return { columnId: column.id, slot };
@@ -733,7 +756,9 @@ export function KnockoutBracketView({
     if (!next) return false;
     setActiveColumnId(next.columnId);
     if (next.slot.kind === "match") {
-      setActiveSlotPick(undefined);
+      setActiveSlotPick(
+        pickMap.has(next.slot.match.id) ? undefined : next.slot.slotPick
+      );
       setActiveMatch(next.slot.match);
     } else if (next.slot.kind === "placeholder") {
       openSlot(next.slot);
@@ -744,7 +769,9 @@ export function KnockoutBracketView({
   function handleSlotSelect(slot: BracketMatchSlot) {
     if (readOnly) {
       if (slot.kind === "match") {
-        setActiveSlotPick(undefined);
+        setActiveSlotPick(
+          pickMap.has(slot.match.id) ? undefined : slot.slotPick
+        );
         setActiveMatch(slot.match);
         return;
       }
@@ -755,7 +782,7 @@ export function KnockoutBracketView({
     }
     if (isSlotLocked(slot)) return;
     if (slot.kind === "match") {
-      setActiveSlotPick(undefined);
+      setActiveSlotPick(pickMap.has(slot.match.id) ? undefined : slot.slotPick);
       setActiveMatch(slot.match);
     } else if (slot.pickable) {
       openSlot(slot);
@@ -778,10 +805,16 @@ export function KnockoutBracketView({
           continue;
         }
 
+        const payload = slotPickToPickPayload(slotPick, syncedMatch);
+        if (!payload) {
+          remaining.push(slotPick);
+          continue;
+        }
+
         const res = await fetch("/api/picks", {
           method: "POST",
           headers: { "Content-Type": "application/json" },
-          body: JSON.stringify(slotPickToPickPayload(slotPick, syncedMatch)),
+          body: JSON.stringify(payload),
         });
 
         if (cancelled) return;
@@ -1061,7 +1094,7 @@ export function KnockoutBracketView({
                   slot={slot}
                   pick={
                     slot.kind === "match"
-                      ? pickMap.get(slot.match.id)
+                      ? effectivePickForMatchSlot(slot, pickMap)
                       : undefined
                   }
                   locked={isSlotLocked(slot)}
@@ -1145,7 +1178,7 @@ export function KnockoutBracketView({
                       slot={slot}
                       pick={
                         slot.kind === "match"
-                          ? pickMap.get(slot.match.id)
+                          ? effectivePickForMatchSlot(slot, pickMap)
                           : undefined
                       }
                       locked={isSlotLocked(slot)}
@@ -1226,11 +1259,21 @@ export function KnockoutBracketView({
                 )
               : null;
 
+          const directPick = pickMap.get(activeMatch.id);
+          const panelPick =
+            directPick ??
+            (activeSlotPick
+              ? displayPickFromSlotPickForSyncedMatch(
+                  activeSlotPick,
+                  activeMatch
+                ) ?? undefined
+              : undefined);
+
           return (
             <BracketPickPanel
               match={activeMatch}
-              pick={pickMap.get(activeMatch.id)}
-              slotPick={activeSlotPick}
+              pick={panelPick}
+              slotPick={directPick ? undefined : activeSlotPick}
               userId={userId ?? undefined}
               checkEliminated={checkEliminated}
               lockedWinner={lockedWinner}
