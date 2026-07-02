@@ -130,7 +130,12 @@ export function groupKnockoutMatches(matches: Match[]): Map<string, Match[]> {
     const unresolved: Match[] = [];
 
     for (const match of columnMatches) {
-      const slot = getCanonicalSlot(match, column.id, columnMatches);
+      const slot = getCanonicalSlot(
+        match,
+        column.id,
+        columnMatches,
+        grouped
+      );
       if (
         slot != null &&
         slot >= 0 &&

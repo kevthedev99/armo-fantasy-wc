@@ -10,6 +10,12 @@
  * chronological rank within that day, since the FIFA schedule is published.
  */
 
+import { getActualWinnerTeamId } from "@/lib/bracket-chaining";
+import {
+  KNOCKOUT_FEEDER_PAIRS,
+  getFeederRoundId,
+} from "@/lib/knockout-bracket-feeders";
+import { isMatchFinished } from "@/lib/scoring";
 import type { Match } from "@/lib/types";
 
 function normalizeTeam(name: string): string {
@@ -32,6 +38,7 @@ const TEAM_ALIASES: Record<string, string> = {
   democraticrepublicofcongo: "drcongo",
   bosnia: "bosniaandherzegovina",
   bosniaherzegovina: "bosniaandherzegovina",
+  bosniaandherzegovina: "bosniaandherzegovina",
   korearepublic: "southkorea",
   republicofkorea: "southkorea",
 };
@@ -114,19 +121,90 @@ const DAY_SLOT_MAP: Record<string, Record<string, number[]>> = {
   },
 };
 
+function winnerTeamId(match: Match | undefined): number | null {
+  if (!match || !isMatchFinished(match.status)) return null;
+  return getActualWinnerTeamId(match);
+}
+
+function loserTeamId(match: Match | undefined): number | null {
+  if (!match || !isMatchFinished(match.status)) return null;
+  const winnerId = getActualWinnerTeamId(match);
+  if (winnerId === null) return null;
+  return winnerId === match.home_team_id
+    ? match.away_team_id
+    : match.home_team_id;
+}
+
+/**
+ * When both teams are known, map a later-round fixture to the slot whose feeder
+ * winners (or SF losers for third place) match the matchup.
+ */
+function slotByFeederTeams(
+  match: Pick<Match, "home_team_id" | "away_team_id">,
+  columnId: string,
+  feederRoundSlots: (Match | undefined)[],
+  useLosers: boolean
+): number | null {
+  const pairs = KNOCKOUT_FEEDER_PAIRS[columnId];
+  if (!pairs) return null;
+
+  const matchTeams = new Set([match.home_team_id, match.away_team_id]);
+  const teamFromFeeder = useLosers ? loserTeamId : winnerTeamId;
+
+  for (let slotIndex = 0; slotIndex < pairs.length; slotIndex++) {
+    const [feedA, feedB] = pairs[slotIndex];
+    const teamA = teamFromFeeder(feederRoundSlots[feedA]);
+    const teamB = teamFromFeeder(feederRoundSlots[feedB]);
+    if (
+      teamA !== null &&
+      teamB !== null &&
+      matchTeams.has(teamA) &&
+      matchTeams.has(teamB)
+    ) {
+      return slotIndex;
+    }
+  }
+
+  return null;
+}
+
 /** Return the canonical FIFA slot index for this match, or null if unknown. */
 export function getCanonicalSlot(
   match: Pick<
     Match,
-    "stage" | "round" | "home_team_name" | "away_team_name" | "kickoff_at"
+    | "stage"
+    | "round"
+    | "home_team_id"
+    | "away_team_id"
+    | "home_team_name"
+    | "away_team_name"
+    | "kickoff_at"
+    | "status"
+    | "home_score"
+    | "away_score"
+    | "pen_home_score"
+    | "pen_away_score"
   >,
   columnId: string,
-  allColumnMatches: Pick<Match, "kickoff_at">[]
+  allColumnMatches: Pick<Match, "kickoff_at">[],
+  groupedKnockout?: Map<string, (Match | undefined)[]>
 ): number | null {
   if (columnId === "ro32") {
     const key = teamPairKey(match.home_team_name, match.away_team_name);
     const slot = RO32_SLOT_BY_TEAM_PAIR.get(key);
     return slot ?? null;
+  }
+
+  const feederRoundId = getFeederRoundId(columnId);
+  if (feederRoundId && groupedKnockout) {
+    const feederSlots = groupedKnockout.get(feederRoundId) ?? [];
+    const byFeeders = slotByFeederTeams(
+      match as Match,
+      columnId,
+      feederSlots,
+      columnId === "third"
+    );
+    if (byFeeders !== null) return byFeeders;
   }
 
   const daySlots = DAY_SLOT_MAP[columnId];
