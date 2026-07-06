@@ -2,6 +2,7 @@
 
 import { useMemo, useState } from "react";
 import { buildKnockoutProfileEntries } from "@/lib/knockout-bracket-layout";
+import { isEliminatedFromContention } from "@/lib/standings";
 import { formatStreak, isMatchLocked } from "@/lib/scoring";
 import { useTeamElimination } from "@/hooks/useTeamElimination";
 import type { BracketSlotPick, Match, Pick, Profile } from "@/lib/types";
@@ -82,6 +83,11 @@ export function UserPicksView({
             </p>
             <h1 className="break-words text-2xl font-black uppercase md:text-3xl">
               {profile.display_name}
+              {isEliminatedFromContention(rank) && (
+                <span className="ml-2 inline-block align-middle rounded bg-red-900/80 px-2 py-0.5 text-[10px] font-bold uppercase tracking-wide text-red-300">
+                  Eliminated
+                </span>
+              )}
             </h1>
             <p className="text-sm text-gray-400">@{profile.username}</p>
           </div>

@@ -48,6 +48,17 @@ export function topStandings<T extends Pick<Profile, "total_points" | "total_win
   return sortProfiles(profiles).slice(0, limit);
 }
 
+/** Standings ranks 37–46 are out of prize contention (display only). */
+export const ELIMINATED_RANK_MIN = 37;
+export const ELIMINATED_RANK_MAX = 46;
+
+export function isEliminatedFromContention(standingRank: number): boolean {
+  return (
+    standingRank >= ELIMINATED_RANK_MIN &&
+    standingRank <= ELIMINATED_RANK_MAX
+  );
+}
+
 /** Profile ids tied for the most correct-winner picks (empty if everyone has 0). */
 export function getMostWinsLeaderIds(
   profiles: Pick<Profile, "id" | "total_wins">[]

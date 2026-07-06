@@ -3,7 +3,7 @@ import { RankChangeBadge } from "@/components/RankChangeBadge";
 import { SponsorBanner } from "@/components/SponsorBanner";
 import { WorldCupLogo } from "@/components/WorldCupLogo";
 import { formatStreak } from "@/lib/scoring";
-import { getMostWinsLeaderIds, sortProfiles } from "@/lib/standings";
+import { getMostWinsLeaderIds, isEliminatedFromContention, sortProfiles } from "@/lib/standings";
 import type { Profile } from "@/lib/types";
 
 interface StandingsTableProps {
@@ -74,6 +74,14 @@ function MostWinsBadge() {
   );
 }
 
+function EliminatedBadge() {
+  return (
+    <span className="inline-block rounded bg-red-900/80 px-2 py-0.5 text-[10px] font-bold uppercase text-red-300">
+      Eliminated
+    </span>
+  );
+}
+
 function podiumRank(index: number): 1 | 2 | 3 | null {
   if (index === 0) return 1;
   if (index === 1) return 2;
@@ -117,6 +125,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
               const isLast = profile.id === lastPlaceId && sorted.length > 3;
               const isYou = profile.id === currentUserId;
               const isMostWins = mostWinsLeaderIds.has(profile.id);
+              const isEliminated = isEliminatedFromContention(index + 1);
 
               return (
                 <Link
@@ -146,7 +155,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                           </span>
                         )}
                       </p>
-                      {(rank || isLast || isMostWins) && (
+                      {(rank || isLast || isMostWins || isEliminated) && (
                         <div className="mt-1.5 flex flex-wrap gap-1.5">
                           {rank && (
                             <>
@@ -156,6 +165,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                           )}
                           {isMostWins && <MostWinsBadge />}
                           {isLast && <LastPlaceBadge />}
+                          {isEliminated && <EliminatedBadge />}
                         </div>
                       )}
                       <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1 text-sm">
@@ -204,6 +214,7 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
               const isLast = profile.id === lastPlaceId && sorted.length > 3;
               const isYou = profile.id === currentUserId;
               const isMostWins = mostWinsLeaderIds.has(profile.id);
+              const isEliminated = isEliminatedFromContention(index + 1);
 
               return (
                 <Link
@@ -246,6 +257,11 @@ export function StandingsTable({ profiles, currentUserId }: StandingsTableProps)
                     {isLast && (
                       <span className="shrink-0">
                         <LastPlaceBadge />
+                      </span>
+                    )}
+                    {isEliminated && (
+                      <span className="shrink-0">
+                        <EliminatedBadge />
                       </span>
                     )}
                   </div>
