@@ -182,7 +182,7 @@ function MatchRow({
           <EliminatedTeamName
             name={match.home_team_name}
             eliminated={homeEliminated}
-            className={`min-w-0 flex-1 text-sm font-semibold ${
+            className={`min-w-0 truncate text-sm font-semibold ${
               leader === "home" ? "text-black" : "text-gray-700"
             }`}
           />
@@ -236,7 +236,7 @@ function MatchRow({
             name={match.away_team_name}
             eliminated={awayEliminated}
             markAfter
-            className={`min-w-0 flex-1 text-sm font-semibold ${
+            className={`min-w-0 truncate text-right text-sm font-semibold ${
               leader === "away" ? "text-black" : "text-gray-700"
             }`}
           />
