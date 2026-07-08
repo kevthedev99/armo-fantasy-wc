@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { useEffect, useState } from "react";
+import { SCORING, getKnockoutBasePoints } from "@/lib/scoring";
 
 /** Shown once per site visit on any page — dismissible until the next full load. */
 export function BracketUpdateAlert() {
@@ -17,6 +18,9 @@ export function BracketUpdateAlert() {
   }, [open]);
 
   if (!open) return null;
+
+  const qfWinnerPoints = getKnockoutBasePoints("Quarter-finals");
+  const exactScoreBonus = SCORING.group.exactScoreBonus;
 
   return (
     <div
@@ -40,19 +44,18 @@ export function BracketUpdateAlert() {
             id="bracket-update-alert-title"
             className="mt-1 text-xl font-black uppercase tracking-tight text-white sm:text-2xl"
           >
-            Knockout Bracket Change
+            Knockout Quarterfinals
           </h2>
         </div>
 
         <div className="space-y-4 p-5 sm:p-6">
-          <p className="text-sm leading-relaxed text-gray-800">
-            Since there has been recent confusion with the Knockout Brackets, you
-            can now{" "}
-            <strong className="text-gray-900">
-              modify your bracket up until each game starts
-            </strong>
-            . However, remember if you chose a team to move on deep and they get
-            eliminated early, it affects your bracket down the line.
+          <p className="rounded-xl border border-orange-400/30 bg-orange-50 px-4 py-3 text-sm leading-relaxed text-gray-800">
+            We&apos;re in the <strong className="text-gray-900">Quarterfinals</strong>.
+            Pick the winner for{" "}
+            <strong className="text-gray-900">+{qfWinnerPoints} pts</strong>, or nail
+            the exact score for an extra{" "}
+            <strong className="text-gray-900">+{exactScoreBonus} pts</strong> on top
+            of that.
           </p>
           <p className="rounded-xl border border-[#0056b3]/20 bg-[#0056b3]/5 px-4 py-3 text-sm leading-relaxed text-gray-700">
             Picks lock when a match <strong className="text-gray-900">starts</strong>{" "}
