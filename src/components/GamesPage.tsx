@@ -178,14 +178,16 @@ function MatchRow({
     >
       <div className="flex items-center gap-1.5 sm:gap-3">
         <div className="flex min-w-0 flex-1 items-center gap-1.5 sm:gap-2">
-          <TeamLogo src={match.home_team_logo} name={match.home_team_name} />
-          <EliminatedTeamName
-            name={match.home_team_name}
-            eliminated={homeEliminated}
-            className={`min-w-0 truncate text-sm font-semibold ${
-              leader === "home" ? "text-black" : "text-gray-700"
-            }`}
-          />
+          <div className="flex min-w-0 max-w-full items-center gap-1.5 sm:gap-2">
+            <TeamLogo src={match.home_team_logo} name={match.home_team_name} />
+            <EliminatedTeamName
+              name={match.home_team_name}
+              eliminated={homeEliminated}
+              className={`min-w-0 truncate text-sm font-semibold ${
+                leader === "home" ? "text-black" : "text-gray-700"
+              }`}
+            />
+          </div>
           {showHomePick(pickedWinner) && <PickMark />}
         </div>
 
@@ -230,17 +232,19 @@ function MatchRow({
           </span>
         </div>
 
-        <div className="flex min-w-0 flex-1 flex-row-reverse items-center gap-1.5 sm:gap-2">
-          <TeamLogo src={match.away_team_logo} name={match.away_team_name} />
-          <EliminatedTeamName
-            name={match.away_team_name}
-            eliminated={awayEliminated}
-            markAfter
-            className={`min-w-0 truncate text-right text-sm font-semibold ${
-              leader === "away" ? "text-black" : "text-gray-700"
-            }`}
-          />
+        <div className="flex min-w-0 flex-1 items-center justify-end gap-1.5 sm:gap-2">
           {showAwayPick(pickedWinner) && <PickMark />}
+          <div className="flex min-w-0 max-w-full items-center gap-1.5 sm:gap-2">
+            <EliminatedTeamName
+              name={match.away_team_name}
+              eliminated={awayEliminated}
+              markAfter
+              className={`min-w-0 truncate text-right text-sm font-semibold ${
+                leader === "away" ? "text-black" : "text-gray-700"
+              }`}
+            />
+            <TeamLogo src={match.away_team_logo} name={match.away_team_name} />
+          </div>
         </div>
       </div>
 
