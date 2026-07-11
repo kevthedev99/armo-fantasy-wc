@@ -35,8 +35,8 @@ export const SCORING = {
     "8th Finals": 4,
     "Quarter-finals": 8,
     "Semi-finals": 16,
-    "3rd Place Final": 8,
-    "Third place": 8,
+    "3rd Place Final": 10,
+    "Third place": 10,
     Final: 24,
     correctWinnerDefault: 4,
     /** Add-on when a penalties pick names the shootout winner. */

@@ -205,7 +205,7 @@ export function RulesPage() {
                   Penalties pick — round points if winner is right
                 </span>
                 <span className="text-right text-xs font-black text-[#4da3ff]">
-                  Ro32 +4 · R16 +6 · QF +8 · SF +16 · Final +24
+                  Ro32 +4 · R16 +6 · QF +8 · SF +16 · 3rd +10 · Final +24
                 </span>
               </div>
               <div className="flex items-center justify-between rounded-lg border border-[#0056b3]/30 bg-[#0056b3]/10 px-4 py-3">
