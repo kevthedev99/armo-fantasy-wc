@@ -25,10 +25,8 @@ function Flag({
   size: "sm" | "lg";
 }) {
   const box =
-    size === "lg"
-      ? "h-12 w-12 sm:h-14 sm:w-14"
-      : "h-7 w-7 sm:h-8 sm:w-8";
-  const text = size === "lg" ? "text-xs" : "text-[9px]";
+    size === "lg" ? "h-9 w-9 sm:h-14 sm:w-14" : "h-6 w-6 sm:h-8 sm:w-8";
+  const text = size === "lg" ? "text-[10px] sm:text-xs" : "text-[8px] sm:text-[9px]";
 
   if (!src) {
     return (
@@ -59,29 +57,25 @@ function MatchupRecap({
 
   return (
     <div
-      className={`rounded-xl border px-3 py-3 sm:px-4 ${
+      className={`rounded-xl border px-2.5 py-2 sm:px-4 sm:py-3 ${
         isFinal
           ? "border-[#FFD700]/40 bg-gradient-to-b from-[#fff8e1] to-white"
           : "border-orange-300/40 bg-orange-50/80"
       }`}
     >
       <p
-        className={`text-center font-bold uppercase tracking-[0.2em] ${
+        className={`text-center font-bold uppercase tracking-[0.18em] ${
           isFinal
-            ? "text-[11px] text-[#b8860b] sm:text-xs"
-            : "text-[10px] text-orange-700"
+            ? "text-[10px] text-[#b8860b] sm:text-xs"
+            : "text-[9px] text-orange-700 sm:text-[10px]"
         }`}
       >
         {label}
       </p>
 
       {match ? (
-        <div
-          className={`mt-2 flex items-center justify-center gap-2 sm:gap-3 ${
-            isFinal ? "mt-3" : ""
-          }`}
-        >
-          <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+        <div className="mt-1.5 flex items-center justify-center gap-1.5 sm:mt-3 sm:gap-3">
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
             <Flag
               src={match.home_team_logo}
               name={match.home_team_name}
@@ -89,7 +83,7 @@ function MatchupRecap({
             />
             <span
               className={`max-w-full truncate text-center font-black text-gray-900 ${
-                isFinal ? "text-base sm:text-lg" : "text-xs sm:text-sm"
+                isFinal ? "text-sm sm:text-lg" : "text-[11px] sm:text-sm"
               }`}
             >
               {match.home_team_name}
@@ -97,12 +91,12 @@ function MatchupRecap({
           </div>
           <span
             className={`shrink-0 font-black text-gray-400 ${
-              isFinal ? "text-lg sm:text-xl" : "text-xs"
+              isFinal ? "text-sm sm:text-xl" : "text-[10px] sm:text-xs"
             }`}
           >
             VS
           </span>
-          <div className="flex min-w-0 flex-1 flex-col items-center gap-1.5">
+          <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
             <Flag
               src={match.away_team_logo}
               name={match.away_team_name}
@@ -110,7 +104,7 @@ function MatchupRecap({
             />
             <span
               className={`max-w-full truncate text-center font-black text-gray-900 ${
-                isFinal ? "text-base sm:text-lg" : "text-xs sm:text-sm"
+                isFinal ? "text-sm sm:text-lg" : "text-[11px] sm:text-sm"
               }`}
             >
               {match.away_team_name}
@@ -118,7 +112,7 @@ function MatchupRecap({
           </div>
         </div>
       ) : (
-        <p className="mt-2 text-center text-sm text-gray-500">
+        <p className="mt-1.5 text-center text-xs text-gray-500 sm:text-sm">
           Matchup loading…
         </p>
       )}
@@ -153,7 +147,8 @@ export function BracketUpdateAlert({
 
   return (
     <div
-      className="fixed inset-0 z-[110] flex items-end justify-center p-4 sm:items-center sm:p-6"
+      className="fixed inset-0 z-[110] flex items-center justify-center p-3 sm:p-6"
+      style={{ paddingBottom: "max(0.75rem, env(safe-area-inset-bottom))" }}
       role="dialog"
       aria-modal="true"
       aria-labelledby="bracket-update-alert-title"
@@ -164,21 +159,21 @@ export function BracketUpdateAlert({
         aria-label="Close alert"
         onClick={() => setOpen(false)}
       />
-      <div className="relative max-h-[min(92vh,720px)] w-full max-w-lg overflow-y-auto rounded-2xl border border-[#FFD700]/50 bg-white shadow-2xl">
-        <div className="sticky top-0 border-b border-[#FFD700]/30 bg-gradient-to-r from-[#0a1628] via-[#0056b3] to-[#FF007A] px-5 py-5 text-center">
-          <p className="text-[10px] font-bold uppercase tracking-[0.35em] text-[#FFD700]">
+      <div className="relative flex max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#FFD700]/50 bg-white shadow-2xl">
+        <div className="shrink-0 border-b border-[#FFD700]/30 bg-gradient-to-r from-[#0a1628] via-[#0056b3] to-[#FF007A] px-4 py-3 text-center sm:px-5 sm:py-5">
+          <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-[#FFD700] sm:text-[10px]">
             Alert Update
           </p>
           <h2
             id="bracket-update-alert-title"
-            className="final-alert-title font-display mt-2 text-3xl uppercase tracking-wide sm:text-4xl"
+            className="final-alert-title font-display mt-1 text-2xl uppercase tracking-wide sm:mt-2 sm:text-4xl"
           >
             The Final Is Here
           </h2>
         </div>
 
-        <div className="space-y-4 p-5 sm:p-6">
-          <p className="text-center text-sm leading-relaxed text-gray-800">
+        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-3 py-3 sm:space-y-4 sm:p-6">
+          <p className="text-center text-xs leading-snug text-gray-800 sm:text-sm sm:leading-relaxed">
             There are{" "}
             <strong className="text-gray-900">two games remaining</strong> — the
             Third Place Match and the Final Match.
@@ -192,11 +187,11 @@ export function BracketUpdateAlert({
             size="sm"
           />
 
-          <div className="rounded-xl border border-[#0056b3]/20 bg-[#0056b3]/5 px-4 py-3 text-sm leading-relaxed text-gray-700">
+          <div className="rounded-xl border border-[#0056b3]/20 bg-[#0056b3]/5 px-3 py-2.5 text-xs leading-snug text-gray-700 sm:px-4 sm:py-3 sm:text-sm sm:leading-relaxed">
             <p className="font-bold uppercase tracking-wide text-[#0056b3]">
               Point reminder
             </p>
-            <ul className="mt-2 space-y-1.5">
+            <ul className="mt-1.5 space-y-1 sm:mt-2 sm:space-y-1.5">
               <li>
                 Third Place correct winner:{" "}
                 <strong className="text-gray-900">+{thirdPts} pts</strong>
@@ -213,7 +208,7 @@ export function BracketUpdateAlert({
             </ul>
           </div>
 
-          <p className="rounded-xl border border-[#32CD32]/25 bg-[#32CD32]/5 px-4 py-3 text-sm leading-relaxed text-gray-700">
+          <p className="rounded-xl border border-[#32CD32]/25 bg-[#32CD32]/5 px-3 py-2.5 text-xs leading-snug text-gray-700 sm:px-4 sm:py-3 sm:text-sm sm:leading-relaxed">
             Picks lock at kickoff. Check times on the{" "}
             <Link
               href="/games"
@@ -224,7 +219,9 @@ export function BracketUpdateAlert({
             </Link>{" "}
             tab — all listed in Pacific time.
           </p>
+        </div>
 
+        <div className="shrink-0 border-t border-gray-100 bg-white px-3 py-2.5 sm:px-6 sm:py-4">
           <button
             type="button"
             onClick={() => setOpen(false)}
