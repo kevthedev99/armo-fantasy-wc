@@ -184,13 +184,13 @@ export function BracketUpdateAlert({
             Third Place Match and the Final Match.
           </p>
 
+          <MatchupRecap label="The Final" match={finalMatch} size="lg" />
+
           <MatchupRecap
             label="Third Place Match"
             match={thirdPlace}
             size="sm"
           />
-
-          <MatchupRecap label="The Final" match={finalMatch} size="lg" />
 
           <div className="rounded-xl border border-[#0056b3]/20 bg-[#0056b3]/5 px-4 py-3 text-sm leading-relaxed text-gray-700">
             <p className="font-bold uppercase tracking-wide text-[#0056b3]">
