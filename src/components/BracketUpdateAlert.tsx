@@ -150,7 +150,6 @@ export function BracketUpdateAlert({
   const thirdPts = getKnockoutBasePoints("3rd Place Final");
   const finalPts = getKnockoutBasePoints("Final");
   const exactBonus = SCORING.group.exactScoreBonus;
-  const pensBonus = SCORING.knockout.penaltiesWinnerBonus;
 
   return (
     <div
@@ -210,11 +209,6 @@ export function BracketUpdateAlert({
                 Exact score bonus:{" "}
                 <strong className="text-gray-900">+{exactBonus} pts</strong> on
                 top
-              </li>
-              <li>
-                Penalties shootout winner bonus:{" "}
-                <strong className="text-gray-900">+{pensBonus} pts</strong> (if
-                you pick pens and the shootout winner is right)
               </li>
             </ul>
           </div>
