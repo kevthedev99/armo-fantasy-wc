@@ -38,6 +38,8 @@ interface MatchCardProps {
   allMatches: Match[];
   userPicks: Pick[];
   onSaved: (pick: Pick) => void;
+  /** NCAA path bust — both feeder picks were wrong. */
+  bracketBusted?: boolean;
 }
 
 export function MatchCard({
@@ -46,6 +48,7 @@ export function MatchCard({
   allMatches,
   userPicks,
   onSaved,
+  bracketBusted = false,
 }: MatchCardProps) {
   const locked = useIsPickLocked(match, allMatches);
   const lockMessage = getPickLockMessage(match, allMatches);
@@ -53,6 +56,7 @@ export function MatchCard({
   const homeEliminated = isMatchSideEliminated(match, "home", checkEliminated);
   const awayEliminated = isMatchSideEliminated(match, "away", checkEliminated);
   const isKnockout = match.stage === "knockout";
+  const effectivelyLocked = locked || bracketBusted;
   const [pickedWinner, setPickedWinner] = useState<PickWinner>(
     pick?.picked_winner ?? "home"
   );
@@ -86,7 +90,7 @@ export function MatchCard({
       ];
 
   async function savePick() {
-    if (locked) return;
+    if (effectivelyLocked) return;
 
     setSaving(true);
     setError(null);
@@ -150,30 +154,39 @@ export function MatchCard({
     predicts_penalties: isKnockout && outcomeMode === "penalties",
   } as Pick;
 
-  const cardClass = isLive
-    ? pick
-      ? "border-red-400 bg-red-50/70 ring-2 ring-red-200"
-      : "border-red-400 bg-red-50 ring-2 ring-red-200"
-    : locked
+  const cardClass = bracketBusted
+    ? "border-dashed border-gray-400 bg-gray-100/90"
+    : isLive
       ? pick
-        ? "border-gray-300 bg-gray-50"
-        : "border-amber-300 bg-amber-50/80"
-      : "border-gray-200 bg-white";
+        ? "border-red-400 bg-red-50/70 ring-2 ring-red-200"
+        : "border-red-400 bg-red-50 ring-2 ring-red-200"
+      : locked
+        ? pick
+          ? "border-gray-300 bg-gray-50"
+          : "border-amber-300 bg-amber-50/80"
+        : "border-gray-200 bg-white";
 
   return (
     <article
-      className={`rounded-xl border p-4 shadow-sm ${cardClass} ${locked && !isLive ? "opacity-95" : ""}`}
+      className={`rounded-xl border p-4 shadow-sm ${cardClass} ${locked && !isLive && !bracketBusted ? "opacity-95" : ""} ${bracketBusted ? "opacity-90" : ""}`}
     >
       <div className="mb-3 flex items-center justify-between gap-2">
-        {match.group_name ? (
-          <span className="rounded-full bg-[#0056b3] px-3 py-1 text-[10px] font-bold uppercase text-white">
-            {match.group_name}
-          </span>
-        ) : (
-          <span className="rounded-full bg-[#0056b3] px-3 py-1 text-[10px] font-bold uppercase text-white">
-            {match.round}
-          </span>
-        )}
+        <div className="flex flex-wrap items-center gap-1.5">
+          {match.group_name ? (
+            <span className="rounded-full bg-[#0056b3] px-3 py-1 text-[10px] font-bold uppercase text-white">
+              {match.group_name}
+            </span>
+          ) : (
+            <span className="rounded-full bg-[#0056b3] px-3 py-1 text-[10px] font-bold uppercase text-white">
+              {match.round}
+            </span>
+          )}
+          {bracketBusted && (
+            <span className="rounded-full bg-gray-700 px-2.5 py-1 text-[10px] font-bold uppercase tracking-wide text-white">
+              Busted
+            </span>
+          )}
+        </div>
         <div className="text-right">
           {isLive ? (
             <span className="flex items-center justify-end gap-1 text-[10px] font-bold uppercase text-red-600">
@@ -235,7 +248,22 @@ export function MatchCard({
         </div>
       </div>
 
-      {locked ? (
+      {bracketBusted ? (
+        <div className="rounded-lg border border-gray-300 bg-white/70 px-3 py-2 text-center">
+          <p className="text-[10px] font-black uppercase tracking-wide text-gray-700">
+            Bracket bust
+          </p>
+          <p className="mt-0.5 text-xs text-gray-600">
+            Both feeder picks were wrong — 0 pts on this path
+          </p>
+          {summary && (
+            <p className="mt-1.5 text-[10px] font-bold uppercase text-gray-500">
+              Pick was: {summary}
+            </p>
+          )}
+          <p className="mt-2 text-sm font-bold text-gray-500">0 pts</p>
+        </div>
+      ) : locked ? (
         <>
           {isMatchFinished(match.status) ? (
             <FinishedMatchPickSummary match={match} pick={pick} size="sm" />

@@ -10,6 +10,7 @@ import {
 import { isMatchFinished } from "@/lib/scoring";
 import type { Match, Pick } from "@/lib/types";
 import { MatchCard } from "./MatchCard";
+import { useBustedMatchIds } from "@/hooks/useBustedMatchIds";
 
 interface PicksPageProps {
   matches: Match[];
@@ -75,6 +76,7 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
       : sortUpcoming(stageMatches, matches);
 
   const bracketOpen = isKnockoutChallengeActive(matches);
+  const bustedMatchIds = useBustedMatchIds(picks, matches);
 
   const liveMatchCount =
     view === "upcoming"
@@ -234,6 +236,9 @@ export function PicksPage({ matches, picks: initialPicks }: PicksPageProps) {
               allMatches={matches}
               userPicks={picks}
               onSaved={handleSaved}
+              bracketBusted={
+                tab === "knockout" && bustedMatchIds.has(match.id)
+              }
             />
           ))}
         </div>

@@ -5,6 +5,7 @@ import { buildKnockoutProfileEntries } from "@/lib/knockout-bracket-layout";
 import { isEliminatedFromContention } from "@/lib/standings";
 import { formatStreak, isMatchLocked } from "@/lib/scoring";
 import { useTeamElimination } from "@/hooks/useTeamElimination";
+import { useBustedMatchIds } from "@/hooks/useBustedMatchIds";
 import type { BracketSlotPick, Match, Pick, Profile } from "@/lib/types";
 import { PickReadOnlyCard } from "./PickReadOnlyCard";
 
@@ -52,6 +53,7 @@ export function UserPicksView({
   }, [picks]);
 
   const checkEliminated = useTeamElimination(picks, matches);
+  const bustedMatchIds = useBustedMatchIds(picks, matches, slotPicks);
 
   const groupVisible = useMemo(
     () => buildVisible(matches, pickMap, "group"),
@@ -170,6 +172,9 @@ export function UserPicksView({
               match={match}
               pick={pick}
               checkEliminated={tab === "knockout" ? checkEliminated : undefined}
+              bracketBusted={
+                tab === "knockout" && bustedMatchIds.has(match.id)
+              }
             />
           ))
         )}
