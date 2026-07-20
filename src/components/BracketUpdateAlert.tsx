@@ -1,134 +1,116 @@
 "use client";
 
-import Link from "next/link";
-import { useEffect, useState } from "react";
-import { SCORING, getKnockoutBasePoints } from "@/lib/scoring";
+import { toBlob } from "html-to-image";
+import { useEffect, useRef, useState } from "react";
+import type { Profile } from "@/lib/types";
 
-export type FinalAlertMatch = {
-  id: number;
-  round: string;
-  home_team_name: string;
-  away_team_name: string;
-  home_team_logo: string | null;
-  away_team_logo: string | null;
-  kickoff_at: string;
-  status: string;
-};
+export type LeaderboardEntry = Pick<
+  Profile,
+  "id" | "username" | "display_name" | "avatar_color" | "total_points" | "total_wins"
+>;
 
-function Flag({
-  src,
+function Avatar({
   name,
+  color,
   size,
 }: {
-  src: string | null;
   name: string;
-  size: "sm" | "lg";
+  color: string;
+  size: "sm" | "md" | "lg";
 }) {
   const box =
-    size === "lg" ? "h-9 w-9 sm:h-14 sm:w-14" : "h-6 w-6 sm:h-8 sm:w-8";
-  const text = size === "lg" ? "text-[10px] sm:text-xs" : "text-[8px] sm:text-[9px]";
-
-  if (!src) {
-    return (
-      <span
-        className={`flex shrink-0 items-center justify-center rounded-full bg-gray-100 font-bold text-gray-500 ${box} ${text}`}
-      >
-        {name.slice(0, 2).toUpperCase()}
-      </span>
-    );
-  }
+    size === "lg"
+      ? "h-14 w-14 text-xl sm:h-16 sm:w-16 sm:text-2xl"
+      : size === "md"
+        ? "h-11 w-11 text-base sm:h-12 sm:w-12"
+        : "h-8 w-8 text-xs";
 
   return (
-    // eslint-disable-next-line @next/next/no-img-element
-    <img src={src} alt={name} className={`shrink-0 object-contain ${box}`} />
+    <span
+      className={`flex shrink-0 items-center justify-center rounded-full font-black text-white shadow-md ring-2 ring-white/80 ${box}`}
+      style={{ backgroundColor: color }}
+    >
+      {name.charAt(0).toUpperCase()}
+    </span>
   );
 }
 
-function MatchupRecap({
-  label,
-  match,
-  size,
+function PodiumPlace({
+  entry,
+  rank,
+  place,
 }: {
-  label: string;
-  match: FinalAlertMatch | null;
-  size: "sm" | "lg";
+  entry: LeaderboardEntry | undefined;
+  rank: 1 | 2 | 3;
+  place: "left" | "center" | "right";
 }) {
-  const isFinal = size === "lg";
+  const heights =
+    rank === 1
+      ? "h-28 sm:h-36"
+      : rank === 2
+        ? "h-20 sm:h-28"
+        : "h-16 sm:h-24";
+  const colors =
+    rank === 1
+      ? "from-[#FFD700] via-[#ffe566] to-[#c9a000] text-[#3d3200]"
+      : rank === 2
+        ? "from-gray-200 via-gray-100 to-gray-400 text-gray-700"
+        : "from-[#cd7f32] via-[#e0a060] to-[#8b5a2b] text-[#3d2410]";
+  const delay =
+    place === "center" ? "0.15s" : place === "left" ? "0.35s" : "0.5s";
+  const label =
+    rank === 1 ? "Champion" : rank === 2 ? "2nd Place" : "3rd Place";
 
   return (
     <div
-      className={`rounded-xl border px-2.5 py-2 sm:px-4 sm:py-3 ${
-        isFinal
-          ? "border-[#FFD700]/40 bg-gradient-to-b from-[#fff8e1] to-white"
-          : "border-orange-300/40 bg-orange-50/80"
+      className={`podium-rise flex w-[31%] flex-col items-center ${
+        rank === 1 ? "z-10" : "z-0"
       }`}
+      style={{ animationDelay: delay }}
     >
-      <p
-        className={`text-center font-bold uppercase tracking-[0.18em] ${
-          isFinal
-            ? "text-[10px] text-[#b8860b] sm:text-xs"
-            : "text-[9px] text-orange-700 sm:text-[10px]"
-        }`}
-      >
-        {label}
-      </p>
-
-      {match ? (
-        <div className="mt-1.5 flex items-center justify-center gap-1.5 sm:mt-3 sm:gap-3">
-          <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
-            <Flag
-              src={match.home_team_logo}
-              name={match.home_team_name}
-              size={size}
-            />
-            <span
-              className={`max-w-full truncate text-center font-black text-gray-900 ${
-                isFinal ? "text-sm sm:text-lg" : "text-[11px] sm:text-sm"
-              }`}
-            >
-              {match.home_team_name}
-            </span>
-          </div>
-          <span
-            className={`shrink-0 font-black text-gray-400 ${
-              isFinal ? "text-sm sm:text-xl" : "text-[10px] sm:text-xs"
+      {entry ? (
+        <>
+          <Avatar
+            name={entry.display_name}
+            color={entry.avatar_color}
+            size={rank === 1 ? "lg" : "md"}
+          />
+          <p
+            className={`mt-1.5 max-w-full truncate text-center font-black text-white ${
+              rank === 1 ? "text-sm sm:text-base" : "text-xs sm:text-sm"
             }`}
           >
-            VS
-          </span>
-          <div className="flex min-w-0 flex-1 flex-col items-center gap-1">
-            <Flag
-              src={match.away_team_logo}
-              name={match.away_team_name}
-              size={size}
-            />
-            <span
-              className={`max-w-full truncate text-center font-black text-gray-900 ${
-                isFinal ? "text-sm sm:text-lg" : "text-[11px] sm:text-sm"
-              }`}
-            >
-              {match.away_team_name}
-            </span>
-          </div>
-        </div>
+            {entry.display_name}
+          </p>
+          <p className="text-[10px] font-bold text-[#FFD700] sm:text-xs">
+            {entry.total_points} pts
+          </p>
+        </>
       ) : (
-        <p className="mt-1.5 text-center text-xs text-gray-500 sm:text-sm">
-          Matchup loading…
-        </p>
+        <p className="text-xs text-white/50">—</p>
       )}
+      <div
+        className={`mt-2 flex w-full flex-col items-center justify-end rounded-t-xl bg-gradient-to-b ${colors} ${heights} shadow-lg`}
+      >
+        <p className="font-display text-3xl leading-none sm:text-4xl">{rank}</p>
+        <p className="mb-2 mt-0.5 text-[9px] font-bold uppercase tracking-wider sm:text-[10px]">
+          {label}
+        </p>
+      </div>
     </div>
   );
 }
 
-/** Shown once per site visit on any page — dismissible until the next full load. */
+/** Shown once per site visit — Top 10 celebration with save-to-image. */
 export function BracketUpdateAlert({
-  thirdPlace,
-  finalMatch,
+  topTen,
 }: {
-  thirdPlace: FinalAlertMatch | null;
-  finalMatch: FinalAlertMatch | null;
+  topTen: LeaderboardEntry[];
 }) {
   const [open, setOpen] = useState(true);
+  const [saving, setSaving] = useState(false);
+  const [saveMessage, setSaveMessage] = useState<string | null>(null);
+  const captureRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (!open) return;
@@ -141,9 +123,64 @@ export function BracketUpdateAlert({
 
   if (!open) return null;
 
-  const thirdPts = getKnockoutBasePoints("3rd Place Final");
-  const finalPts = getKnockoutBasePoints("Final");
-  const exactBonus = SCORING.group.exactScoreBonus;
+  const first = topTen[0];
+  const second = topTen[1];
+  const third = topTen[2];
+  const rest = topTen.slice(3, 10);
+
+  async function saveLeaderboardImage() {
+    if (!captureRef.current || saving) return;
+    setSaving(true);
+    setSaveMessage(null);
+
+    try {
+      const blob = await toBlob(captureRef.current, {
+        cacheBust: true,
+        pixelRatio: 2,
+        backgroundColor: "#0a1628",
+      });
+      if (!blob) throw new Error("Could not render image.");
+
+      const file = new File([blob], "armo-wc-top-10.png", {
+        type: "image/png",
+      });
+
+      const canShareFile =
+        typeof navigator !== "undefined" &&
+        typeof navigator.share === "function" &&
+        (!navigator.canShare || navigator.canShare({ files: [file] }));
+
+      if (canShareFile) {
+        try {
+          await navigator.share({
+            files: [file],
+            title: "Armo Fantasy WC Top 10",
+            text: "Final Top 10 leaderboard",
+          });
+          setSaveMessage("Shared — save to Photos from the share sheet.");
+          setSaving(false);
+          return;
+        } catch (err) {
+          if (err instanceof Error && err.name === "AbortError") {
+            setSaving(false);
+            return;
+          }
+        }
+      }
+
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement("a");
+      link.href = url;
+      link.download = "armo-wc-top-10.png";
+      link.click();
+      URL.revokeObjectURL(url);
+      setSaveMessage("Image downloaded — check your Photos or Downloads.");
+    } catch {
+      setSaveMessage("Couldn't save image. Try a screenshot instead.");
+    } finally {
+      setSaving(false);
+    }
+  }
 
   return (
     <div
@@ -155,80 +192,106 @@ export function BracketUpdateAlert({
     >
       <button
         type="button"
-        className="absolute inset-0 bg-black/75"
+        className="absolute inset-0 bg-black/80"
         aria-label="Close alert"
         onClick={() => setOpen(false)}
       />
-      <div className="relative flex max-h-[min(92dvh,720px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#FFD700]/50 bg-white shadow-2xl">
-        <div className="shrink-0 border-b border-[#FFD700]/30 bg-gradient-to-r from-[#0a1628] via-[#0056b3] to-[#FF007A] px-4 py-3 text-center sm:px-5 sm:py-5">
+      <div className="relative flex max-h-[min(94dvh,820px)] w-full max-w-lg flex-col overflow-hidden rounded-2xl border border-[#FFD700]/50 bg-[#0a1628] shadow-2xl">
+        <div className="shrink-0 border-b border-[#FFD700]/25 bg-gradient-to-r from-[#0a1628] via-[#0056b3] to-[#FF007A] px-4 py-3 text-center sm:px-5 sm:py-4">
           <p className="text-[9px] font-bold uppercase tracking-[0.35em] text-[#FFD700] sm:text-[10px]">
-            Alert Update
+            Season Complete
           </p>
           <h2
             id="bracket-update-alert-title"
-            className="final-alert-title font-display mt-1 text-2xl uppercase tracking-wide sm:mt-2 sm:text-4xl"
+            className="final-alert-title font-display mt-1 text-2xl uppercase tracking-wide sm:mt-1.5 sm:text-4xl"
           >
-            The Final Is Here
+            Top 10 Champions
           </h2>
         </div>
 
-        <div className="min-h-0 flex-1 space-y-2.5 overflow-y-auto overscroll-contain px-3 py-3 sm:space-y-4 sm:p-6">
-          <p className="text-center text-xs leading-snug text-gray-800 sm:text-sm sm:leading-relaxed">
-            There are{" "}
-            <strong className="text-gray-900">two games remaining</strong> — the
-            Third Place Match and the Final Match.
-          </p>
-
-          <MatchupRecap label="The Final" match={finalMatch} size="lg" />
-
-          <MatchupRecap
-            label="Third Place Match"
-            match={thirdPlace}
-            size="sm"
-          />
-
-          <div className="rounded-xl border border-[#0056b3]/20 bg-[#0056b3]/5 px-3 py-2.5 text-xs leading-snug text-gray-700 sm:px-4 sm:py-3 sm:text-sm sm:leading-relaxed">
-            <p className="font-bold uppercase tracking-wide text-[#0056b3]">
-              Point reminder
+        <div className="min-h-0 flex-1 overflow-y-auto overscroll-contain">
+          <div
+            ref={captureRef}
+            className="bg-[#0a1628] px-3 pb-4 pt-3 sm:px-5 sm:pb-5 sm:pt-4"
+          >
+            <p className="mb-3 text-center text-[11px] font-medium leading-snug text-white/70 sm:text-sm">
+              Congratulations to the podium — and everyone in the Top 10.
             </p>
-            <ul className="mt-1.5 space-y-1 sm:mt-2 sm:space-y-1.5">
-              <li>
-                Third Place correct winner:{" "}
-                <strong className="text-gray-900">+{thirdPts} pts</strong>
-              </li>
-              <li>
-                Final correct winner:{" "}
-                <strong className="text-gray-900">+{finalPts} pts</strong>
-              </li>
-              <li>
-                Exact score bonus:{" "}
-                <strong className="text-gray-900">+{exactBonus} pts</strong> on
-                top
-              </li>
-            </ul>
-          </div>
 
-          <p className="rounded-xl border border-[#32CD32]/25 bg-[#32CD32]/5 px-3 py-2.5 text-xs leading-snug text-gray-700 sm:px-4 sm:py-3 sm:text-sm sm:leading-relaxed">
-            Picks lock at kickoff. Check times on the{" "}
-            <Link
-              href="/games"
-              onClick={() => setOpen(false)}
-              className="font-bold text-[#0056b3] underline decoration-[#0056b3]/40 underline-offset-2 hover:text-[#FF007A]"
-            >
-              Games
-            </Link>{" "}
-            tab — all listed in Pacific time.
-          </p>
+            <div className="podium-stage mb-4 flex items-end justify-center gap-1.5 rounded-2xl border border-white/10 bg-gradient-to-b from-[#12203a] to-[#0a1628] px-2 pt-4 sm:gap-2 sm:px-3 sm:pt-5">
+              <PodiumPlace entry={second} rank={2} place="left" />
+              <PodiumPlace entry={first} rank={1} place="center" />
+              <PodiumPlace entry={third} rank={3} place="right" />
+            </div>
+
+            {rest.length > 0 && (
+              <div className="overflow-hidden rounded-xl border border-white/10 bg-black/30">
+                <p className="border-b border-white/10 px-3 py-2 text-[10px] font-bold uppercase tracking-[0.2em] text-[#FFD700]">
+                  Ranks 4–10
+                </p>
+                <ul className="divide-y divide-white/5">
+                  {rest.map((entry, index) => {
+                    const rank = index + 4;
+                    return (
+                      <li
+                        key={entry.id}
+                        className="flex items-center gap-2.5 px-3 py-2"
+                      >
+                        <span className="w-5 shrink-0 text-center text-xs font-black text-white/50">
+                          {rank}
+                        </span>
+                        <Avatar
+                          name={entry.display_name}
+                          color={entry.avatar_color}
+                          size="sm"
+                        />
+                        <div className="min-w-0 flex-1">
+                          <p className="truncate text-sm font-bold text-white">
+                            {entry.display_name}
+                          </p>
+                          <p className="text-[10px] text-white/45">
+                            @{entry.username} · {entry.total_wins} wins
+                          </p>
+                        </div>
+                        <span className="shrink-0 text-sm font-black text-[#FFD700]">
+                          {entry.total_points}
+                        </span>
+                      </li>
+                    );
+                  })}
+                </ul>
+              </div>
+            )}
+
+            <p className="mt-3 text-center text-[9px] font-bold uppercase tracking-[0.25em] text-white/35">
+              Armo Fantasy World Cup 2026
+            </p>
+          </div>
         </div>
 
-        <div className="shrink-0 border-t border-gray-100 bg-white px-3 py-2.5 sm:px-6 sm:py-4">
-          <button
-            type="button"
-            onClick={() => setOpen(false)}
-            className="min-h-11 w-full rounded-full bg-[#FF007A] px-4 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:opacity-90"
-          >
-            Close
-          </button>
+        <div className="shrink-0 space-y-2 border-t border-white/10 bg-[#0a1628] px-3 py-2.5 sm:px-5 sm:py-3">
+          {saveMessage && (
+            <p className="text-center text-[11px] text-[#FFD700]/90">
+              {saveMessage}
+            </p>
+          )}
+          <div className="flex flex-col gap-2 sm:flex-row">
+            <button
+              type="button"
+              onClick={saveLeaderboardImage}
+              disabled={saving || topTen.length === 0}
+              className="min-h-11 flex-1 rounded-full border border-[#FFD700]/60 bg-[#FFD700]/15 px-4 py-3 text-sm font-bold uppercase tracking-wide text-[#FFD700] transition hover:bg-[#FFD700]/25 disabled:opacity-50"
+            >
+              {saving ? "Preparing…" : "Save to Photos"}
+            </button>
+            <button
+              type="button"
+              onClick={() => setOpen(false)}
+              className="min-h-11 flex-1 rounded-full bg-[#FF007A] px-4 py-3 text-sm font-bold uppercase tracking-wide text-white shadow-lg transition hover:opacity-90"
+            >
+              Close
+            </button>
+          </div>
         </div>
       </div>
     </div>
